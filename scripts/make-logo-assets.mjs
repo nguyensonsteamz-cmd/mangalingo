@@ -109,9 +109,10 @@ try {
   }
   for (const logo of LOGOS) {
     if (logo.id === 'clear') {
-      // the clear tile refracts its background, so both are baked into the background layer
-      await writeFile(join(mip, `ic_logo_${logo.id}_bg.png`), await png(logo.id, ANDROID_PX, { square: true, backdrop: 'brand', inset: ANDROID_INSET }));
-      await writeFile(join(mip, `ic_logo_${logo.id}_fg.png`), EMPTY_PNG);
+      // Android can show the wallpaper through an icon: empty (transparent) background layer, and
+      // the white 12 % glass tile + magnifier with real alpha as the foreground layer.
+      await writeFile(join(mip, `ic_logo_${logo.id}_bg.png`), EMPTY_PNG);
+      await writeFile(join(mip, `ic_logo_${logo.id}_fg.png`), await png(logo.id, ANDROID_PX, { square: true, inset: ANDROID_INSET }));
     } else {
       await writeFile(join(mip, `ic_logo_${logo.id}_bg.png`), await png(logo.id, ANDROID_PX, { square: true, layer: 'bg' }));
       await writeFile(join(mip, `ic_logo_${logo.id}_fg.png`), await png(logo.id, ANDROID_PX, { square: true, layer: 'fg', inset: ANDROID_INSET }));
