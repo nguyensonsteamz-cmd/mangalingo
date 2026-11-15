@@ -7,7 +7,11 @@ final class Speaker {
     private let synth = AVSpeechSynthesizer()
 
     private lazy var voice: AVSpeechSynthesisVoice? = {
-        let voices = AVSpeechSynthesisVoice.speechVoices().filter { $0.language == "en-US" && !$0.voiceTraits.contains(.isNoveltyVoice) }
+        let voices = AVSpeechSynthesisVoice.speechVoices().filter { v in
+            guard v.language == "en-US" else { return false }
+            if #available(iOS 17.0, *) { return !v.voiceTraits.contains(.isNoveltyVoice) }
+            return true
+        }
         let best = voices.max { a, b in a.quality.rawValue < b.quality.rawValue }
         return best ?? AVSpeechSynthesisVoice(language: "en-US")
     }()

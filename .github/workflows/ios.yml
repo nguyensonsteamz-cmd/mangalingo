@@ -49,6 +49,7 @@ jobs:
 
       - name: Build the app (unsigned)
         run: |
+          set -o pipefail  # a failed compile must fail the job (the output is piped to tail)
           xcodebuild -project ios/MangaLingo.xcodeproj -target MangaLingo -configuration Release -sdk iphoneos \
             SYMROOT="$PWD/ios/build" CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build | tail -n 40
 
@@ -56,6 +57,7 @@ jobs:
         run: |
           APP="ios/build/Release-iphoneos/MangaLingo.app"
           test -d "$APP"
+          test -x "$APP/MangaLingo"  # the executable must be there (not just the web files)
           rm -rf Payload && mkdir Payload && cp -R "$APP" Payload/
           zip -qry LingoLens.ipa Payload
           ls -lh LingoLens.ipa
