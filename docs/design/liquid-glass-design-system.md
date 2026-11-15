@@ -315,3 +315,22 @@ pointers.
 | Press | `scale 0.97 · translate y −0.3px · reflection 1.4 · one ripple wave` |
 | Release + 60 ms | Spring at `scale 0.983` |
 | Leave | Back to `0 · 1` |
+
+## Convex lens surface
+
+Raised glass elements are shaped like a shallow convex lens, like the magnifier in the logo. This
+applies to `.ml-glass`, `.ml-glass-card`, `.ml-glass-select` and `.ml-btn-primary`. Recessed
+fields (`.ml-glass-field`) stay concave.
+
+The surface is built from three layers:
+
+| Layer | What it shows |
+| --- | --- |
+| `--ml-lens-dome` | Curved reflection of the sky on the upper half, with a crisp horizon |
+| `--ml-lens-floor` | Light focused through the glass, glowing at the bottom |
+| `--ml-lens-edge` | Bright rim on top, darker inner edge below, so the glass looks thick |
+
+Panels (`.ml-glass`) use fixed-height variants, so the reflection stays a band along the top
+edge of a tall popup and never washes over its text.
+
+Strength is set by `--ml-gloss` (0.85 in both themes) and `--ml-gloss-depth` (0.35 dark, 0.2 light).
