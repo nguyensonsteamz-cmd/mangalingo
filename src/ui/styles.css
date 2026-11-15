@@ -412,10 +412,7 @@ html[data-theme='light'][data-bg='vivid'] body {
     top: 0;
     z-index: 0;
     pointer-events: none;
-    transition:
-      transform var(--ml-dur-slide) var(--ml-ease-slide),
-      width var(--ml-dur-slide) var(--ml-ease-slide),
-      height var(--ml-dur-slide) var(--ml-ease-slide);
+    /* moved by GlassIndicator with the Web Animations API (liquid stretch), not CSS transitions */
     will-change: transform, width;
   }
   .ml-glass-indicator[data-still] {

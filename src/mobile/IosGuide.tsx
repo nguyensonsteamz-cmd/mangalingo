@@ -3,7 +3,7 @@
  * Every step is one action; the names of buttons / menus to tap are highlighted (<B>), the
  * important facts are bold (<K>). Sections can be folded; the first one is open.
  */
-import { useState, type ReactNode } from 'react';
+import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { cx } from '@/ui/components';
 
 /** Name of something on screen to tap (button, menu, setting) – glass chip in the selection colour. */
@@ -26,6 +26,56 @@ const Path = ({ items }: { items: string[] }) => (
 const Warn = ({ children }: { children: ReactNode }) => (
   <div className="mt-1.5 rounded-xl border border-warn/35 bg-warn/10 px-2.5 py-1.5 text-[12.5px] leading-snug text-text">⚠️ {children}</div>
 );
+
+/**
+ * Smooth open / close: measures the real content height and animates only this element's height
+ * (Web Animations, ~300 ms), with the content fading / sliding in by transform. Closed content is
+ * display:none, so nothing else on the page is re-laid-out frame after frame.
+ */
+function Collapse({ open, children }: { open: boolean; children: ReactNode }) {
+  const box = useRef<HTMLDivElement>(null);
+  const inner = useRef<HTMLDivElement>(null);
+  const first = useRef(true);
+  useLayoutEffect(() => {
+    const el = box.current;
+    const content = inner.current;
+    if (!el || !content) return;
+    const reduced = (() => {
+      try {
+        return matchMedia('(prefers-reduced-motion: reduce)').matches;
+      } catch {
+        return false;
+      }
+    })();
+    el.getAnimations().forEach((a) => a.cancel());
+    if (first.current || reduced) {
+      first.current = false;
+      el.style.display = open ? '' : 'none';
+      el.style.height = '';
+      return;
+    }
+    const ease = 'cubic-bezier(.33,.75,.25,1)'; // gentle start, soft landing
+    if (open) {
+      el.style.display = '';
+      const h = content.offsetHeight;
+      el.animate([{ height: '0px' }, { height: `${h}px` }], { duration: 340, easing: ease });
+      content.animate([{ opacity: 0, transform: 'translateY(-6px)' }, { opacity: 1, transform: 'none' }], { duration: 260, easing: ease });
+    } else {
+      const h = el.offsetHeight;
+      const a = el.animate([{ height: `${h}px` }, { height: '0px' }], { duration: 240, easing: ease });
+      content.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 180, easing: 'ease-out', fill: 'forwards' });
+      a.onfinish = () => {
+        el.style.display = 'none';
+        content.getAnimations().forEach((x) => x.cancel());
+      };
+    }
+  }, [open]);
+  return (
+    <div ref={box} className="overflow-hidden" style={{ display: open ? undefined : 'none' }} aria-hidden={!open}>
+      <div ref={inner}>{children}</div>
+    </div>
+  );
+}
 
 interface Section {
   title: string;
@@ -160,9 +210,7 @@ export function IosGuide() {
               </span>
               <span className={cx('text-muted transition-transform duration-200', open === i && 'rotate-180')}>⌄</span>
             </button>
-            {/* smooth open / close: the row height animates from 0 to the content height */}
-            <div className={cx('grid transition-[grid-template-rows,opacity] duration-300 ease-[cubic-bezier(.16,1,.3,1)] motion-reduce:transition-none', open === i ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0')} aria-hidden={open !== i}>
-              <div className="min-h-0 overflow-hidden">
+            <Collapse open={open === i}>
               <div className="px-3 pb-3">
                 <ol className="space-y-2">
                   {s.steps.map((st, k) => (
@@ -179,8 +227,7 @@ export function IosGuide() {
                   </a>
                 )}
               </div>
-              </div>
-            </div>
+            </Collapse>
           </div>
         ))}
       </div>

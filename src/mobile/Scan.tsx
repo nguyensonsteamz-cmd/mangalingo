@@ -184,12 +184,20 @@ export function Scan({ src, onBack }: { src: string; onBack: () => void }) {
     drag.current = null;
   };
 
+  const runId = useRef(0);
+  /** Stops waiting for the scan in progress (its result is ignored when it arrives). */
+  const cancel = () => {
+    runId.current++;
+    setBusy(false);
+  };
   const run = async (mode: 'region' | 'full') => {
+    const id = ++runId.current;
     setBusy(mode);
     setError('');
     try {
       const image = await (b64.current ?? toBase64(src));
       const lines = await recognize(image, mode === 'region' ? frame : undefined);
+      if (id !== runId.current) return; // cancelled
       let found: OcrBlock[];
       if (mode === 'region') {
         // the user framed one bubble / sentence / word: everything inside is one text
@@ -204,13 +212,12 @@ export function Scan({ src, onBack }: { src: string; onBack: () => void }) {
       setSheetKey((k) => k + 1);
       if (!found.length) setError(mode === 'region' ? 'Không thấy chữ trong khung. Kéo khung trùng lên chữ rồi quét lại.' : 'Không nhận ra chữ nào trong ảnh.');
     } catch (e) {
-      setError((e as Error).message);
+      if (id === runId.current) setError((e as Error).message);
     } finally {
-      setBusy(false);
+      if (id === runId.current) setBusy(false);
     }
   };
 
-  const activeBlock = blocks.find((b) => b.id === active);
   const inv = 1 / view.s; // keeps the frame's dots and label the same size while zoomed
 
   return (
@@ -264,10 +271,7 @@ export function Scan({ src, onBack }: { src: string; onBack: () => void }) {
               <button
                 key={b.id}
                 type="button"
-                onClick={() => {
-                  setActive(b.id);
-                  setSheetKey((k) => k + 1);
-                }}
+                onClick={() => setActive(b.id)}
                 className={cx('absolute rounded-md border-2', b.id === active ? 'border-accent bg-accent/20' : 'border-[rgb(var(--ml-box))] bg-[rgb(var(--ml-box)/0.12)]')}
                 style={{ left: `${b.box.x * 100}%`, top: `${b.box.y * 100}%`, width: `${b.box.w * 100}%`, height: `${b.box.h * 100}%`, borderWidth: 2 * inv }}
                 aria-label={`Bong bóng ${i + 1}`}
@@ -305,17 +309,34 @@ export function Scan({ src, onBack }: { src: string; onBack: () => void }) {
         </div>
       )}
 
-      <ResultSheet open={!!activeBlock && !showFrame && !error} riseKey={sheetKey} title={activeBlock && blocks.length > 1 ? `Bong bóng ${blocks.indexOf(activeBlock) + 1}/${blocks.length} · chạm khung khác để đổi` : 'Kết quả dịch'}>
-        {activeBlock && <ScanResult key={activeBlock.id + activeBlock.text} text={activeBlock.text} n={0} />}
+      <ResultSheet open={!!blocks.length && !showFrame && !error} riseKey={sheetKey} scrollTo={active} title={blocks.length > 1 ? `${blocks.length} bong bóng · chạm khung trên ảnh để tới` : 'Kết quả dịch'}>
+        {blocks.map((b, i) => (
+          <div key={b.id + b.text} data-ml-block={b.id} className={cx(blocks.length > 1 && i > 0 && 'mt-2 border-t border-border/60 pt-1')}>
+            <ScanResult text={b.text} n={blocks.length > 1 ? i + 1 : 0} />
+          </div>
+        ))}
       </ResultSheet>
 
       <div className="ml-glass fixed inset-x-3 bottom-[calc(max(10px,env(safe-area-inset-bottom))+76px)] z-20 flex gap-2 rounded-[26px] p-2">
+        {busy ? (
+          <>
+            <div className="flex flex-1 items-center justify-center gap-2 rounded-[20px] py-2.5 text-[14px] font-semibold text-muted" data-ml-scan-busy="">
+              <Spinner /> {busy === 'full' ? 'Đang quét toàn màn hình…' : 'Đang quét vùng này…'}
+            </div>
+            <button type="button" onClick={cancel} className="ml-press ml-glass-card rounded-[20px] px-5 py-2.5 text-[14px] font-bold text-danger" data-ml-scan-cancel="">
+              Hủy quét
+            </button>
+          </>
+        ) : (
+          <>
         <button type="button" disabled={!!busy || !showFrame} onClick={() => void run('region')} data-ml-magnetic="" className="ml-press ml-btn-primary ml-ripple flex flex-1 items-center justify-center gap-1.5 rounded-[20px] py-2.5 text-[14px] font-bold disabled:opacity-40">
-          {busy === 'region' ? <Spinner /> : <IconScan size={16} />} Quét vùng này
+          <IconScan size={16} /> Quét vùng này
         </button>
         <button type="button" disabled={!!busy} onClick={() => void run('full')} className="ml-press ml-glass-card ml-ripple flex flex-1 items-center justify-center gap-1.5 rounded-[20px] py-2.5 text-[14px] font-semibold text-text disabled:opacity-40">
-          {busy === 'full' ? <Spinner /> : null} Quét toàn màn hình
+          Quét toàn màn hình
         </button>
+          </>
+        )}
       </div>
     </div>
   );
@@ -325,19 +346,23 @@ export function Scan({ src, onBack }: { src: string; onBack: () => void }) {
  * Bottom sheet for the result: rises from the bottom edge of the screen (behind the glass button
  * bars) and slides back down when closed. Drag its handle up / down – it snaps to three heights
  * (peek · half · tall) following the swipe direction; tapping the handle toggles half ↔ peek.
+ * Performance: the sheet always has its tall height and is moved with transform (GPU only) – a
+ * drag never re-renders React or re-lays-out the content; the scroll area is resized once, when
+ * the sheet settles.
  */
 const BARS = 'calc(150px + env(safe-area-inset-bottom))'; // height of the button bar + tab bar area
 
-function ResultSheet({ open, riseKey, title, children }: { open: boolean; riseKey: number; title: string; children: ReactNode }) {
+function ResultSheet({ open, riseKey, title, children, scrollTo }: { open: boolean; riseKey: number; title: string; children: ReactNode; scrollTo?: string | null }) {
   const snaps = () => {
     const H = window.innerHeight;
-    return [56, Math.round(H * 0.4), Math.round(H * 0.68)];
+    return [56, Math.round(H * 0.42), Math.round(H * 0.7)];
   };
-  const [h, setH] = useState(() => snaps()[1]);
+  const sheet = useRef<HTMLDivElement>(null);
+  const body = useRef<HTMLDivElement>(null);
+  const [h, setH] = useState(() => snaps()[1]); // settled visible height (above the bars)
   const [mounted, setMounted] = useState(open);
   const [leaving, setLeaving] = useState(false);
-  const drag = useRef<{ y: number; h: number; t: number; lastY: number; lastT: number; moved: boolean } | null>(null);
-  const [dragging, setDragging] = useState(false);
+  const drag = useRef<{ y: number; h: number; t: number; lastY: number; lastT: number; v: number; moved: boolean; cur: number } | null>(null);
 
   // open / close with the slide animation
   useEffect(() => {
@@ -356,12 +381,26 @@ function ResultSheet({ open, riseKey, title, children }: { open: boolean; riseKe
   }, [open]);
   // a new result: rise to the middle height
   useEffect(() => setH(snaps()[1]), [riseKey]);
+  // tapping a bubble on the image scrolls its card into view
+  useEffect(() => {
+    if (!scrollTo || !body.current) return;
+    const card = body.current.querySelector<HTMLElement>(`[data-ml-block="${scrollTo}"]`);
+    if (card) body.current.scrollTo({ top: card.offsetTop - 8, behavior: 'smooth' });
+  }, [scrollTo]);
 
   if (!mounted) return null;
+  const max = snaps()[2];
+  /** Moves the sheet so that `v` px are visible (transform only). */
+  const show = (v: number, animated: boolean) => {
+    const el = sheet.current;
+    if (!el) return;
+    el.style.transition = animated ? 'transform 420ms cubic-bezier(.22,1.1,.36,1)' : 'none';
+    el.style.transform = `translate3d(0, ${Math.round(max - v)}px, 0)`;
+  };
   const onDown = (e: React.PointerEvent) => {
     (e.currentTarget as Element).setPointerCapture(e.pointerId);
-    drag.current = { y: e.clientY, h, t: performance.now(), lastY: e.clientY, lastT: performance.now(), moved: false };
-    setDragging(true);
+    const t = performance.now();
+    drag.current = { y: e.clientY, h, t, lastY: e.clientY, lastT: t, v: 0, moved: false, cur: h };
   };
   const onMove = (e: React.PointerEvent) => {
     const d = drag.current;
@@ -373,44 +412,51 @@ function ResultSheet({ open, riseKey, title, children }: { open: boolean; riseKe
     let next = d.h - dy;
     if (next > hi) next = hi + (next - hi) * 0.25;
     if (next < lo) next = lo - (lo - next) * 0.25;
-    setH(next);
+    const t = performance.now();
+    if (t > d.lastT) d.v = 0.7 * ((e.clientY - d.lastY) / (t - d.lastT)) + 0.3 * d.v; // smoothed px/ms, + = down
     d.lastY = e.clientY;
-    d.lastT = performance.now();
+    d.lastT = t;
+    d.cur = next;
+    show(next, false);
   };
-  const onUp = (e: React.PointerEvent) => {
+  const onUp = () => {
     const d = drag.current;
     drag.current = null;
-    setDragging(false);
     if (!d) return;
     const s = snaps();
-    if (!d.moved) {
-      setH(h > s[0] + 10 ? s[0] : s[1]); // tap: toggle peek ↔ half
-      return;
-    }
-    const v = (e.clientY - d.lastY) / Math.max(1, performance.now() - d.lastT) || (e.clientY - d.y) / Math.max(1, performance.now() - d.t); // px/ms, + = down
-    const cur = h;
     let target: number;
-    if (v > 0.45) target = [...s].reverse().find((x) => x < cur - 8) ?? s[0];
-    else if (v < -0.45) target = s.find((x) => x > cur + 8) ?? s[2];
-    else target = s.reduce((a, b) => (Math.abs(b - cur) < Math.abs(a - cur) ? b : a));
+    if (!d.moved) target = h > s[0] + 10 ? s[0] : s[1]; // tap: toggle peek ↔ half
+    else if (d.v > 0.4) target = [...s].reverse().find((x) => x < d.cur - 8) ?? s[0];
+    else if (d.v < -0.4) target = s.find((x) => x > d.cur + 8) ?? s[2];
+    else target = s.reduce((a, b) => (Math.abs(b - d.cur) < Math.abs(a - d.cur) ? b : a));
+    show(target, true);
     setH(target);
   };
 
   return (
     <div
       key={riseKey}
-      className={cx('ml-glass fixed inset-x-0 bottom-0 z-[15] flex flex-col rounded-t-[28px] border-b-0', leaving ? 'ml-sheet-out' : 'ml-sheet-in', !dragging && 'transition-[height] duration-[380ms] ease-[cubic-bezier(.22,1.15,.4,1)]')}
-      style={{ height: `calc(${Math.max(40, h)}px + ${BARS})`, paddingBottom: BARS }}
+      className={cx('fixed inset-x-0 bottom-0 z-[15]', leaving ? 'ml-sheet-out' : 'ml-sheet-in')}
       data-ml-scan-sheet=""
+      style={{ height: `calc(${max}px + ${BARS})` }}
     >
-      <div className="shrink-0 cursor-grab touch-none select-none px-4 pb-1 pt-2" onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp} data-ml-sheet-handle="">
-        <div className="mx-auto mb-1.5 h-1.5 w-11 rounded-full bg-text/25" />
-        <div className="flex items-center justify-between text-[12px] font-bold uppercase tracking-wider text-muted">
-          <span className="truncate">{title}</span>
-          <span className="shrink-0 pl-2 text-[11px] font-semibold normal-case tracking-normal text-subtle">kéo lên / xuống</span>
+      <div
+        ref={sheet}
+        className="ml-glass flex h-full flex-col rounded-t-[28px] border-b-0 will-change-transform"
+        style={{ transform: `translate3d(0, ${max - h}px, 0)`, transition: 'transform 420ms cubic-bezier(.22,1.1,.36,1)', paddingBottom: BARS }}
+      >
+        <div className="shrink-0 cursor-grab touch-none select-none px-4 pb-1 pt-2" onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp} data-ml-sheet-handle="">
+          <div className="mx-auto mb-1.5 h-1.5 w-11 rounded-full bg-text/25" />
+          <div className="flex items-center justify-between text-[12px] font-bold uppercase tracking-wider text-muted">
+            <span className="truncate">{title}</span>
+            <span className="shrink-0 pl-2 text-[11px] font-semibold normal-case tracking-normal text-subtle">kéo lên / xuống</span>
+          </div>
+        </div>
+        {/* only the visible part scrolls: the hidden part below is padding (updated once per settle) */}
+        <div ref={body} className="ml-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain" style={{ marginBottom: max - h }}>
+          <div className="pb-3">{children}</div>
         </div>
       </div>
-      <div className="ml-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain pb-3">{children}</div>
     </div>
   );
 }
