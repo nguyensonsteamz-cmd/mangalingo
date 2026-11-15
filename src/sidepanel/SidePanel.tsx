@@ -114,6 +114,28 @@ export function SidePanel() {
           <IconButton label={compact ? 'Chế độ đầy đủ' : 'Chế độ thu gọn'} onClick={() => setCompact((v) => !v)} active={compact}>
             {compact ? <IconExpand /> : <IconCompact />}
           </IconButton>
+          {IN_APP && (
+            <label className="ml-focus ml-press inline-flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-full text-muted hover:bg-text/[0.07] hover:text-text" title="Tải tệp chữ lên (.txt, .srt)" aria-label="Tải tệp chữ lên" data-ml-text-upload="">
+              📎
+              <input
+                type="file"
+                accept=".txt,.md,.srt,.vtt,text/plain"
+                hidden
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  e.target.value = '';
+                  if (!f) return;
+                  void f.text().then((t) => {
+                    const text = t.replace(/^\uFEFF/, '').trim().slice(0, 6000);
+                    if (!text) return;
+                    setInput(text);
+                    setOcr(null);
+                    void runLookup(text);
+                  });
+                }}
+              />
+            </label>
+          )}
           <IconButton label="Xóa nội dung" onClick={clear}>
             <IconEraser />
           </IconButton>

@@ -93,7 +93,7 @@ function useBatchTranslation(blocks: OcrBlock[]): Record<string, Mt> {
   return Object.fromEntries(blocks.map((b) => [b.id, cache.current.get(b.text) ?? { state: 'loading' }]));
 }
 
-export function Scan({ src, onBack }: { src: string; onBack: () => void }) {
+export function Scan({ src, onBack, onNewFile }: { src: string; onBack: () => void; onNewFile?: (f: File) => void }) {
   const viewport = useRef<HTMLDivElement>(null);
   const wrap = useRef<HTMLDivElement>(null);
   const [frame, setFrame] = useState<Box>({ x: 0.15, y: 0.38, w: 0.7, h: 0.18 });
@@ -332,6 +332,21 @@ export function Scan({ src, onBack }: { src: string; onBack: () => void }) {
           <IconBack size={20} />
         </button>
         <div className="flex-1 text-[15px] font-bold">Quét chữ</div>
+        {onNewFile && (
+          <label className="ml-press cursor-pointer rounded-full px-2.5 py-1 text-[13px] font-semibold text-accent" data-ml-scan-upload="">
+            📎 Ảnh khác
+            <input
+              type="file"
+              accept="image/*,.heic,.heif,.txt,text/plain"
+              hidden
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) onNewFile(f);
+                e.target.value = '';
+              }}
+            />
+          </label>
+        )}
         {view.s > 1.05 && (
           <button type="button" onClick={() => setView(clampView(1, 0, 0))} className="rounded-lg px-2 py-1 text-[13px] font-semibold text-muted">
             Vừa màn hình
@@ -616,6 +631,22 @@ function ScanResult({ text, n, mt }: { text: string; n: number; mt?: Mt }) {
   const content = ocrWords(text);
   const words = content.length ? content : ocrWords(text, true);
   const m = mt ?? { state: 'loading' };
+  // words the dictionary only knows in English: translated to Vietnamese too (one batch)
+  const [wordVi, setWordVi] = useState<Record<string, string>>({});
+  const needVi = words.filter((w) => rows[w]?.found && !rows[w]?.hasVietnamese).map((w) => rows[w]!.lemma);
+  const needKey = [...new Set(needVi)].join('|');
+  useEffect(() => {
+    const list = needKey ? needKey.split('|').filter((l) => !(l in wordVi)) : [];
+    if (!list.length) return;
+    let alive = true;
+    translateBatch(list)
+      .then((out) => alive && out && setWordVi((x) => ({ ...x, ...Object.fromEntries(list.map((l, i) => [l, out[i]])) })))
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [needKey]);
 
   useEffect(() => {
     let alive = true;
@@ -736,6 +767,11 @@ function ScanResult({ text, n, mt }: { text: string; n: number; mt?: Mt }) {
                         </span>
                       ) : r.hasVietnamese ? (
                         <b>{meaning}</b>
+                      ) : wordVi[r.lemma] ? (
+                        <span>
+                          <b>{wordVi[r.lemma]}</b> <span className="text-[11px] text-subtle">(dịch máy)</span>
+                          <i className="block text-[12.5px] text-muted">{meaning}</i>
+                        </span>
                       ) : (
                         <i className="text-[13px] text-muted">{meaning}</i>
                       )}

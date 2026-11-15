@@ -13,7 +13,7 @@ import { cx, GlassIndicator, Notice } from '@/ui/components';
 import { IconBookmark, IconGear, IconLogo, IconScan, IconSearch } from '@/ui/icons';
 import { native, onResume } from './native';
 import { latestScanUrl, pendingScanStamp, prepareTranslationPack, setAppIcon, translationPackStatus } from './ios';
-import { Scan } from './Scan';
+import { Scan, openLookup } from './Scan';
 import { IosGuide } from './IosGuide';
 
 type Tab = 'home' | 'lookup' | 'vocab' | 'settings' | 'scan';
@@ -156,7 +156,22 @@ export function App() {
       if (stamp > seen) open(stamp);
     });
   }, []);
+  /** Uploaded file: an image opens the scan screen, a text file (.txt, subtitles…) is analysed in Tra cứu. */
+  const [uploadError, setUploadError] = useState('');
   const scanFile = (file: File) => {
+    setUploadError('');
+    if (/^text\//.test(file.type) || /\.(txt|md|srt|vtt|csv)$/i.test(file.name)) {
+      void file.text().then((t) => {
+        const text = t.replace(/^\uFEFF/, '').trim().slice(0, 6000);
+        if (text) openLookup(text);
+        else setUploadError('Tệp không có chữ.');
+      });
+      return;
+    }
+    if (!file.type.startsWith('image/') && !/\.(png|jpe?g|heic|heif|webp|gif|bmp)$/i.test(file.name)) {
+      setUploadError(`Chưa hỗ trợ loại tệp này (${file.name}). Hãy chọn ảnh (PNG, JPG, HEIC…) hoặc tệp chữ (.txt).`);
+      return;
+    }
     setScanSrc(URL.createObjectURL(file));
     go('scan');
   };
@@ -165,12 +180,13 @@ export function App() {
     <div className="flex min-h-[calc(100dvh-env(safe-area-inset-top))] flex-col text-text" style={{ zoom: SCALE[settings.appearance.uiScale] ?? 1 }} data-ml-app="">
       <main className="min-h-0 flex-1 pb-[calc(100px+env(safe-area-inset-bottom))]">
         {(tab === 'home' || (tab === 'scan' && !scanSrc)) &&
-          (PLATFORM === 'ios' ? <IosHome onOpen={go} onFile={scanFile} onResumeScan={scanSrc ? () => go('scan') : undefined} pack={pack} /> : <Home onOpen={go} />)}
+          (PLATFORM === 'ios' ? <IosHome onOpen={go} onFile={scanFile} onResumeScan={scanSrc ? () => go('scan') : undefined} pack={pack} uploadError={uploadError} /> : <Home onOpen={go} />)}
         {/* kept mounted while you look words up in other tabs, so the result is still there when you come back */}
         {scanSrc && (
           <div hidden={tab !== 'scan'}>
             <Scan
               src={scanSrc}
+              onNewFile={scanFile}
               onBack={() => {
                 setHomeView('home');
                 go('home');
@@ -300,7 +316,19 @@ function Home({ onOpen }: { onOpen: (t: Tab) => void }) {
 
 /** iPhone: iOS does not let apps draw over other apps — the system AssistiveTouch button runs a
  *  Shortcut (Take Screenshot → Quét ảnh với LingoLens) instead. */
-function IosHome({ onOpen, onFile, onResumeScan, pack }: { onOpen: (t: Tab) => void; onFile: (f: File) => void; onResumeScan?: () => void; pack: ReturnType<typeof useTranslationPack> }) {
+function IosHome({
+  onOpen,
+  onFile,
+  onResumeScan,
+  pack,
+  uploadError,
+}: {
+  onOpen: (t: Tab) => void;
+  onFile: (f: File) => void;
+  onResumeScan?: () => void;
+  pack: ReturnType<typeof useTranslationPack>;
+  uploadError?: string;
+}) {
   useSettings('page'); // applies the theme
   return (
     <div className="mx-auto max-w-lg space-y-4 px-4 pt-6" data-ml-ios-home="">
@@ -354,6 +382,22 @@ function IosHome({ onOpen, onFile, onResumeScan, pack }: { onOpen: (t: Tab) => v
             }}
           />
         </label>
+        {/* any file from the Files app / iCloud / other apps: images → scan, text files → Tra cứu */}
+        <label className="ml-press ml-glass-card ml-ripple ml-2 mt-1 inline-flex cursor-pointer items-center gap-1.5 rounded-full px-4 py-2 text-[14px] font-semibold" data-ml-upload="">
+          📎 Tải tệp lên
+          <input
+            type="file"
+            accept="image/*,.heic,.heif,.txt,.md,.srt,.vtt,text/plain"
+            hidden
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) onFile(f);
+              e.target.value = '';
+            }}
+          />
+        </label>
+        <div className="text-[11.5px] text-subtle">Tải tệp lên: ảnh (PNG, JPG, HEIC…) để quét, hoặc tệp chữ (.txt, phụ đề .srt) để dịch.</div>
+        {uploadError && <div className="rounded-xl border border-warn/35 bg-warn/10 px-3 py-2 text-[12.5px] text-text">⚠️ {uploadError}</div>}
       </div>
 
       <IosGuide />

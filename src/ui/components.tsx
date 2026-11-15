@@ -46,7 +46,10 @@ export function GlassIndicator({ activeKey, className }: { activeKey: string; cl
       if (!anim || anim.playState !== 'running') return current;
       const cs = getComputedStyle(el);
       const m = new DOMMatrixReadOnly(cs.transform === 'none' ? undefined : cs.transform);
-      return { x: m.m41, y: m.m42, w: parseFloat(cs.width) || current?.w || 0, h: parseFloat(cs.height) || current?.h || 0 };
+      // the pill is animated with translate + scale (width / height stay the target size)
+      const bw = parseFloat(cs.width) || current?.w || 0;
+      const bh = parseFloat(cs.height) || current?.h || 0;
+      return { x: m.m41, y: m.m42, w: bw * m.a, h: bh * m.d };
     };
     const place = (a: HTMLElement | null, animate: boolean) => {
       if (!a) {
@@ -85,7 +88,11 @@ export function GlassIndicator({ activeKey, className }: { activeKey: string; cl
         const R = mix(from.x + from.w, to.x + to.w, right ? lead(t) : lag(t));
         const y = mix(from.y, to.y, easeInOut(t));
         const h = mix(from.h, to.h, easeInOut(t));
-        frames.push({ transform: `translate(${L.toFixed(2)}px, ${y.toFixed(2)}px)`, width: `${Math.max(4, R - L).toFixed(2)}px`, height: `${h.toFixed(2)}px` });
+        // transform only (translate + scale from the top-left corner): runs on the GPU compositor,
+        // so it stays smooth even while the app is busy rendering the newly selected tab
+        const sx = Math.max(4, R - L) / Math.max(1, to.w);
+        const sy = h / Math.max(1, to.h);
+        frames.push({ transform: `translate(${L.toFixed(2)}px, ${y.toFixed(2)}px) scale(${sx.toFixed(4)}, ${sy.toFixed(4)})` });
         // how stretched the drop is (1 = normal) → thins it a little
         thinnest = Math.min(thinnest, Math.min(from.w, to.w) / Math.max(1, R - L));
       }
