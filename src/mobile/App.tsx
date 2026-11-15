@@ -138,16 +138,9 @@ export function App() {
     setTab(t);
     history.replaceState(null, '', `#${t}`);
   };
-  // "Trang chủ" in the tab bar returns to the scan you were on (it stays alive in the background)
-  const [homeView, setHomeView] = useState<'home' | 'scan'>('home');
-  const goHome = () => go(homeView === 'scan' && scanSrcRef.current ? 'scan' : 'home');
 
   // iPhone: an image from the Shortcuts action (AssistiveTouch → Take Screenshot → LingoLens)
   const [scanSrc, setScanSrc] = useState<string | null>(null);
-  const scanSrcRef = { current: scanSrc };
-  useEffect(() => {
-    if (tab === 'scan') setHomeView('scan');
-  }, [tab]);
   useEffect(() => {
     if (PLATFORM !== 'ios') return;
     const open = (stamp: number) => {
@@ -195,20 +188,14 @@ export function App() {
 
   return (
     <div className="flex min-h-[calc(100dvh-env(safe-area-inset-top))] flex-col text-text" style={{ zoom: SCALE[settings.appearance.uiScale] ?? 1 }} data-ml-app="">
-      <main className="min-h-0 flex-1 pb-[calc(100px+env(safe-area-inset-bottom))]">
-        {(tab === 'home' || (tab === 'scan' && !scanSrc)) &&
-          (PLATFORM === 'ios' ? <IosHome onOpen={go} onFile={scanFile} onResumeScan={scanSrc ? () => go('scan') : undefined} pack={pack} uploadError={uploadError} /> : <Home onOpen={go} />)}
+      <main className="min-h-0 flex-1 pb-[calc(120px+env(safe-area-inset-bottom))]">
+        {tab === 'home' && (PLATFORM === 'ios' ? <IosHome onOpen={go} pack={pack} /> : <Home onOpen={go} />)}
+        {/* the scan page: pick an image (or come from the Shortcut) → the scan screen */}
+        {tab === 'scan' && !scanSrc && <ScanStart onFile={scanFile} uploadError={uploadError} />}
         {/* kept mounted while you look words up in other tabs, so the result is still there when you come back */}
         {scanSrc && (
           <div hidden={tab !== 'scan'}>
-            <Scan
-              src={scanSrc}
-              onNewFile={scanFile}
-              onBack={() => {
-                setHomeView('home');
-                go('home');
-              }}
-            />
+            <Scan src={scanSrc} onNewFile={scanFile} onBack={() => setScanSrc(null)} />
           </div>
         )}
         {tab === 'lookup' && <SidePanel />}
@@ -220,21 +207,44 @@ export function App() {
         )}
         {tab === 'settings' && <SettingsCenter hidden={['shortcuts']} />}
       </main>
-      <nav className="ml-glass fixed inset-x-3 bottom-[max(10px,env(safe-area-inset-bottom))] z-20 grid grid-cols-4 rounded-[30px] p-1" data-ml-app-nav="">
-        <GlassIndicator activeKey={tab === 'scan' ? 'home' : tab} className="rounded-[26px]" />
-        {TABS.map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            {...fastTap(() => (t.id === 'home' ? goHome() : go(t.id)))}
-            data-ml-active={tab === t.id || (tab === 'scan' && t.id === 'home')}
-            className={cx('ml-press relative z-[1] flex flex-col items-center gap-0.5 rounded-[26px] border border-transparent py-1.5 text-[12px] font-semibold', tab === t.id || (tab === 'scan' && t.id === 'home') ? 'ml-sel-text' : 'text-muted')}
-            aria-current={tab === t.id ? 'page' : undefined}
-          >
-            <span className="px-4 py-0.5">{t.icon}</span>
-            {t.label}
-          </button>
-        ))}
+      <nav className={cx('ml-glass fixed inset-x-3 bottom-[max(10px,env(safe-area-inset-bottom))] z-20 grid rounded-[30px] p-1', PLATFORM === 'ios' ? 'grid-cols-5' : 'grid-cols-4')} data-ml-app-nav="">
+        <GlassIndicator activeKey={tab} className="rounded-[26px]" />
+        {TABS.flatMap((t, i) => {
+          const item = (
+            <button
+              key={t.id}
+              type="button"
+              {...fastTap(() => go(t.id))}
+              data-ml-active={tab === t.id}
+              className={cx('ml-press relative z-[1] flex flex-col items-center gap-0.5 rounded-[26px] border border-transparent py-1.5 text-[11.5px] font-semibold', tab === t.id ? 'ml-sel-text' : 'text-muted')}
+              aria-current={tab === t.id ? 'page' : undefined}
+            >
+              <span className="px-3 py-0.5">{t.icon}</span>
+              {t.label}
+            </button>
+          );
+          // iPhone: the scan button sits in the middle of the bar, raised above it
+          if (PLATFORM !== 'ios' || i !== 1) return [item];
+          return [
+            item,
+            <div key="scan" className="relative z-[2] flex flex-col items-center justify-end pb-1.5">
+              <button
+                type="button"
+                {...fastTap(() => go('scan'))}
+                className={cx(
+                  'ml-btn-primary ml-press ml-ripple absolute -top-7 flex h-[62px] w-[62px] items-center justify-center rounded-full ring-[5px] ring-[rgb(var(--ml-bg))]',
+                  tab === 'scan' && 'shadow-[0_0_0_2px_rgb(var(--ml-sel)),0_10px_26px_-6px_rgb(var(--ml-accent))]',
+                )}
+                aria-label="Quét chữ trong ảnh"
+                aria-current={tab === 'scan' ? 'page' : undefined}
+                data-ml-scan-tab=""
+              >
+                <IconScan size={28} />
+              </button>
+              <span className={cx('text-[11.5px] font-semibold', tab === 'scan' ? 'ml-sel-text' : 'text-muted')}>Quét</span>
+            </div>,
+          ];
+        })}
       </nav>
     </div>
   );
@@ -333,19 +343,7 @@ function Home({ onOpen }: { onOpen: (t: Tab) => void }) {
 
 /** iPhone: iOS does not let apps draw over other apps — the system AssistiveTouch button runs a
  *  Shortcut (Take Screenshot → Quét ảnh với LingoLens) instead. */
-function IosHome({
-  onOpen,
-  onFile,
-  onResumeScan,
-  pack,
-  uploadError,
-}: {
-  onOpen: (t: Tab) => void;
-  onFile: (f: File) => void;
-  onResumeScan?: () => void;
-  pack: ReturnType<typeof useTranslationPack>;
-  uploadError?: string;
-}) {
+function IosHome({ onOpen, pack }: { onOpen: (t: Tab) => void; pack: ReturnType<typeof useTranslationPack> }) {
   useSettings('page'); // applies the theme
   return (
     <div className="mx-auto max-w-lg space-y-4 px-4 pt-6" data-ml-ios-home="">
@@ -356,19 +354,6 @@ function IosHome({
           <div className="text-[13px] text-muted">Trợ lý đọc tiếng Anh · iPhone</div>
         </div>
       </div>
-
-      {onResumeScan && (
-        <button type="button" onClick={onResumeScan} data-ml-magnetic="" className="ml-btn-primary ml-press ml-ripple ml-sheen flex w-full items-center gap-3 rounded-[24px] px-4 py-3.5 text-left" data-ml-resume-scan="">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/25 ring-1 ring-white/40">
-            <IconScan size={20} />
-          </span>
-          <span className="min-w-0 flex-1">
-            <span className="block text-[15px] font-bold">Quay lại bản quét vừa rồi</span>
-            <span className="block text-[12.5px] opacity-85">Ảnh và kết quả dịch vẫn còn</span>
-          </span>
-          <span className="text-[22px] leading-none opacity-90">›</span>
-        </button>
-      )}
 
       {pack.status === 'download' && (
         <div className="ml-glass flex items-center gap-3 rounded-[24px] px-4 py-3" data-ml-pack="">
@@ -383,39 +368,6 @@ function IosHome({
         </div>
       )}
 
-      <div className="ml-glass space-y-2 rounded-[28px] p-5">
-        <div className="text-[17px] font-bold">Quét chữ trong ảnh</div>
-        <div className="text-[13px] text-muted">Chọn ảnh chụp màn hình trang truyện, kéo khung vào bong bóng (hoặc một câu, một từ) rồi quét. Nhận dạng chữ chạy trên máy.</div>
-        <label data-ml-magnetic="" className="ml-press ml-btn-primary ml-sheen ml-ripple mt-1 inline-flex cursor-pointer items-center gap-1.5 rounded-full px-4 py-2 text-[14px] font-semibold">
-          <IconScan size={16} /> Chọn ảnh để quét
-          <input
-            type="file"
-            accept="image/*"
-            hidden
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) onFile(f);
-              e.target.value = '';
-            }}
-          />
-        </label>
-        {/* any file from the Files app / iCloud / other apps: images → scan, text files → Tra cứu */}
-        <label className="ml-press ml-glass-card ml-ripple ml-2 mt-1 inline-flex cursor-pointer items-center gap-1.5 rounded-full px-4 py-2 text-[14px] font-semibold" data-ml-upload="">
-          📎 Tải tệp lên
-          <input
-            type="file"
-            accept="image/*,.heic,.heif,.txt,.md,.srt,.vtt,text/plain"
-            hidden
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) onFile(f);
-              e.target.value = '';
-            }}
-          />
-        </label>
-        <div className="text-[11.5px] text-subtle">Tải tệp lên: ảnh (PNG, JPG, HEIC…) để quét, hoặc tệp chữ (.txt, phụ đề .srt) để dịch.</div>
-        {uploadError && <div className="rounded-xl border border-warn/35 bg-warn/10 px-3 py-2 text-[12.5px] text-text">⚠️ {uploadError}</div>}
-      </div>
 
       <IosGuide />
 
@@ -429,6 +381,60 @@ function IosHome({
             </button>
           );
         })}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Scan page (middle button of the tab bar), before an image is chosen: pick a photo or any file
+ * (images → scan screen, text files → Tra cứu); the AssistiveTouch shortcut opens it directly.
+ */
+function ScanStart({ onFile, uploadError }: { onFile: (f: File) => void; uploadError?: string }) {
+  useSettings('page'); // applies the theme
+  const pick = (accept: string, label: ReactNode, className: string, attr: Record<string, string>) => (
+    <label className={cx('ml-press ml-ripple flex cursor-pointer items-center justify-center gap-2 rounded-[22px] py-4 text-[15.5px] font-bold', className)} {...attr}>
+      {label}
+      <input
+        type="file"
+        accept={accept}
+        hidden
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) onFile(f);
+          e.target.value = '';
+        }}
+      />
+    </label>
+  );
+  return (
+    <div className="mx-auto max-w-lg space-y-4 px-4 pt-6" data-ml-scan-start="">
+      <div className="flex items-center gap-3">
+        <span className="ml-btn-primary flex h-[52px] w-[52px] items-center justify-center rounded-[18px]">
+          <IconScan size={26} />
+        </span>
+        <div>
+          <h1 className="text-[22px] font-bold tracking-tight">Quét chữ</h1>
+          <div className="text-[13px] text-muted">Ảnh truyện, ảnh chụp màn hình, tệp chữ</div>
+        </div>
+      </div>
+
+      <div className="ml-glass space-y-3 rounded-[28px] p-5">
+        <div className="text-[13.5px] leading-snug text-muted">
+          Chọn ảnh rồi kéo khung vào bong bóng (một câu, một từ) hoặc quét cả trang. Nhận dạng chữ và dịch đều chạy trên máy.
+        </div>
+        {pick('image/*', <><IconScan size={20} /> Chọn ảnh để quét</>, 'ml-btn-primary ml-sheen', { 'data-ml-magnetic': '' })}
+        {/* any file from the Files app / iCloud / other apps: images → scan, text files → Tra cứu */}
+        {pick('image/*,.heic,.heif,.txt,.md,.srt,.vtt,text/plain', <>📎 Tải tệp lên</>, 'ml-glass-card', { 'data-ml-upload': '' })}
+        <div className="text-[11.5px] text-subtle">Tải tệp lên: ảnh (PNG, JPG, HEIC…) để quét, hoặc tệp chữ (.txt, phụ đề .srt) để dịch.</div>
+        {uploadError && <div className="rounded-xl border border-warn/35 bg-warn/10 px-3 py-2 text-[12.5px] text-text">⚠️ {uploadError}</div>}
+      </div>
+
+      <div className="ml-glass-card flex items-start gap-3 rounded-[24px] p-4">
+        <span className="text-[22px]">⚡️</span>
+        <div className="text-[13px] leading-snug text-muted">
+          <b className="text-text">Nhanh hơn khi đang đọc:</b> chạm hai lần vào nút nổi AssistiveTouch – iPhone chụp màn hình và mở thẳng trang này. Cách thiết lập có ở <b className="text-text">Trang chủ</b>.
+        </div>
       </div>
     </div>
   );

@@ -371,7 +371,7 @@ export function Scan({ src, onBack, onNewFile }: { src: string; onBack: () => vo
       {/* the screenshot fits the screen; pinch to zoom, drag to move, double tap to zoom in / out */}
       <div
         ref={viewport}
-        className="relative h-[calc(100dvh-env(safe-area-inset-top)-49px-150px-env(safe-area-inset-bottom))] select-none touch-none overflow-hidden"
+        className="relative h-[calc(100dvh-env(safe-area-inset-top)-49px-170px-env(safe-area-inset-bottom))] select-none touch-none overflow-hidden"
         onPointerDown={onViewDown}
         onPointerMove={onViewMove}
         onPointerUp={onViewUp}
@@ -478,7 +478,7 @@ export function Scan({ src, onBack, onNewFile }: { src: string; onBack: () => vo
       )}
 
       {error && (
-        <button type="button" onClick={() => setError('')} className="ml-glass animate-ml-in fixed inset-x-3 bottom-[calc(max(10px,env(safe-area-inset-bottom))+140px)] z-[25] rounded-[22px] px-4 py-3 text-left text-[13.5px] text-text" data-ml-scan-error="">
+        <button type="button" onClick={() => setError('')} className="ml-glass animate-ml-in fixed inset-x-3 bottom-[calc(max(10px,env(safe-area-inset-bottom))+160px)] z-[25] rounded-[22px] px-4 py-3 text-left text-[13.5px] text-text" data-ml-scan-error="">
           ⚠️ {error} <span className="text-subtle">(chạm để ẩn)</span>
         </button>
       )}
@@ -505,7 +505,7 @@ export function Scan({ src, onBack, onNewFile }: { src: string; onBack: () => vo
         )}
       </ResultSheet>
 
-      <div className="ml-glass fixed inset-x-3 bottom-[calc(max(10px,env(safe-area-inset-bottom))+76px)] z-20 flex gap-2 rounded-[26px] p-2">
+      <div className="ml-glass fixed inset-x-3 bottom-[calc(max(10px,env(safe-area-inset-bottom))+96px)] z-20 flex gap-2 rounded-[26px] p-2">
         {busy ? (
           <>
             <div className="flex flex-1 items-center justify-center gap-2 rounded-[20px] py-2.5 text-[14px] font-semibold text-muted" data-ml-scan-busy="">
@@ -538,7 +538,7 @@ export function Scan({ src, onBack, onNewFile }: { src: string; onBack: () => vo
  * drag never re-renders React or re-lays-out the content; the scroll area is resized once, when
  * the sheet settles. `focus` ("id:n") scrolls to a bubble's card (raising the sheet if needed).
  */
-const BARS = 'calc(150px + env(safe-area-inset-bottom))'; // height of the button bar + tab bar area
+const BARS = 'calc(170px + env(safe-area-inset-bottom))'; // height of the button bar + tab bar area
 
 /** Two pulses of a glowing border around a card (restarts if called again). */
 function glow(el: HTMLElement) {
