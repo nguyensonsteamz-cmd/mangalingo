@@ -95,7 +95,8 @@ export function ActionPopup() {
         {s.sidebar.enabled && (
           <button
             type="button"
-            className="ml-focus ml-press ml-sheen ml-glass-card flex items-center justify-center gap-1.5 rounded-2xl px-2 py-2.5 text-[12.5px] font-medium hover:border-accent/50 hover:text-accent"
+            data-ml-magnetic=""
+            className="ml-focus ml-press ml-sheen ml-ripple ml-glass-card flex items-center justify-center gap-1.5 rounded-2xl px-2 py-2.5 text-[12.5px] font-medium hover:border-accent/50 hover:text-accent"
             onClick={() => {
               if (tab?.id === undefined) return;
               // Only for this tab (it does not follow you to other tabs). Opened from this click (user gesture).
@@ -111,7 +112,8 @@ export function ActionPopup() {
         )}
         <button
           type="button"
-          className={cx('ml-focus ml-press ml-sheen ml-glass-card flex items-center justify-center gap-1.5 rounded-2xl px-2 py-2.5 text-[12.5px] font-medium hover:border-accent/50 hover:text-accent', !s.sidebar.enabled && 'col-span-2')}
+          data-ml-magnetic=""
+          className={cx('ml-focus ml-press ml-sheen ml-ripple ml-glass-card flex items-center justify-center gap-1.5 rounded-2xl px-2 py-2.5 text-[12.5px] font-medium hover:border-accent/50 hover:text-accent', !s.sidebar.enabled && 'col-span-2')}
           onClick={() => void chrome.runtime.openOptionsPage().then(() => window.close())}
         >
           <IconGear size={16} /> Cài đặt

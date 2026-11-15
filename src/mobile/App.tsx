@@ -9,7 +9,7 @@ import { SettingsCenter } from '@/options/SettingsCenter';
 import { SidePanel } from '@/sidepanel/SidePanel';
 import { VocabManager } from '@/ui/VocabManager';
 import { useSettings } from '@/ui/hooks';
-import { cx, Notice } from '@/ui/components';
+import { cx, GlassIndicator, Notice } from '@/ui/components';
 import { IconBookmark, IconGear, IconLogo, IconScan, IconSearch } from '@/ui/icons';
 import { native, onResume } from './native';
 import { latestScanUrl, pendingScanStamp, setAppIcon } from './ios';
@@ -102,12 +102,14 @@ export function App() {
         {tab === 'settings' && <SettingsCenter hidden={['shortcuts']} />}
       </main>
       <nav className="ml-glass fixed inset-x-3 bottom-[max(10px,env(safe-area-inset-bottom))] z-20 grid grid-cols-4 rounded-[30px] p-1" data-ml-app-nav="">
+        <GlassIndicator activeKey={tab === 'scan' ? 'home' : tab} className="rounded-[26px]" />
         {TABS.map((t) => (
           <button
             key={t.id}
             type="button"
             onClick={() => go(t.id)}
-            className={cx('ml-press flex flex-col items-center gap-0.5 rounded-[26px] py-1.5 text-[12px] font-semibold', tab === t.id || (tab === 'scan' && t.id === 'home') ? 'ml-glass-select border border-transparent' : 'border border-transparent text-muted')}
+            data-ml-active={tab === t.id || (tab === 'scan' && t.id === 'home')}
+            className={cx('ml-press relative z-[1] flex flex-col items-center gap-0.5 rounded-[26px] border border-transparent py-1.5 text-[12px] font-semibold', tab === t.id || (tab === 'scan' && t.id === 'home') ? 'ml-sel-text' : 'text-muted')}
             aria-current={tab === t.id ? 'page' : undefined}
           >
             <span className="px-4 py-0.5">{t.icon}</span>
@@ -157,7 +159,7 @@ function Home({ onOpen }: { onOpen: (t: Tab) => void }) {
   return (
     <div className="mx-auto max-w-lg space-y-4 px-4 pt-6">
       <div className="flex items-center gap-3">
-        <IconLogo size={52} />
+        <IconLogo size={52} className="ml-float" />
         <div>
           <h1 className="text-[22px] font-bold tracking-tight">LingoLens</h1>
           <div className="text-[13px] text-muted">Trợ lý đọc tiếng Anh</div>
@@ -215,25 +217,29 @@ function Home({ onOpen }: { onOpen: (t: Tab) => void }) {
 function IosHome({ onOpen, onFile }: { onOpen: (t: Tab) => void; onFile: (f: File) => void }) {
   useSettings('page'); // applies the theme
   const steps = [
-    ['Tạo Phím tắt', 'Mở app Phím tắt → + → thêm “Chụp ảnh màn hình”, rồi thêm “Quét ảnh với LingoLens” (ô Ảnh: Ảnh chụp màn hình). Đặt tên “LingoLens: Quét”.'],
+    [
+      'Tạo Phím tắt',
+      'Mở app Phím tắt → bấm + → Thêm tác vụ → tìm và thêm “Chụp ảnh màn hình”. Bấm thêm tác vụ lần nữa → gõ “LingoLens” → chọn “Quét ảnh với LingoLens”; ô Ảnh phải là “Ảnh chụp màn hình” (thường tự điền). Đặt tên phím tắt “LingoLens: Quét”. Không thấy tác vụ LingoLens? Mở LingoLens một lần rồi tìm lại.',
+    ],
     ['Bật nút nổi', 'Cài đặt → Trợ năng → Cảm ứng → AssistiveTouch → bật. Chỉnh “Độ mờ khi không dùng” khoảng 40%.'],
-    ['Gán thao tác', 'Trong AssistiveTouch → Tác vụ tùy chỉnh → Chạm hai lần → chọn Phím tắt “LingoLens: Quét”.'],
-    ['Dùng', 'Đang đọc truyện, chạm hai lần vào nút nổi → LingoLens mở ảnh vừa chụp → kéo khung vào chữ → Quét.'],
+    ['Gán thao tác', 'Vẫn trong AssistiveTouch → mục Tác vụ tùy chỉnh → Chạm hai lần → kéo xuống phần Phím tắt → chọn “LingoLens: Quét”.'],
+    ['Chạy thử lần đầu', 'Chạm hai lần vào nút nổi. Nếu iPhone hỏi có cho phép phím tắt gửi ảnh tới LingoLens, chọn “Luôn cho phép” để lần sau không hỏi lại.'],
+    ['Dùng', 'Đang đọc truyện, chạm hai lần vào nút nổi → LingoLens mở ảnh vừa chụp → kéo khung vào bong bóng, câu hoặc từ → bấm “Quét vùng này” (hoặc “Quét toàn màn hình”) → chạm từng từ để xem nghĩa.'],
   ];
   return (
     <div className="mx-auto max-w-lg space-y-4 px-4 pt-6" data-ml-ios-home="">
       <div className="flex items-center gap-3">
-        <IconLogo size={52} />
+        <IconLogo size={52} className="ml-float" />
         <div>
           <h1 className="text-[22px] font-bold tracking-tight">LingoLens</h1>
           <div className="text-[13px] text-muted">Trợ lý đọc tiếng Anh · iPhone</div>
         </div>
       </div>
 
-      <div className="space-y-2 rounded-3xl border border-accent/40 bg-accent/10 p-5">
+      <div className="ml-glass space-y-2 rounded-[28px] p-5">
         <div className="text-[17px] font-bold">Quét chữ trong ảnh</div>
         <div className="text-[13px] text-muted">Chọn ảnh chụp màn hình trang truyện, kéo khung vào bong bóng (hoặc một câu, một từ) rồi quét. Nhận dạng chữ chạy trên máy.</div>
-        <label className="mt-1 inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-accent px-4 py-2 text-[14px] font-semibold text-accent-fg">
+        <label data-ml-magnetic="" className="ml-press ml-btn-primary ml-sheen ml-ripple mt-1 inline-flex cursor-pointer items-center gap-1.5 rounded-full px-4 py-2 text-[14px] font-semibold">
           <IconScan size={16} /> Chọn ảnh để quét
           <input
             type="file"
@@ -254,7 +260,7 @@ function IosHome({ onOpen, onFile }: { onOpen: (t: Tab) => void; onFile: (f: Fil
         <ol className="mt-3 space-y-2.5">
           {steps.map(([title, body], i) => (
             <li key={title} className="flex gap-2.5">
-              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent text-[12px] font-bold text-accent-fg">{i + 1}</span>
+              <span className="ml-btn-primary flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[12px] font-bold">{i + 1}</span>
               <div className="min-w-0">
                 <div className="text-[13.5px] font-semibold">{title}</div>
                 <div className="text-[12.5px] leading-snug text-muted">{body}</div>
@@ -262,7 +268,7 @@ function IosHome({ onOpen, onFile }: { onOpen: (t: Tab) => void; onFile: (f: Fil
             </li>
           ))}
         </ol>
-        <a href="shortcuts://" className="mt-3 inline-block rounded-xl border border-border bg-elevated px-3 py-1.5 text-[13px] font-semibold text-text">
+        <a href="shortcuts://" className="ml-press ml-glass-select mt-3 inline-block rounded-full border px-4 py-1.5 text-[13px] font-semibold">
           Mở app Phím tắt
         </a>
       </div>

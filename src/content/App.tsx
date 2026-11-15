@@ -32,6 +32,7 @@ function SelectionTrigger() {
     <button
       type="button"
       data-ml-trigger=""
+      data-ml-magnetic=""
       onClick={() => A.lookup(t.text, t.rect, t.context)}
       className="ml-glass ml-focus ml-press pointer-events-auto fixed inline-flex h-[30px] w-[34px] items-center justify-center rounded-full text-accent animate-ml-in hover:text-text"
       style={{ left: Math.min(t.rect.left + t.rect.width - 17, window.innerWidth - 42), top: p.top }}

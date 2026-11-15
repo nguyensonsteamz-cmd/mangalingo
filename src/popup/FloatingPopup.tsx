@@ -12,6 +12,7 @@ import { computePopupPosition } from './position';
 import { OcrMeaning } from './OcrMeaning';
 import { MachineTranslation } from '@/ui/MachineTranslation';
 import { popupSurface, prefersDark, resolveTheme } from '@/ui/theme';
+import { crossfadeClass } from '@/ui/motion';
 import { findBlock, useStore, type PopupView } from '@/content/store';
 import * as A from '@/content/actions';
 
@@ -32,10 +33,11 @@ export function FloatingPopup({ shadow }: { shadow: ShadowRoot }) {
     const t = setTimeout(() => {
       last.current = null;
       rerender((n) => n + 1);
-    }, 170);
+    }, 210);
     return () => clearTimeout(t);
   }, [leaving]);
   const popup = live?.open ? live : leaving ? last.current : null;
+  const fade = useRef({});
   const [height, setHeight] = useState(320);
   const [vp, setVp] = useState({ width: window.innerWidth, height: window.innerHeight });
 
@@ -67,7 +69,7 @@ export function FloatingPopup({ shadow }: { shadow: ShadowRoot }) {
       className={cx('ml-glass pointer-events-auto fixed flex flex-col overflow-hidden rounded-[20px] text-text', leaving ? 'ml-out' : s.popup.animation && 'animate-ml-in')}
       style={{ ...(surface.vars as React.CSSProperties), left: pos.left, top: pos.top, width: pos.width, maxHeight: Math.min(pos.maxHeight, 640), opacity: s.popup.opacity }}
     >
-      <div className="flex min-h-0 flex-1 flex-col">
+      <div className={cx('flex min-h-0 flex-1 flex-col', crossfadeClass(`${popup.stack.length}|${popup.tab}|${view.kind === 'lookup' ? view.req.text : view.kind}`, fade.current))}>
         {view.kind === 'lookup' ? <LookupView view={view} s={s} canBack={popup.stack.length > 1} tab={popup.tab} /> : <OcrView view={view} s={s} shadow={shadow} canBack={popup.stack.length > 1} />}
       </div>
     </div>

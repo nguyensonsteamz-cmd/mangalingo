@@ -3,10 +3,53 @@
  * phone app – styled with the Liquid Glass material (classes in ui/styles.css: ml-glass*, ml-press,
  * ml-sheen, ml-btn-primary).
  */
-import { useId, type ButtonHTMLAttributes, type ReactNode } from 'react';
+import { useId, useLayoutEffect, useRef, useState, type ButtonHTMLAttributes, type ReactNode } from 'react';
 import { IconAlert, IconInfo } from './icons';
 
 export const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(' ');
+
+/**
+ * Sliding glass selection (iOS 26 style). Put it inside a `relative` container whose items carry
+ * `data-ml-active` (true on the selected one) and `relative z-[1]`: the glass pill sits behind the
+ * selected item and glides to the next one on a spring, squashing like a drop of liquid on the
+ * way. `className` sets its corner radius (e.g. "rounded-full").
+ */
+export function GlassIndicator({ activeKey, className }: { activeKey: string; className?: string }) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const [box, setBox] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
+  const [still, setStill] = useState(true); // no slide for the first placement
+  useLayoutEffect(() => {
+    const parent = ref.current?.parentElement;
+    if (!parent) return;
+    const measure = () => {
+      const a = parent.querySelector<HTMLElement>('[data-ml-active="true"]');
+      setBox(a ? { x: a.offsetLeft, y: a.offsetTop, w: a.offsetWidth, h: a.offsetHeight } : null);
+    };
+    measure();
+    if (typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(measure);
+    ro.observe(parent);
+    return () => ro.disconnect();
+  }, [activeKey]);
+  useLayoutEffect(() => {
+    if (!box || !still) return;
+    const id = requestAnimationFrame(() => requestAnimationFrame(() => setStill(false)));
+    return () => cancelAnimationFrame(id);
+  }, [box, still]);
+  return (
+    <span
+      ref={ref}
+      aria-hidden="true"
+      data-ml-indicator=""
+      {...(still ? { 'data-still': '' } : {})}
+      className={cx('ml-glass-indicator', className)}
+      style={box ? { width: box.w, height: box.h, transform: `translate(${box.x}px, ${box.y}px)` } : { opacity: 0 }}
+    >
+      {/* keyed: re-mounts on every change so the liquid squash plays again */}
+      <span key={still ? 'still' : activeKey} className={cx('ml-glass-select absolute inset-0 rounded-[inherit] border', !still && 'ml-liquid')} />
+    </span>
+  );
+}
 
 type BtnProps = ButtonHTMLAttributes<HTMLButtonElement> & { variant?: 'primary' | 'ghost' | 'subtle' | 'danger'; size?: 'sm' | 'md' };
 
@@ -18,7 +61,7 @@ export function Button({ variant = 'subtle', size = 'md', className, ...p }: Btn
       className={cx(
         'ml-focus ml-press inline-flex select-none items-center justify-center gap-1.5 rounded-[10px] font-medium disabled:cursor-not-allowed disabled:opacity-50',
         size === 'sm' ? 'h-7 px-2.5 text-[12px]' : 'h-8 px-3 text-[13px]',
-        variant === 'primary' && 'ml-btn-primary ml-sheen',
+        variant === 'primary' && 'ml-btn-primary ml-sheen ml-ripple',
         variant === 'subtle' && 'ml-glass-card text-text hover:border-accent/40 hover:bg-surface/80',
         variant === 'ghost' && 'text-muted hover:bg-text/[0.06] hover:text-text',
         variant === 'danger' && 'border border-danger/40 bg-danger/[0.06] text-danger hover:bg-danger/[0.12]',
@@ -48,17 +91,19 @@ export function IconButton({ label, active, className, children, ...p }: ButtonH
 
 export function Tabs<T extends string>({ tabs, value, onChange, className }: { tabs: { id: T; label: string; count?: number }[]; value: T; onChange: (v: T) => void; className?: string }) {
   return (
-    <div role="tablist" className={cx('flex gap-1 border-b border-border/70 pb-1.5 pt-1', className)}>
+    <div role="tablist" className={cx('relative flex gap-1 border-b border-border/70 pb-1.5 pt-1', className)}>
+      <GlassIndicator activeKey={value} className="rounded-full" />
       {tabs.map((t) => (
         <button
           key={t.id}
           role="tab"
           type="button"
           aria-selected={value === t.id}
+          data-ml-active={value === t.id}
           onClick={() => onChange(t.id)}
           className={cx(
-            'ml-focus ml-press whitespace-nowrap rounded-full border px-3 py-1 text-[12.5px] font-medium',
-            value === t.id ? 'ml-glass-select font-semibold' : 'border-transparent text-muted hover:bg-text/[0.06] hover:text-text',
+            'ml-focus ml-press relative z-[1] whitespace-nowrap rounded-full border border-transparent px-3 py-1 text-[12.5px] font-medium',
+            value === t.id ? 'ml-sel-text font-semibold' : 'text-muted hover:bg-text/[0.06] hover:text-text',
           )}
         >
           {t.label}
@@ -220,16 +265,18 @@ export function Select<T extends string>({ value, options, onChange }: { value: 
 
 export function Segmented<T extends string>({ value, options, onChange }: { value: T; options: { value: T; label: string }[]; onChange: (v: T) => void }) {
   return (
-    <div className="ml-glass-field inline-flex rounded-full p-0.5">
+    <div className="ml-glass-field relative inline-flex rounded-full p-0.5">
+      <GlassIndicator activeKey={value} className="rounded-full" />
       {options.map((o) => (
         <button
           key={o.value}
           type="button"
           onClick={() => onChange(o.value)}
           aria-pressed={value === o.value}
+          data-ml-active={value === o.value}
           className={cx(
-            'ml-focus ml-press rounded-full px-3 py-1 text-[12.5px] font-medium',
-            value === o.value ? 'ml-glass-select border font-semibold' : 'border border-transparent text-muted hover:text-text',
+            'ml-focus ml-press relative z-[1] rounded-full border border-transparent px-3 py-1 text-[12.5px] font-medium',
+            value === o.value ? 'ml-sel-text font-semibold' : 'text-muted hover:text-text',
           )}
         >
           {o.label}

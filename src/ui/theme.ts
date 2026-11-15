@@ -101,7 +101,7 @@ export function themeVars(s: Settings, surface: 'popup' | 'sidebar' | 'page'): R
     '--ml-line': String(s.typography.lineHeight),
     '--ml-wordspace': `${s.typography.wordSpacing}px`,
     '--ml-tr-size': `${Math.max(size, s.typography.translationSize)}px`,
-    '--ml-anim': s.popup.animation ? '180ms' : '0ms',
+    '--ml-anim': s.popup.animation ? '320ms' : '0ms',
     '--ml-glass-off': s.appearance.glass ? '0' : '1',
     '--ml-sel': sel.join(' '),
     '--ml-sel-text': selectionText(sel),

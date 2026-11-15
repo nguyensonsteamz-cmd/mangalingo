@@ -7,7 +7,7 @@ import { OCR_LANGUAGES } from '@/ocr/languages';
 import { useSettings } from '@/ui/hooks';
 import { MtStatus } from '@/ui/MtStatus';
 import { SettingsPreview } from './SettingsPreview';
-import { Badge, Button, Field, Notice, Segmented, Select, Slider, Toggle, cx } from '@/ui/components';
+import { Badge, Button, Field, GlassIndicator, Notice, Segmented, Select, Slider, Toggle, cx } from '@/ui/components';
 import { IconLogo, IconTrash, IconUpload } from '@/ui/icons';
 import { VocabManager } from '@/ui/VocabManager';
 import { chromeLocal } from '@/storage/kv';
@@ -57,7 +57,8 @@ export function SettingsCenter({ hidden = [] }: { hidden?: string[] } = {}) {
             <div className="text-[11.5px] text-subtle">Settings Center</div>
           </div>
         </div>
-        <ul className="flex gap-1 overflow-x-auto md:flex-col">
+        <ul className="relative flex gap-1 overflow-x-auto md:flex-col">
+          <GlassIndicator activeKey={section} className="rounded-full md:rounded-xl" />
           {SECTIONS.filter((x) => !hidden.includes(x.id)).map((x) => (
             <li key={x.id}>
               <button
@@ -66,7 +67,8 @@ export function SettingsCenter({ hidden = [] }: { hidden?: string[] } = {}) {
                   setSection(x.id);
                   history.replaceState(null, '', `#${x.id}`);
                 }}
-                className={cx('ml-focus ml-press w-full whitespace-nowrap rounded-full px-3 py-1.5 text-left text-[13px] md:rounded-xl', section === x.id ? 'ml-glass-select border font-semibold' : 'border border-transparent text-muted hover:bg-text/[0.05] hover:text-text')}
+                data-ml-active={section === x.id}
+                className={cx('ml-focus ml-press relative z-[1] w-full whitespace-nowrap rounded-full px-3 py-1.5 text-left text-[13px] md:rounded-xl', section === x.id ? 'ml-sel-text border border-transparent font-semibold' : 'border border-transparent text-muted hover:bg-text/[0.05] hover:text-text')}
               >
                 {x.label}
               </button>

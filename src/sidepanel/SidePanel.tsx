@@ -1,11 +1,12 @@
 /** Reading sidebar (Chrome Side Panel): Translation · Vocabulary · Grammar · Context · Saved. */
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { crossfadeClass } from '@/ui/motion';
 import { send, type PageEvent, type SidebarPayload } from '@/shared/messages';
 import type { LookupResult, OcrResult, SentenceAnalysis, VocabHint } from '@/shared/types';
 import type { Settings, SidebarTab } from '@/shared/settings';
 import { useSettings } from '@/ui/hooks';
 import { MachineTranslation } from '@/ui/MachineTranslation';
-import { Badge, Button, Empty, IconButton, Notice, SectionTitle, Spinner, cx } from '@/ui/components';
+import { Badge, Button, Empty, GlassIndicator, IconButton, Notice, SectionTitle, Spinner, cx } from '@/ui/components';
 import { IconBookmark, IconCompact, IconEdit, IconEraser, IconExpand, IconGear, IconInfo, IconLayers, IconLogo, IconPanel, IconScan, IconSearch, IconVolume } from '@/ui/icons';
 import {
   ChunksView, GlossBlock, GrammarView, NotesView, PosBadge, SourceLine, VocabHints, WordContextView, WordExamples, WordGrammar, WordMeaning,
@@ -28,6 +29,7 @@ export function SidePanel() {
   const [tab, setTab] = useState<SidebarTab>('translation');
   const [compact, setCompact] = useState(false);
   const [entry, setEntry] = useState<Entry | null>(null);
+  const fade = useRef({});
   const [ocr, setOcr] = useState<OcrState | null>(null);
   const [input, setInput] = useState('');
 
@@ -153,14 +155,14 @@ export function SidePanel() {
                 </button>
               )}
             </div>
-            <button type="submit" disabled={!input.trim()} className="ml-focus ml-press ml-btn-primary ml-sheen shrink-0 rounded-[20px] px-5 text-[15px] font-bold disabled:opacity-40">
+            <button type="submit" data-ml-magnetic="" disabled={!input.trim()} className="ml-focus ml-press ml-btn-primary ml-sheen ml-ripple shrink-0 rounded-[20px] px-5 text-[15px] font-bold disabled:opacity-40">
               Tra
             </button>
           </div>
         </form>
         <SidebarTabs value={tab} onChange={setTab} />
       </header>
-      <main className="ml-scroll flex-1 px-3 py-3">
+      <main className={cx('ml-scroll flex-1 px-3 py-3', crossfadeClass(`${tab}|${entry?.text ?? ''}|${ocr ? 1 : 0}`, fade.current))}>
         {tab === 'saved' ? (
           <VocabManager compact={compact} />
         ) : ocr && !entry ? (
@@ -168,7 +170,7 @@ export function SidePanel() {
         ) : entry ? (
           <EntryView s={s} entry={entry} tab={tab} compact={compact} onLookup={(t, c) => void runLookup(t, c, entry.source)} onBackToOcr={ocr ? () => setEntry(null) : undefined} />
         ) : (
-          <Empty title={IN_APP ? 'Tra từ hoặc câu tiếng Anh' : 'Chưa có nội dung'} icon={<IconLogo size={44} />}>
+          <Empty title={IN_APP ? 'Tra từ hoặc câu tiếng Anh' : 'Chưa có nội dung'} icon={<IconLogo size={44} className="ml-float" />}>
             {IN_APP
               ? 'Nhập hoặc dán từ, câu, đoạn văn vào ô phía trên rồi bấm Tra: nghĩa tiếng Việt, phát âm, ngữ pháp và ngữ cảnh.'
               : 'Click hoặc bôi đen văn bản trên trang rồi bấm “Mở Sidebar” trong popup, hoặc nhập văn bản vào ô phía trên. Với manga, rê chuột lên ảnh và bấm “Quét OCR”.'}
@@ -191,17 +193,19 @@ const TAB_ITEMS: { id: SidebarTab; label: string; icon: ReactNode }[] = [
 function SidebarTabs({ value, onChange }: { value: SidebarTab; onChange: (v: SidebarTab) => void }) {
   return (
     <div className="px-3 pb-2.5">
-      <div role="tablist" className="ml-glass-field grid grid-cols-5 gap-1 rounded-[18px] p-1">
+      <div role="tablist" className="ml-glass-field relative grid grid-cols-5 gap-1 rounded-[18px] p-1">
+        <GlassIndicator activeKey={value} className="rounded-[14px]" />
         {TAB_ITEMS.map((t) => (
           <button
             key={t.id}
             role="tab"
             type="button"
             aria-selected={value === t.id}
+            data-ml-active={value === t.id}
             onClick={() => onChange(t.id)}
             className={cx(
-              'ml-focus ml-press flex min-w-0 flex-col items-center justify-center gap-0.5 rounded-[14px] px-1 py-1.5 text-[11.5px] font-semibold leading-tight',
-              value === t.id ? 'ml-glass-select border' : 'border border-transparent text-muted hover:bg-surface/70 hover:text-text',
+              'ml-focus ml-press relative z-[1] flex min-w-0 flex-col items-center justify-center gap-0.5 rounded-[14px] border border-transparent px-1 py-1.5 text-[11.5px] font-semibold leading-tight',
+              value === t.id ? 'ml-sel-text' : 'text-muted hover:bg-surface/70 hover:text-text',
             )}
           >
             {t.icon}

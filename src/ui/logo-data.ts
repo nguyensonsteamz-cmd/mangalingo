@@ -138,10 +138,16 @@ export const LOGOS: LogoDef[] = [
   {
     id: 'clear',
     name: 'Kính trong',
-    // Background used only where an opaque icon is required (phone app icons): the LingoLens
-    // colours, seen through the clear glass tile. Everywhere else the tile is transparent.
-    bg(x, s, r, bg) {
-      LOGOS[0].bg(x, s, r, bg);
+    // Background used only where an opaque icon is required (phone app icons): a soft white-grey
+    // studio backdrop with a faint cool / warm light, so the icon reads as white clear glass (and
+    // not as the Liquid Glass logo). Everywhere else the tile is transparent.
+    bg(x) {
+      x.fillStyle = lin(x, 0, 0, 64, 64, [[0, '#FBFCFE'], [1, '#D5DBE6']]);
+      x.fillRect(0, 0, 64, 64);
+      x.fillStyle = rad(x, 8, 6, 0, 8, 6, 34, [[0, 'rgba(150,190,255,.35)'], [1, 'rgba(150,190,255,0)']]);
+      x.fillRect(0, 0, 64, 64);
+      x.fillStyle = rad(x, 60, 60, 0, 60, 60, 30, [[0, 'rgba(255,170,210,.28)'], [1, 'rgba(255,170,210,0)']]);
+      x.fillRect(0, 0, 64, 64);
     },
     fg(x, s) {
       shadow(x, s, 'rgba(20,10,60,.4)', 1.6, 0, 0.6);

@@ -163,10 +163,10 @@ export function Scan({ src, onBack }: { src: string; onBack: () => void }) {
       {activeBlock && <ScanResult key={activeBlock.id + activeBlock.text} text={activeBlock.text} n={blocks.length > 1 ? blocks.indexOf(activeBlock) + 1 : 0} />}
 
       <div className="ml-glass fixed inset-x-3 bottom-[calc(max(10px,env(safe-area-inset-bottom))+76px)] z-20 flex gap-2 rounded-[26px] p-2">
-        <button type="button" disabled={!!busy || !showFrame} onClick={() => void run('region')} className="ml-press ml-btn-primary flex flex-1 items-center justify-center gap-1.5 rounded-[20px] py-2.5 text-[14px] font-bold disabled:opacity-40">
+        <button type="button" disabled={!!busy || !showFrame} onClick={() => void run('region')} data-ml-magnetic="" className="ml-press ml-btn-primary ml-ripple flex flex-1 items-center justify-center gap-1.5 rounded-[20px] py-2.5 text-[14px] font-bold disabled:opacity-40">
           {busy === 'region' ? <Spinner /> : <IconScan size={16} />} Quét vùng này
         </button>
-        <button type="button" disabled={!!busy} onClick={() => void run('full')} className="ml-press ml-glass-card flex flex-1 items-center justify-center gap-1.5 rounded-[20px] py-2.5 text-[14px] font-semibold text-text disabled:opacity-40">
+        <button type="button" disabled={!!busy} onClick={() => void run('full')} className="ml-press ml-glass-card ml-ripple flex flex-1 items-center justify-center gap-1.5 rounded-[20px] py-2.5 text-[14px] font-semibold text-text disabled:opacity-40">
           {busy === 'full' ? <Spinner /> : null} Quét toàn màn hình
         </button>
       </div>

@@ -268,3 +268,50 @@ the popup glass:
 | 5–95 % | `--ml-glass-alpha` is set to this value, and the cards inside use 80 % of it |
 
 The slider is hidden when the material is Nền đặc.
+
+## Motion system
+
+All interactive glass behaviour comes from two places:
+
+- the stylesheet section "Liquid Glass motion" in [`styles.css`](../../src/ui/styles.css)
+- one delegated listener set, [`installGlassMotion()`](../../src/ui/motion.ts)
+
+`installGlassMotion()` is installed once per document: the side panel, the settings page, the
+toolbar popup, the phone app, and the content-script shadow root.
+
+The CSS uses the individual `translate`, `rotate` and `scale` properties, so motion composes with
+any transform an element already has. All of it is skipped under `prefers-reduced-motion`. Hover
+effects only apply to `(hover: hover) and (pointer: fine)`, and the JavaScript ignores touch
+pointers.
+
+### Timing tokens
+
+| Token | Value | Use |
+| --- | --- | --- |
+| `--ml-dur-press` | 90 ms | Compress on press |
+| `--ml-dur-release` | 480 ms | Spring back on release (`--ml-ease-spring`) |
+| `--ml-dur-pop` / `--ml-anim` | 320 ms | Popup entrance |
+| `--ml-dur-xfade` | 200 ms | Content crossfade |
+| `--ml-ease-out` | `cubic-bezier(.16,1,.3,1)` | Ripple |
+
+### Primitives
+
+| Primitive | Effect |
+| --- | --- |
+| `.ml-press` | **Hover:** lifts 1 px and fades in a reflection that follows the cursor (`--ml-mx`/`--ml-my`, fed by `motion.ts`), plus a brighter top edge.<br>**Press:** scale 0.97, moves down 1 px, brighter reflection, and a smaller shadow on primary buttons.<br>**Release:** springs back. |
+| `[data-ml-magnetic]` | Leans toward the cursor by at most 3 px and 2° and springs back on leave. Only on key buttons: the Tra search button, the scan buttons, "Chọn ảnh để quét", the toolbar-popup tiles and the selection look-up button. |
+| `.ml-ripple` | A soft white radial light spreads from the click point and fades over 680 ms. Used on primary buttons and the scan buttons. The wave node removes itself when it ends. |
+| `.ml-float` | ±1.5 px vertical drift over 4.2 s, ease-in-out. Only on prominent logos: the sidebar empty state and the phone home header. |
+| `GlassIndicator` | The sliding selection pill (see above). |
+| `crossfadeClass(key)` | Restarts a 200 ms fade and rise when popup or sidebar content changes, without re-mounting it. |
+| Popup | **Entrance:** from scale 0.94, 6 px lower, with a small spring overshoot.<br>**Exit:** 200 ms fade to scale 0.95. |
+
+### Verified with a simulated mouse
+
+| State | Measured |
+| --- | --- |
+| Rest | `translate 0 · scale 1` |
+| Hover | `translate 2.1px −2.3px · rotate 0.84° · reflection 1 at the cursor` |
+| Press | `scale 0.97 · translate y −0.3px · reflection 1.4 · one ripple wave` |
+| Release + 60 ms | Spring at `scale 0.983` |
+| Leave | Back to `0 · 1` |

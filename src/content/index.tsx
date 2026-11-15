@@ -3,6 +3,7 @@
  * OCR hover detection, keyboard handling and background events.
  */
 import { createRoot } from 'react-dom/client';
+import { installGlassMotion } from '@/ui/motion';
 import css from '@/ui/styles.css?inline';
 import type { TabEvent } from '@/shared/messages';
 import { isInactive } from '@/shared/settings';
@@ -34,6 +35,7 @@ function mount(): { host: HTMLElement; shadow: ShadowRoot } {
   for (const type of ['click', 'mousedown', 'mouseup', 'pointerdown', 'pointerup', 'dblclick', 'keydown', 'keyup', 'keypress', 'wheel', 'contextmenu']) {
     host.addEventListener(type, (e) => e.stopPropagation(), type === 'wheel' ? { passive: true } : undefined);
   }
+  installGlassMotion(shadow); // hover light, magnetic buttons, ripples inside our UI
   createRoot(container).render(<App shadow={shadow} />);
   return { host, shadow };
 }
