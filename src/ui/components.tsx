@@ -15,7 +15,7 @@ export const cx = (...c: (string | false | null | undefined)[]) => c.filter(Bool
  * the finger barely moved; the click that may follow is ignored. Mouse / keyboard use the click.
  */
 const downs = new Map<number, { x: number; y: number; t: number }>();
-let lastFastTap = 0;
+let lastFastTap = -Infinity; // no tap yet (0 would swallow clicks in the first 0.6 s after the page loads)
 export function fastTap(cb: () => void) {
   return {
     onPointerDown: (e: React.PointerEvent) => {
