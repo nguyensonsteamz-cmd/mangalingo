@@ -6,7 +6,7 @@ import type { LookupResult, OcrResult, SentenceAnalysis, VocabHint } from '@/sha
 import type { Settings, SidebarTab } from '@/shared/settings';
 import { useSettings } from '@/ui/hooks';
 import { MachineTranslation } from '@/ui/MachineTranslation';
-import { Badge, Button, Empty, GlassIndicator, IconButton, Notice, SectionTitle, Spinner, cx } from '@/ui/components';
+import { Badge, Button, Empty, GlassIndicator, IconButton, Notice, SectionTitle, Spinner, cx, fastTap } from '@/ui/components';
 import { IconBookmark, IconCompact, IconEdit, IconEraser, IconExpand, IconGear, IconInfo, IconLayers, IconLogo, IconPanel, IconScan, IconSearch, IconVolume } from '@/ui/icons';
 import {
   ChunksView, GlossBlock, GrammarView, NotesView, PosBadge, SourceLine, VocabHints, WordContextView, WordExamples, WordGrammar, WordMeaning,
@@ -29,13 +29,24 @@ export function SidePanel() {
   const [tab, setTab] = useState<SidebarTab>('translation');
   const [compact, setCompact] = useState(false);
   const [entry, setEntry] = useState<Entry | null>(null);
+  const requestedTab = useRef(false);
+  // the phone's scan screen can ask for a tab ("Phân tích câu · từng từ" → Từ vựng)
+  useEffect(() => {
+    const g = globalThis as { __mlNextSidebarTab?: SidebarTab };
+    if (entry && loaded && g.__mlNextSidebarTab) {
+      requestedTab.current = true;
+      setTab(g.__mlNextSidebarTab);
+      g.__mlNextSidebarTab = undefined;
+    }
+  }, [entry, loaded]);
   const fade = useRef({});
   const [ocr, setOcr] = useState<OcrState | null>(null);
   const [input, setInput] = useState('');
 
   useEffect(() => {
     if (!loaded) return;
-    setTab(s.sidebar.defaultTab);
+    // a tab asked for by the phone's scan screen wins over the default tab
+    if (!requestedTab.current && !(globalThis as { __mlNextSidebarTab?: string }).__mlNextSidebarTab) setTab(s.sidebar.defaultTab);
     setCompact(s.sidebar.defaultState === 'compact');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loaded]);
@@ -224,7 +235,7 @@ function SidebarTabs({ value, onChange }: { value: SidebarTab; onChange: (v: Sid
             type="button"
             aria-selected={value === t.id}
             data-ml-active={value === t.id}
-            onClick={() => onChange(t.id)}
+            {...fastTap(() => onChange(t.id))}
             className={cx(
               'ml-focus ml-press relative z-[1] flex min-w-0 flex-col items-center justify-center gap-0.5 rounded-[14px] border border-transparent px-1 py-1.5 text-[11.5px] font-semibold leading-tight',
               value === t.id ? 'ml-sel-text' : 'text-muted hover:bg-surface/70 hover:text-text',

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { setSpeechRate } from './speech';
 import { DEFAULT_SETTINGS, mergeSettings, type DeepPartial, type Settings } from '@/shared/settings';
 import { chromeLocal } from '@/storage/kv';
 import { SettingsStore } from '@/storage/settings-store';
@@ -24,6 +25,10 @@ export function useSettings(surface: 'sidebar' | 'page') {
     });
     return settingsStore.subscribe((s) => setSettings(s));
   }, []);
+
+  useEffect(() => {
+    setSpeechRate(settings.reading.speechRate);
+  }, [settings.reading.speechRate]);
 
   useEffect(() => {
     applyPageTheme(settings, surface);

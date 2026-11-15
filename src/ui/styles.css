@@ -518,6 +518,18 @@ html[data-theme='light'][data-bg='vivid'] body {
     0%, 50%, 100% { box-shadow: 0 0 0 0 rgb(var(--ml-accent) / 0); }
     25%, 75% { box-shadow: 0 0 0 6px rgb(var(--ml-accent) / 0.55); }
   }
+  /* jump target: a glowing border pulses twice around the card once it has stopped moving */
+  .ml-glow {
+    animation: ml-glow 1.2s ease-in-out;
+  }
+  @keyframes ml-glow {
+    0%, 50%, 100% {
+      box-shadow: 0 0 0 0 rgb(var(--ml-sel) / 0), 0 0 0 0 rgb(var(--ml-sel) / 0);
+    }
+    22%, 72% {
+      box-shadow: 0 0 0 2px rgb(var(--ml-sel) / 0.95), 0 0 18px 3px rgb(var(--ml-sel) / 0.55);
+    }
+  }
   /* bottom sheet: rises from / sinks into the bottom edge of the screen */
   .ml-sheet-in {
     animation: ml-sheet-in 420ms cubic-bezier(0.22, 1.15, 0.4, 1);

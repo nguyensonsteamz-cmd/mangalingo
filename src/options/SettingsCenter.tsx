@@ -7,7 +7,7 @@ import { OCR_LANGUAGES } from '@/ocr/languages';
 import { useSettings } from '@/ui/hooks';
 import { MtStatus } from '@/ui/MtStatus';
 import { SettingsPreview } from './SettingsPreview';
-import { Badge, Button, Field, GlassIndicator, Notice, Segmented, Select, Slider, Toggle, cx } from '@/ui/components';
+import { Badge, Button, Field, GlassIndicator, Notice, Segmented, Select, Slider, Toggle, cx, fastTap } from '@/ui/components';
 import { IconLogo, IconTrash, IconUpload } from '@/ui/icons';
 import { VocabManager } from '@/ui/VocabManager';
 import { chromeLocal } from '@/storage/kv';
@@ -63,10 +63,11 @@ export function SettingsCenter({ hidden = [] }: { hidden?: string[] } = {}) {
             <li key={x.id}>
               <button
                 type="button"
-                onClick={() => {
+                {...fastTap(() => {
                   setSection(x.id);
-                  history.replaceState(null, '', `#${x.id}`);
-                }}
+                  // in the phone app the hash names the TAB (#settings) – keep it, so a reload stays here
+                  if (!document.documentElement.dataset.app) history.replaceState(null, '', `#${x.id}`);
+                })}
                 data-ml-active={section === x.id}
                 className={cx('ml-focus ml-press relative z-[1] w-full whitespace-nowrap rounded-full px-3 py-1.5 text-left text-[13px] md:rounded-xl', section === x.id ? 'ml-sel-text border border-transparent font-semibold' : 'border border-transparent text-muted hover:bg-text/[0.05] hover:text-text')}
               >
@@ -403,7 +404,7 @@ function DictionarySettings({ s, update }: { s: Settings; update: Update }) {
   const d = s.dictionary;
   const items: [keyof Settings['dictionary'], string, string?][] = [
     ['showIpa', 'Hiện phiên âm IPA', 'IPA giọng Mỹ, chuyển đổi từ CMU Pronouncing Dictionary.'],
-    ['showPronunciation', 'Hiện nút phát âm', 'Dùng giọng đọc có sẵn của hệ điều hành (Web Speech API).'],
+    ['showPronunciation', 'Hiện nút phát âm', 'Dùng giọng đọc tiếng Anh tốt nhất có sẵn trên máy.'],
     ['showPos', 'Hiện từ loại'],
     ['showEnglishDefinition', 'Hiện định nghĩa tiếng Anh (WordNet)'],
     ['showExamples', 'Hiện ví dụ'],
@@ -416,6 +417,9 @@ function DictionarySettings({ s, update }: { s: Settings; update: Update }) {
       {items.map(([k, label, desc]) => (
         <Toggle key={k} label={label} description={desc} checked={d[k]} onChange={(v) => update({ dictionary: { [k]: v } })} />
       ))}
+      <Field label="Tốc độ giọng đọc" description="Phát âm từ và đọc cả câu. 1× = bình thường.">
+        <Slider value={s.reading.speechRate} min={0.5} max={1.5} step={0.05} onChange={(v) => update({ reading: { speechRate: v } })} format={(v) => `${v.toFixed(2).replace(/0$/, '')}×`} />
+      </Field>
     </Page>
   );
 }

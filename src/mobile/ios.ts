@@ -59,6 +59,36 @@ export async function translateBatch(texts: string[]): Promise<string[] | null> 
   }
 }
 
+/**
+ * Copies text: the iPhone's system pasteboard through the app (always works), else the web
+ * Clipboard API, else the old execCommand fallback. Resolves true when copied.
+ */
+export async function copyText(text: string): Promise<boolean> {
+  const h = handler();
+  if (h) {
+    const ok = await h.postMessage({ cmd: 'copy', text }).then(() => true, () => false);
+    if (ok) return true;
+  }
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      const ok = document.execCommand('copy');
+      ta.remove();
+      return ok;
+    } catch {
+      return false;
+    }
+  }
+}
+
 /** Is the Vietnamese translation pack on the phone? ('unavailable' = older iOS / not the iPhone app) */
 export async function translationPackStatus(): Promise<'installed' | 'download' | 'unsupported' | 'unavailable'> {
   const h = handler();

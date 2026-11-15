@@ -92,6 +92,8 @@ export interface Settings {
      *  dictionary gloss (default). 'dictionary': dictionary gloss only. */
     translationMode: 'machine' | 'dictionary';
     ignoredSites: string[];
+    /** Speed of the pronunciation voice (1 = normal). */
+    speechRate: number;
   };
   ocr: {
     enabled: boolean;
@@ -147,6 +149,7 @@ export const DEFAULT_SETTINGS: Settings = {
     autoPopup: true,
     translationMode: 'machine',
     ignoredSites: [],
+    speechRate: 1,
   },
   ocr: {
     enabled: true,
@@ -183,6 +186,7 @@ export const RULES: Record<string, Rule> = {
   'popup.background': { t: 'color', optional: true },
   'ocr.boxColor': { t: 'color' },
   'reading.translationMode': { t: 'enum', values: ['machine', 'dictionary'] },
+  'reading.speechRate': { t: 'num', min: 0.5, max: 1.5 },
   'general.sites': { t: 'hosts' },
   'popup.theme': { t: 'enum', values: ['follow', 'light', 'dark'] },
   'popup.fontSize': { t: 'num', min: 0, max: 22, int: true },

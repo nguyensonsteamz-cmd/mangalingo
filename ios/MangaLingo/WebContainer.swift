@@ -53,6 +53,12 @@ struct WebContainer: UIViewRepresentable {
             if let observer { NotificationCenter.default.removeObserver(observer) }
         }
 
+        /// iOS may stop the page's process to free memory: reload it (same URL = same tab) instead
+        /// of leaving a blank screen.
+        func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
+            webView.reload()
+        }
+
         func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
             if let url = navigationAction.request.url, let scheme = url.scheme, scheme != "app", scheme != "about", scheme != "blob", scheme != "data" {
                 UIApplication.shared.open(url)
@@ -70,6 +76,13 @@ struct WebContainer: UIViewRepresentable {
             switch cmd {
             case "pendingScan":
                 replyHandler(["stamp": PendingScan.stamp], nil)
+            case "speak":
+                Speaker.shared.speak(body["text"] as? String ?? "", rate: body["rate"] as? Double ?? 1)
+                replyHandler(true, nil)
+            case "copy":
+                // "Sao chép": the system pasteboard (the web clipboard API is not available on app://)
+                UIPasteboard.general.string = body["text"] as? String ?? ""
+                replyHandler(true, nil)
             case "setIcon":
                 // logo chosen in Settings → Giao diện; nil = the default icon (lens)
                 let name = body["name"] as? String

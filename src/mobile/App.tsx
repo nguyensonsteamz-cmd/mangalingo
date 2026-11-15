@@ -9,7 +9,7 @@ import { SettingsCenter } from '@/options/SettingsCenter';
 import { SidePanel } from '@/sidepanel/SidePanel';
 import { VocabManager } from '@/ui/VocabManager';
 import { useSettings } from '@/ui/hooks';
-import { cx, GlassIndicator, Notice } from '@/ui/components';
+import { cx, fastTap, GlassIndicator, Notice } from '@/ui/components';
 import { IconBookmark, IconGear, IconLogo, IconScan, IconSearch } from '@/ui/icons';
 import { native, onResume } from './native';
 import { latestScanUrl, pendingScanStamp, prepareTranslationPack, setAppIcon, translationPackStatus } from './ios';
@@ -29,6 +29,7 @@ const LAST_SCAN = 'mlapp:lastScanStamp';
 const PLATFORM = (globalThis as { MangaLingoPlatform?: string }).MangaLingoPlatform ?? (native ? 'android' : 'web');
 
 const APPLIED_ICON = 'mlapp:appliedIcon';
+const LAST_TAB = 'mlapp:lastTab';
 const PACK_ASKED = 'mlapp:packAsked';
 type PackStatus = Awaited<ReturnType<typeof translationPackStatus>>;
 
@@ -104,10 +105,26 @@ export function App() {
     if (PLATFORM === 'ios') void setAppIcon(logo);
     else native?.setLogo?.(logo);
   }, [loaded, settings.appearance.logo]);
+  // the last tab is remembered, so a reload of the page (iOS frees memory in the background)
+  // comes back to the same tab instead of the home screen
   const [tab, setTab] = useState<Tab>(() => {
     const h = location.hash.slice(1);
-    return isTab(h) ? h : 'home';
+    if (isTab(h)) return h;
+    try {
+      const last = sessionStorage.getItem(LAST_TAB) ?? '';
+      if (isTab(last) && last !== 'scan') return last;
+    } catch {
+      /* storage unavailable */
+    }
+    return 'home';
   });
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(LAST_TAB, tab);
+    } catch {
+      /* storage unavailable */
+    }
+  }, [tab]);
   useEffect(() => {
     // the floating button's menu opens the app at a tab (#lookup, #vocab, #settings)
     const on = () => {
@@ -209,7 +226,7 @@ export function App() {
           <button
             key={t.id}
             type="button"
-            onClick={() => (t.id === 'home' ? goHome() : go(t.id))}
+            {...fastTap(() => (t.id === 'home' ? goHome() : go(t.id)))}
             data-ml-active={tab === t.id || (tab === 'scan' && t.id === 'home')}
             className={cx('ml-press relative z-[1] flex flex-col items-center gap-0.5 rounded-[26px] border border-transparent py-1.5 text-[12px] font-semibold', tab === t.id || (tab === 'scan' && t.id === 'home') ? 'ml-sel-text' : 'text-muted')}
             aria-current={tab === t.id ? 'page' : undefined}

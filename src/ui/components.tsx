@@ -9,6 +9,38 @@ import { IconAlert, IconInfo } from './icons';
 export const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(' ');
 
 /**
+ * Reliable taps for tabs / segmented controls on touch screens. iOS swallows the "click" of a tap
+ * that lands while the page is still gliding after a scroll (the tap only stops the scroll), so
+ * the tab looked selected for a moment and then fell back. Here a touch counts on pointer-up when
+ * the finger barely moved; the click that may follow is ignored. Mouse / keyboard use the click.
+ */
+const downs = new Map<number, { x: number; y: number; t: number }>();
+let lastFastTap = 0;
+export function fastTap(cb: () => void) {
+  return {
+    onPointerDown: (e: React.PointerEvent) => {
+      downs.set(e.pointerId, { x: e.clientX, y: e.clientY, t: performance.now() });
+    },
+    onPointerUp: (e: React.PointerEvent) => {
+      const d = downs.get(e.pointerId);
+      downs.delete(e.pointerId);
+      if (!d || e.pointerType === 'mouse') return;
+      if (Math.hypot(e.clientX - d.x, e.clientY - d.y) < 12 && performance.now() - d.t < 800) {
+        lastFastTap = performance.now();
+        cb();
+      }
+    },
+    onPointerCancel: (e: React.PointerEvent) => {
+      downs.delete(e.pointerId);
+    },
+    onClick: () => {
+      if (performance.now() - lastFastTap < 600) return; // already handled on pointer-up
+      cb();
+    },
+  };
+}
+
+/**
  * Sliding glass selection (iOS 26 style). Put it inside a `relative` container whose items carry
  * `data-ml-active` (true on the selected one) and `relative z-[1]`: the glass pill sits behind the
  * selected item and glides to the next one on a spring, squashing like a drop of liquid.
@@ -200,7 +232,7 @@ export function Tabs<T extends string>({ tabs, value, onChange, className }: { t
           type="button"
           aria-selected={value === t.id}
           data-ml-active={value === t.id}
-          onClick={() => onChange(t.id)}
+          {...fastTap(() => onChange(t.id))}
           className={cx(
             'ml-focus ml-press relative z-[1] whitespace-nowrap rounded-full border border-transparent px-3 py-1 text-[12.5px] font-medium',
             value === t.id ? 'ml-sel-text font-semibold' : 'text-muted hover:bg-text/[0.06] hover:text-text',
@@ -371,7 +403,7 @@ export function Segmented<T extends string>({ value, options, onChange }: { valu
         <button
           key={o.value}
           type="button"
-          onClick={() => onChange(o.value)}
+          {...fastTap(() => onChange(o.value))}
           aria-pressed={value === o.value}
           data-ml-active={value === o.value}
           className={cx(

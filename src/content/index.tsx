@@ -14,6 +14,7 @@ import { store, toast } from './store';
 import { App } from './App';
 import * as A from './actions';
 import { getTranslator, mtAvailability } from '@/translation/chrome-mt';
+import { setSpeechRate } from '@/ui/speech';
 
 const HOST_TAG = 'mangalingo-root';
 
@@ -53,10 +54,12 @@ async function main() {
   const settingsStore = new SettingsStore(chromeLocal());
   let settings = await settingsStore.load();
   store.set({ settings });
+  setSpeechRate(settings.reading.speechRate);
   const ignored = () => isInactive(settings, location.hostname);
   settingsStore.subscribe((s) => {
     settings = s;
     store.set({ settings: s });
+    setSpeechRate(s.reading.speechRate);
     if (ignored()) {
       // Switched off (toolbar) or site ignored: remove every trace of the UI from the page.
       A.closePopup();

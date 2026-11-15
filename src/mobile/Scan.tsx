@@ -8,7 +8,7 @@
  * again). Text recognition is Apple Vision on the device.
  */
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import type { LookupResult, OcrBlock, WordLookup } from '@/shared/types';
+import type { LookupResult, OcrBlock } from '@/shared/types';
 import { send } from '@/shared/messages';
 import { bubbleBlock, groupLines } from '@/ocr/result';
 import { plausibleText } from '@/ocr/bubbles';
@@ -16,10 +16,12 @@ import { ocrWords } from '@/ocr/words';
 import { resizeRect, type Handle, type Rect } from '@/popup/position';
 import { primaryMeaning } from '@/ui/views';
 import { Spinner, cx } from '@/ui/components';
-import { IconBack, IconBookmark, IconCheck, IconScan, IconVolume } from '@/ui/icons';
+import { IconBack, IconScan, IconVolume } from '@/ui/icons';
 import { canSpeak, speak } from '@/ui/speech';
-import { useVocab, vocabStore } from '@/ui/VocabManager';
-import { recognize, translateBatch } from './ios';
+import { vocabStore } from '@/ui/VocabManager';
+import { useSettings } from '@/ui/hooks';
+import { copyText, recognize, translateBatch } from './ios';
+import { IconCopy } from '@/ui/icons';
 import { prepareForMt } from '@/translation/chrome-mt';
 import { isMostlyUpper, naturalCase } from '@/translation/casing';
 
@@ -37,7 +39,8 @@ async function toBase64(src: string): Promise<string> {
 }
 
 /** Opens the Lookup tab with a word / sentence (same content as the extension's sidebar). */
-export function openLookup(text: string) {
+export function openLookup(text: string, tab?: 'translation' | 'vocabulary' | 'grammar' | 'context') {
+  if (tab) (globalThis as { __mlNextSidebarTab?: string }).__mlNextSidebarTab = tab;
   void send({ type: 'sidebar:push', payload: { type: 'lookup', text } }).then(() => {
     location.hash = 'lookup';
   });
@@ -107,6 +110,7 @@ export function Scan({ src, onBack, onNewFile }: { src: string; onBack: () => vo
   const [edit, setEdit] = useState<{ id: string; box: Box } | null>(null); // bubble being re-framed
   const [rescanning, setRescanning] = useState<string | null>(null);
   const [sheetKey, setSheetKey] = useState(0); // bumps → the result sheet rises to its middle height
+  const [notesOpen, setNotesOpen] = useState(false);
   const b64 = useRef<Promise<string> | null>(null);
   const drag = useRef<{ kind: 'move' | Handle; target: 'frame' | string; x: number; y: number; start: Rect; moved: boolean } | null>(null);
   const translations = useBatchTranslation(blocks);
@@ -452,6 +456,27 @@ export function Scan({ src, onBack, onNewFile }: { src: string; onBack: () => vo
         </div>
       </div>
 
+      {/* "Ghi chú": always in the same place (top right of the screenshot), usable at any moment */}
+      <button
+        type="button"
+        onClick={() => setNotesOpen(true)}
+        className="ml-glass ml-press fixed right-3 top-[calc(env(safe-area-inset-top)+58px)] z-[22] flex items-center gap-1.5 rounded-full px-3.5 py-2 text-[13.5px] font-semibold"
+        data-ml-notes-open=""
+      >
+        ✏️ Ghi chú
+      </button>
+      {notesOpen && (
+        <div className="fixed inset-0 z-[40] flex items-start justify-center bg-black/35 px-3 pt-[calc(env(safe-area-inset-top)+56px)]" onClick={() => setNotesOpen(false)} data-ml-notes-panel="">
+          <div className="ml-glass animate-ml-in ml-scroll max-h-[72vh] w-full max-w-lg overflow-y-auto rounded-[26px] p-3" onClick={(e) => e.stopPropagation()}>
+            {(() => {
+              const b = blocks.find((x) => x.id === active);
+              const tr = b ? translations[b.id] : undefined;
+              return <Notes sentence={b?.text} translation={tr?.state === 'done' ? tr.text : undefined} onClose={() => setNotesOpen(false)} />;
+            })()}
+          </div>
+        </div>
+      )}
+
       {error && (
         <button type="button" onClick={() => setError('')} className="ml-glass animate-ml-in fixed inset-x-3 bottom-[calc(max(10px,env(safe-area-inset-bottom))+140px)] z-[25] rounded-[22px] px-4 py-3 text-left text-[13.5px] text-text" data-ml-scan-error="">
           ⚠️ {error} <span className="text-subtle">(chạm để ẩn)</span>
@@ -468,7 +493,7 @@ export function Scan({ src, onBack, onNewFile }: { src: string; onBack: () => vo
           <div
             key={b.id}
             data-ml-block={b.id}
-            className={cx('rounded-[22px]', blocks.length > 1 && i > 0 && 'mt-2 border-t border-border/60 pt-1', focus?.id === b.id && (focus.n % 2 ? 'ml-flash-a' : 'ml-flash-b'))}
+            className={cx('rounded-[22px]', blocks.length > 1 && i > 0 && 'mt-2 border-t border-border/60 pt-1')}
           >
             <ScanResult text={b.text} n={blocks.length > 1 ? i + 1 : 0} mt={translations[b.id]} />
           </div>
@@ -515,6 +540,14 @@ export function Scan({ src, onBack, onNewFile }: { src: string; onBack: () => vo
  */
 const BARS = 'calc(150px + env(safe-area-inset-bottom))'; // height of the button bar + tab bar area
 
+/** Two pulses of a glowing border around a card (restarts if called again). */
+function glow(el: HTMLElement) {
+  el.classList.remove('ml-glow');
+  void el.offsetWidth; // restart the animation
+  el.classList.add('ml-glow');
+  el.addEventListener('animationend', () => el.classList.remove('ml-glow'), { once: true });
+}
+
 function ResultSheet({ open, riseKey, title, children, focus }: { open: boolean; riseKey: number; title: string; children: ReactNode; focus?: string | null }) {
   const snaps = () => {
     const H = window.innerHeight;
@@ -542,17 +575,43 @@ function ResultSheet({ open, riseKey, title, children, focus }: { open: boolean;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
   useEffect(() => setH(snaps()[1]), [riseKey]);
-  // jump to a bubble's card: raise the sheet from its peek height, then scroll there
+  // Jump to a bubble's card: raise the sheet if it is at its peek height (wait for that), scroll
+  // smoothly to the card, and only once the scroll has come to rest the card's border glows twice.
   useEffect(() => {
     if (!focus || !body.current) return;
     const id = focus.slice(0, focus.lastIndexOf(':'));
     const s = snaps();
-    if (h < s[1] - 10) setH(s[1]);
-    const t = setTimeout(() => {
-      const card = body.current?.querySelector<HTMLElement>(`[data-ml-block="${id}"]`);
-      if (card && body.current) body.current.scrollTo({ top: card.offsetTop - 8, behavior: 'smooth' });
-    }, 60);
-    return () => clearTimeout(t);
+    const raise = h < s[1] - 10;
+    if (raise) setH(s[1]);
+    let cancelled = false;
+    let raf = 0;
+    const t = setTimeout(
+      () => {
+        const b = body.current;
+        const card = b?.querySelector<HTMLElement>(`[data-ml-block="${id}"]`);
+        if (!b || !card) return;
+        b.scrollTo({ top: Math.max(0, card.offsetTop - 8), behavior: 'smooth' });
+        let last = -1;
+        let still = 0;
+        const started = performance.now();
+        const settle = () => {
+          if (cancelled) return;
+          const cur = b.scrollTop;
+          still = Math.abs(cur - last) < 0.5 ? still + 1 : 0;
+          last = cur;
+          // 5 frames without movement (or 1.5 s at most) = arrived
+          if (still >= 5 || performance.now() - started > 1500) glow(card);
+          else raf = requestAnimationFrame(settle);
+        };
+        raf = requestAnimationFrame(settle);
+      },
+      raise ? 440 : 40,
+    );
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+      cancelAnimationFrame(raf);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focus]);
 
@@ -622,33 +681,59 @@ function ResultSheet({ open, riseKey, title, children, focus }: { open: boolean;
   );
 }
 
-/** Result card of one bubble: original text (tap a word), translation, dictionary gloss, words (save each), notes. */
+/** "Sao chép" button with a short "Đã chép ✓" confirmation. */
+function CopyButton({ text, label = 'Sao chép' }: { text: string; label?: string }) {
+  const [done, setDone] = useState(false);
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        void copyText(text).then((ok) => {
+          setDone(ok);
+          if (ok) setTimeout(() => setDone(false), 1500);
+        });
+      }}
+      className={cx('ml-press inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[12px] font-semibold', done ? 'bg-ok/15 text-ok' : 'bg-text/[0.07] text-muted')}
+      aria-label={label}
+      data-ml-copy=""
+    >
+      {done ? '✓ Đã chép' : <><IconCopy size={13} /> {label}</>}
+    </button>
+  );
+}
+
+/** Speed chip next to the speaker: 0.6× · 0.8× · 1× · 1.2× (saved in Settings → Tốc độ giọng đọc). */
+const SPEEDS = [0.6, 0.8, 1, 1.2];
+function SpeedChip() {
+  const { settings, update } = useSettings('page');
+  const cur = settings.reading.speechRate;
+  const i = SPEEDS.reduce((best, v, k) => (Math.abs(v - cur) < Math.abs(SPEEDS[best] - cur) ? k : best), 0);
+  return (
+    <button
+      type="button"
+      onClick={() => update({ reading: { speechRate: SPEEDS[(i + 1) % SPEEDS.length] } })}
+      className="ml-press rounded-full bg-text/[0.08] px-2 py-0.5 text-[11.5px] font-bold normal-case tracking-normal text-muted"
+      aria-label={`Tốc độ đọc ${SPEEDS[i]}× – chạm để đổi`}
+      data-ml-speed=""
+    >
+      {String(SPEEDS[i]).replace('.', ',')}×
+    </button>
+  );
+}
+
+/**
+ * Result card of one bubble: original text and its natural translation (copy buttons). The word by
+ * word details (IPA, meanings, save) are in "Phân tích câu" → Từ vựng, to keep this card light.
+ */
 function ScanResult({ text, n, mt }: { text: string; n: number; mt?: Mt }) {
   const [gloss, setGloss] = useState<string | null | undefined>(undefined);
-  const [rows, setRows] = useState<Record<string, WordLookup | null | undefined>>({});
-  const { list } = useVocab();
-  const saved = new Set(list.map((e) => e.lemma));
-  const content = ocrWords(text);
-  const words = content.length ? content : ocrWords(text, true);
   const m = mt ?? { state: 'loading' };
-  // words the dictionary only knows in English: translated to Vietnamese too (one batch)
-  const [wordVi, setWordVi] = useState<Record<string, string>>({});
-  const needVi = words.filter((w) => rows[w]?.found && !rows[w]?.hasVietnamese).map((w) => rows[w]!.lemma);
-  const needKey = [...new Set(needVi)].join('|');
-  useEffect(() => {
-    const list = needKey ? needKey.split('|').filter((l) => !(l in wordVi)) : [];
-    if (!list.length) return;
-    let alive = true;
-    translateBatch(list)
-      .then((out) => alive && out && setWordVi((x) => ({ ...x, ...Object.fromEntries(list.map((l, i) => [l, out[i]])) })))
-      .catch(() => {});
-    return () => {
-      alive = false;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [needKey]);
 
+  // dictionary gloss: only shown when the phone cannot translate
+  const needGloss = m.state === 'off' || m.state === 'error';
   useEffect(() => {
+    if (!needGloss) return;
     let alive = true;
     if (text.trim().split(/\s+/).length > 1) {
       void send({ type: 'lookup', req: { text, assumeEnglish: true } })
@@ -660,30 +745,14 @@ function ScanResult({ text, n, mt }: { text: string; n: number; mt?: Mt }) {
           else setGloss(null);
         })
         .catch(() => alive && setGloss(null));
-    } else setGloss(null);
-    for (const w of words) {
-      void wordLookup(w, text)
-        .then((r) => alive && setRows((x) => ({ ...x, [w]: r })))
-        .catch(() => alive && setRows((x) => ({ ...x, [w]: null })));
-    }
+    } else
+      void wordLookup(text, text)
+        .then((r) => alive && setGloss(r?.found ? primaryMeaning(r) : null))
+        .catch(() => alive && setGloss(null));
     return () => {
       alive = false;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [text]);
-
-  const saveWord = (w: string, r: WordLookup | null | undefined) => {
-    const name = !r?.found;
-    void vocabStore.add({
-      word: w,
-      lemma: r?.lemma ?? w.toLowerCase(),
-      ipa: r?.ipa,
-      meaning: name ? 'Tên riêng' : r ? primaryMeaning(r) : '',
-      pos: r?.context?.likelyPos ?? r?.posList?.[0],
-      sentence: text,
-      translation: m.state === 'done' ? m.text : undefined,
-    });
-  };
+  }, [text, needGloss]);
 
   return (
     <div className="mx-3 mt-3 space-y-3" data-ml-scan-result="">
@@ -692,9 +761,12 @@ function ScanResult({ text, n, mt }: { text: string; n: number; mt?: Mt }) {
           {n > 0 && <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[rgb(var(--ml-box))] px-1 text-[11px] text-white">{n}</span>}
           Nguyên văn
           {canSpeak() && (
-            <button type="button" className="ml-auto text-muted" onClick={() => speak(text)} aria-label="Đọc">
-              <IconVolume size={18} />
-            </button>
+            <span className="ml-auto flex items-center gap-1">
+              <SpeedChip />
+              <button type="button" className="p-1 text-muted" onClick={() => speak(text)} aria-label="Đọc cả câu" data-ml-speak="">
+                <IconVolume size={18} />
+              </button>
+            </span>
           )}
         </div>
         <div className="ml-tr leading-relaxed">
@@ -708,9 +780,12 @@ function ScanResult({ text, n, mt }: { text: string; n: number; mt?: Mt }) {
             ),
           )}
         </div>
-        <button type="button" className="mt-2 rounded-lg bg-accent/15 px-2.5 py-1 text-[12.5px] font-semibold text-accent" onClick={() => openLookup(text)}>
-          Phân tích câu
-        </button>
+        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+          <button type="button" className="rounded-lg bg-accent/15 px-2.5 py-1 text-[12.5px] font-semibold text-accent" onClick={() => openLookup(text, 'vocabulary')} data-ml-analyse="">
+            Phân tích câu · từng từ
+          </button>
+          <CopyButton text={text} label="Chép nguyên văn" />
+        </div>
       </div>
 
       {m.state !== 'off' && (
@@ -721,96 +796,25 @@ function ScanResult({ text, n, mt }: { text: string; n: number; mt?: Mt }) {
               <Spinner /> Đang dịch…
             </div>
           ) : m.state === 'done' ? (
-            <div className="ml-tr text-[16px] font-semibold leading-snug">{m.text}</div>
+            <>
+              <div className="ml-tr text-[16px] font-semibold leading-snug" data-ml-mt-text="">{m.text}</div>
+              <div className="mt-2 flex gap-1.5">
+                <CopyButton text={m.text ?? ''} label="Chép bản dịch" />
+                <CopyButton text={`${text}\n${m.text ?? ''}`} label="Chép cả hai" />
+              </div>
+            </>
           ) : (
             <div className="text-[13px] text-muted">Chưa dịch được ({m.error}). Kiểm tra Cài đặt → Ứng dụng → Dịch thuật → đã tải tiếng Việt.</div>
           )}
         </div>
       )}
 
-      {gloss !== null && (
+      {gloss && needGloss && (
         <div className="ml-glass-card rounded-[20px] border-l-[4px] border-l-subtle p-3">
-          <div className="mb-1 text-[11px] font-bold uppercase tracking-wider text-muted">{m.state === 'off' ? 'Nghĩa (từ điển)' : 'Ghép nghĩa từng từ (từ điển)'}</div>
-          {gloss === undefined ? (
-            <div className="flex items-center gap-2 text-[13px] text-muted">
-              <Spinner /> Đang tra…
-            </div>
-          ) : (
-            <div className="ml-tr font-semibold">{gloss}</div>
-          )}
+          <div className="mb-1 text-[11px] font-bold uppercase tracking-wider text-muted">Nghĩa (từ điển)</div>
+          <div className="ml-tr font-semibold">{gloss}</div>
         </div>
       )}
-
-      {words.length > 0 && (
-        <div>
-          <div className="mb-1.5 text-[11px] font-bold uppercase tracking-wider text-ok">Từng từ</div>
-          <ul className="space-y-1.5">
-            {words.map((w) => {
-              const r = rows[w];
-              const meaning = r ? primaryMeaning(r) : '';
-              const isSaved = saved.has(r?.lemma ?? w.toLowerCase());
-              return (
-                <li key={w} className="ml-glass-card ml-press flex items-start gap-1 rounded-[18px] border-l-[4px] border-l-ok/70 py-2 pl-3 pr-1.5" onClick={() => openLookup(w)}>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-baseline gap-x-1.5">
-                      <span className="text-[15px] font-semibold">{w}</span>
-                      {r && r.lemma !== w && <span className="text-[12px] text-subtle">→ {r.lemma}</span>}
-                      {r?.ipa && <span className="ml-ipa text-[12.5px] text-accent">{r.ipa.startsWith('/') ? r.ipa : `/${r.ipa}/`}</span>}
-                    </div>
-                    <div className="text-[14px] leading-snug">
-                      {r === undefined ? (
-                        <span className="text-subtle">…</span>
-                      ) : !r?.found ? (
-                        <span className="text-[13px] text-muted">
-                          <b className="text-text">{w.length > 1 ? w[0].toUpperCase() + w.slice(1).toLowerCase() : w}</b>{' '}
-                          <span className="ml-1 rounded-full bg-text/[0.07] px-1.5 py-px text-[11px] font-semibold">tên riêng · giữ nguyên</span>
-                        </span>
-                      ) : r.hasVietnamese ? (
-                        <b>{meaning}</b>
-                      ) : wordVi[r.lemma] ? (
-                        <span>
-                          <b>{wordVi[r.lemma]}</b> <span className="text-[11px] text-subtle">(dịch máy)</span>
-                          <i className="block text-[12.5px] text-muted">{meaning}</i>
-                        </span>
-                      ) : (
-                        <i className="text-[13px] text-muted">{meaning}</i>
-                      )}
-                    </div>
-                  </div>
-                  {canSpeak() && (
-                    <button
-                      type="button"
-                      className="p-1.5 text-muted"
-                      aria-label={`Phát âm ${w}`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        speak(w);
-                      }}
-                    >
-                      <IconVolume size={18} />
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    className={cx('ml-press rounded-full p-1.5', isSaved ? 'ml-glass-select border' : 'text-muted')}
-                    aria-label={isSaved ? `Đã lưu ${w}` : `Lưu từ ${w}`}
-                    disabled={isSaved || r === undefined}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      saveWord(w, r);
-                    }}
-                    data-ml-save-word=""
-                  >
-                    {isSaved ? <IconCheck size={18} /> : <IconBookmark size={18} />}
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      )}
-
-      <Notes sentence={text} translation={m.state === 'done' ? m.text : undefined} />
     </div>
   );
 }
@@ -822,8 +826,7 @@ const NOTE_COLORS = ['border-l-accent', 'border-l-warn', 'border-l-ok', 'border-
  * colour stripe) with two differently tinted fields – phrase (blue) and meaning (green) – so pairs
  * are easy to tell apart. Saved to the vocabulary notebook.
  */
-function Notes({ sentence, translation }: { sentence: string; translation?: string }) {
-  const [open, setOpen] = useState(false);
+function Notes({ sentence, translation, onClose }: { sentence?: string; translation?: string; onClose: () => void }) {
   const [pairs, setPairs] = useState([{ phrase: '', meaning: '' }]);
   const [done, setDone] = useState(0);
   const set = (i: number, k: 'phrase' | 'meaning', v: string) => setPairs((p) => p.map((x, j) => (j === i ? { ...x, [k]: v } : x)));
@@ -841,18 +844,14 @@ function Notes({ sentence, translation }: { sentence: string; translation?: stri
     setDone(good.length);
     setPairs([{ phrase: '', meaning: '' }]);
   };
-  if (!open)
-    return (
-      <button type="button" onClick={() => setOpen(true)} className="ml-press ml-glass-card flex w-full items-center justify-center gap-1.5 rounded-[18px] py-2.5 text-[13.5px] font-semibold" data-ml-notes-open="">
-        ✏️ Ghi chú
-        {done > 0 && <span className="text-[12px] font-normal text-ok">· đã lưu {done} cụm vào Sổ từ</span>}
-      </button>
-    );
   return (
-    <div className="ml-glass-card space-y-2 rounded-[20px] p-3" data-ml-notes="">
+    <div className="space-y-2" data-ml-notes="">
       <div className="flex items-center justify-between">
-        <div className="text-[11px] font-bold uppercase tracking-wider text-muted">Ghi chú của bạn</div>
-        <button type="button" onClick={() => setOpen(false)} className="text-[12px] font-semibold text-muted">
+        <div>
+          <div className="text-[15px] font-bold">✏️ Ghi chú của bạn</div>
+          {sentence && <div className="line-clamp-1 text-[12px] text-subtle">Kèm câu: {sentence}</div>}
+        </div>
+        <button type="button" onClick={onClose} className="ml-press rounded-full bg-text/[0.08] px-3 py-1 text-[12.5px] font-semibold text-muted">
           Đóng
         </button>
       </div>
