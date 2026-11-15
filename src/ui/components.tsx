@@ -3,7 +3,7 @@
  * phone app – styled with the Liquid Glass material (classes in ui/styles.css: ml-glass*, ml-press,
  * ml-sheen, ml-btn-primary).
  */
-import { useId, useLayoutEffect, useRef, useState, type ButtonHTMLAttributes, type ReactNode } from 'react';
+import { useId, useLayoutEffect, useRef, type ButtonHTMLAttributes, type ReactNode } from 'react';
 import { IconAlert, IconInfo } from './icons';
 
 export const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(' ');
@@ -11,42 +11,94 @@ export const cx = (...c: (string | false | null | undefined)[]) => c.filter(Bool
 /**
  * Sliding glass selection (iOS 26 style). Put it inside a `relative` container whose items carry
  * `data-ml-active` (true on the selected one) and `relative z-[1]`: the glass pill sits behind the
- * selected item and glides to the next one on a spring, squashing like a drop of liquid on the
- * way. `className` sets its corner radius (e.g. "rounded-full").
+ * selected item and glides to the next one on a spring, squashing like a drop of liquid.
+ * It moves on pointer-down – before the app has re-rendered the new tab – so it responds
+ * instantly; if the press does not end in a selection (scroll, cancel) it glides back.
+ * Positioned imperatively (no React style), so re-renders never fight the animation.
+ * `className` sets its corner radius (e.g. "rounded-full").
  */
 export function GlassIndicator({ activeKey, className }: { activeKey: string; className?: string }) {
   const ref = useRef<HTMLSpanElement>(null);
-  const [box, setBox] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
-  const [still, setStill] = useState(true); // no slide for the first placement
+  const inner = useRef<HTMLSpanElement>(null);
+  const api = useRef<{ sync: (animate: boolean) => void; squash: () => void } | null>(null);
+  const lastSquash = useRef(0);
+  const first = useRef(true);
+
   useLayoutEffect(() => {
-    const parent = ref.current?.parentElement;
-    if (!parent) return;
-    const measure = () => {
-      const a = parent.querySelector<HTMLElement>('[data-ml-active="true"]');
-      setBox(a ? { x: a.offsetLeft, y: a.offsetTop, w: a.offsetWidth, h: a.offsetHeight } : null);
+    const el = ref.current;
+    const parent = el?.parentElement;
+    if (!el || !parent) return;
+    let placed = false;
+    let revert: ReturnType<typeof setTimeout> | undefined;
+    const activeItem = () => parent.querySelector<HTMLElement>('[data-ml-active="true"]');
+    const place = (a: HTMLElement | null, animate: boolean) => {
+      if (!a) {
+        el.style.opacity = '0';
+        return;
+      }
+      if (animate && placed) el.removeAttribute('data-still');
+      else el.setAttribute('data-still', '');
+      el.style.opacity = '';
+      el.style.width = `${a.offsetWidth}px`;
+      el.style.height = `${a.offsetHeight}px`;
+      el.style.transform = `translate(${a.offsetLeft}px, ${a.offsetTop}px)`;
+      if (!placed) {
+        placed = true;
+        requestAnimationFrame(() => requestAnimationFrame(() => el.removeAttribute('data-still')));
+      }
     };
-    measure();
-    if (typeof ResizeObserver === 'undefined') return;
-    const ro = new ResizeObserver(measure);
-    ro.observe(parent);
-    return () => ro.disconnect();
-  }, [activeKey]);
+    const squash = () => {
+      const s = inner.current;
+      if (!s) return;
+      lastSquash.current = performance.now();
+      s.classList.remove('ml-liquid');
+      void s.offsetWidth; // restart the animation
+      s.classList.add('ml-liquid');
+    };
+    const sync = (animate: boolean) => place(activeItem(), animate);
+    const onDown = (e: PointerEvent) => {
+      if (e.button !== 0 || !(e.target instanceof Element)) return;
+      const item = e.target.closest<HTMLElement>('[data-ml-active]');
+      if (!item || !parent.contains(item) || (item as HTMLButtonElement).disabled || item.dataset.mlActive === 'true') return;
+      place(item, true);
+      squash();
+      clearTimeout(revert);
+      revert = setTimeout(() => sync(true), 1200); // safety: back to the real selection
+    };
+    const onCancel = () => {
+      clearTimeout(revert);
+      sync(true); // the press turned into a scroll / was cancelled
+    };
+    parent.addEventListener('pointerdown', onDown);
+    parent.addEventListener('pointercancel', onCancel);
+    const ro = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(() => sync(false));
+    ro?.observe(parent);
+    api.current = { sync, squash };
+    sync(false);
+    return () => {
+      parent.removeEventListener('pointerdown', onDown);
+      parent.removeEventListener('pointercancel', onCancel);
+      ro?.disconnect();
+      clearTimeout(revert);
+      api.current = null;
+    };
+  }, []);
+
+  // selection changed (click, keyboard, or from code): glide there; squash unless the press already did
   useLayoutEffect(() => {
-    if (!box || !still) return;
-    const id = requestAnimationFrame(() => requestAnimationFrame(() => setStill(false)));
-    return () => cancelAnimationFrame(id);
-  }, [box, still]);
+    const a = api.current;
+    if (!a) return;
+    if (first.current) {
+      first.current = false;
+      return;
+    }
+    a.sync(true);
+    if (performance.now() - lastSquash.current > 450) a.squash();
+  }, [activeKey]);
+
   return (
-    <span
-      ref={ref}
-      aria-hidden="true"
-      data-ml-indicator=""
-      {...(still ? { 'data-still': '' } : {})}
-      className={cx('ml-glass-indicator', className)}
-      style={box ? { width: box.w, height: box.h, transform: `translate(${box.x}px, ${box.y}px)` } : { opacity: 0 }}
-    >
-      {/* keyed: re-mounts on every change so the liquid squash plays again */}
-      <span key={still ? 'still' : activeKey} className={cx('ml-glass-select absolute inset-0 rounded-[inherit] border', !still && 'ml-liquid')} />
+    <span ref={ref} aria-hidden="true" data-ml-indicator="" data-still="" className={cx('ml-glass-indicator', className)} style={{ opacity: 0 }}>
+      <span ref={inner} className="ml-glass-select absolute inset-0 rounded-[inherit] border" />
     </span>
   );
 }

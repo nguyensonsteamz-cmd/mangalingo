@@ -302,7 +302,7 @@ pointers.
 | `[data-ml-magnetic]` | Leans toward the cursor by at most 3 px and 2° and springs back on leave. Only on key buttons: the Tra search button, the scan buttons, "Chọn ảnh để quét", the toolbar-popup tiles and the selection look-up button. |
 | `.ml-ripple` | A soft white radial light spreads from the click point and fades over 680 ms. Used on primary buttons and the scan buttons. The wave node removes itself when it ends. |
 | `.ml-float` | ±1.5 px vertical drift over 4.2 s, ease-in-out. Only on prominent logos: the sidebar empty state and the phone home header. |
-| `GlassIndicator` | The sliding selection pill (see above). |
+| `GlassIndicator` | The sliding selection pill. It moves on pointer-down, before the new tab renders, over 380 ms (`--ml-dur-slide`, `--ml-ease-slide`), and glides back if the press is cancelled. |
 | `crossfadeClass(key)` | Restarts a 200 ms fade and rise when popup or sidebar content changes, without re-mounting it. |
 | Popup | **Entrance:** from scale 0.94, 6 px lower, with a small spring overshoot.<br>**Exit:** 200 ms fade to scale 0.95. |
 

@@ -33,6 +33,8 @@
   --ml-dur-pop: 320ms; /* popup entrance */
   --ml-dur-xfade: 200ms; /* content crossfade */
   --ml-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ml-dur-slide: 380ms; /* sliding selection */
+  --ml-ease-slide: cubic-bezier(0.22, 1.25, 0.4, 1); /* fast start, small overshoot */
   /* Liquid Glass – material. --ml-glass-solid (0…1) is the material opacity; --ml-glass-off (set from the settings
      "Hiệu ứng kính") = 1 turns the glass into opaque panels without blur. */
   --ml-glass-solid: 0;
@@ -384,16 +386,16 @@ html[data-theme='light'][data-bg='vivid'] body {
     z-index: 0;
     pointer-events: none;
     transition:
-      transform 560ms var(--ml-ease-spring),
-      width 560ms var(--ml-ease-spring),
-      height 460ms var(--ml-ease-spring);
+      transform var(--ml-dur-slide) var(--ml-ease-slide),
+      width var(--ml-dur-slide) var(--ml-ease-slide),
+      height var(--ml-dur-slide) var(--ml-ease-slide);
     will-change: transform, width;
   }
   .ml-glass-indicator[data-still] {
     transition: none;
   }
   .ml-liquid {
-    animation: ml-liquid 560ms var(--ml-ease);
+    animation: ml-liquid 420ms var(--ml-ease);
   }
   @keyframes ml-liquid {
     0% {
