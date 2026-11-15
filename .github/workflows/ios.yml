@@ -1,0 +1,67 @@
+# Builds an UNSIGNED MangaLingo.ipa on a macOS runner. Install it on an iPhone from Windows with
+# Sideloadly (it signs the app with your free Apple ID; the app then works for 7 days).
+name: iOS app (.ipa)
+
+on:
+  workflow_dispatch: {}
+  push:
+    branches: [master, main]
+    paths:
+      - 'ios/**'
+      - 'src/**'
+      - 'data/**'
+      - 'scripts/build-mobile.mjs'
+      - 'scripts/build-data.mjs'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/ios.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-14
+    timeout-minutes: 30
+    env:
+      # the repository's .npmrc points the npm cache at drive D of the developer's Windows PC
+      npm_config_cache: ${{ runner.temp }}/npm-cache
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Unit tests
+        run: npx vitest run
+
+      - name: Build the web UI + dictionary data into the app
+        run: npm run build:ios-web
+
+      - name: Generate the Xcode project
+        run: |
+          brew install xcodegen
+          cd ios && xcodegen generate
+
+      - name: Build the app (unsigned)
+        run: |
+          xcodebuild -project ios/MangaLingo.xcodeproj -target MangaLingo -configuration Release -sdk iphoneos \
+            SYMROOT="$PWD/ios/build" CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build | tail -n 40
+
+      - name: Package MangaLingo.ipa
+        run: |
+          APP="ios/build/Release-iphoneos/MangaLingo.app"
+          test -d "$APP"
+          rm -rf Payload && mkdir Payload && cp -R "$APP" Payload/
+          zip -qry MangaLingo.ipa Payload
+          ls -lh MangaLingo.ipa
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MangaLingo-ipa
+          path: MangaLingo.ipa
+          retention-days: 30

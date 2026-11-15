@@ -1,0 +1,20 @@
+node_modules/
+dist/
+build-data/
+test-results/
+*.log
+.DS_Store
+# Android app
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/app/src/main/assets/web/
+android/.kotlin/
+MangaLingo-android-*.apk
+.tmp/
+.cache/
+ios/MangaLingo/web/
+ios/build/
+ios/*.xcodeproj/
+ios-build/

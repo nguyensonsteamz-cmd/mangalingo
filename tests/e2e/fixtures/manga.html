@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>E2E manga fixture</title>
+    <style>
+      body { margin: 0; background: #222; }
+      .reader { display: flex; flex-direction: column; align-items: center; gap: 24px; padding: 24px 0 600px; }
+      img { display: block; width: 760px; height: 560px; }
+    </style>
+  </head>
+  <body>
+    <div class="reader">
+      <!-- Cross-origin image without CORS headers (served from the second port) -->
+      <img id="cross" alt="page 1" />
+      <!-- Cross-origin image with hotlink protection (403 without Referer) → capture fallback -->
+      <img id="protected" alt="page 2" />
+    </div>
+    <script>
+      const other = location.port === '' ? '' : `http://127.0.0.1:${Number(location.port) + 1}`;
+      document.getElementById('cross').src = `${other}/bubble.png`;
+      document.getElementById('protected').src = `${other}/protected/bubble.png`;
+    </script>
+  </body>
+</html>

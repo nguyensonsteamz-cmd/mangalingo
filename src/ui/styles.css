@@ -1,0 +1,133 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Design tokens. Values are "r g b" triples so Tailwind can apply alpha. */
+.ml-root,
+:root {
+  --ml-accent: 124 156 255;
+  --ml-accent-fg: 10 12 20;
+  --ml-font: system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+  --ml-size: 14px;
+  --ml-line: 1.55;
+  --ml-wordspace: 0px;
+  --ml-tr-size: 15px;
+  --ml-anim: 140ms;
+}
+
+.ml-root[data-theme='dark'],
+.ml-root [data-theme='dark'],
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --ml-bg: 16 18 24;
+  --ml-surface: 22 25 33;
+  --ml-elevated: 30 34 44;
+  --ml-border: 48 53 66;
+  --ml-text: 232 235 242;
+  --ml-muted: 160 167 182;
+  --ml-subtle: 110 117 133;
+  --ml-ok: 92 199 140;
+  --ml-warn: 232 179 86;
+  --ml-danger: 240 108 108;
+}
+
+.ml-root[data-theme='light'],
+.ml-root [data-theme='light'],
+:root[data-theme='light'] {
+  color-scheme: light;
+  --ml-bg: 246 247 250;
+  --ml-surface: 255 255 255;
+  --ml-elevated: 241 243 247;
+  --ml-border: 222 226 234;
+  --ml-text: 24 27 35;
+  --ml-muted: 88 96 112;
+  --ml-subtle: 132 140 156;
+  --ml-ok: 24 140 84;
+  --ml-warn: 176 112 12;
+  --ml-danger: 200 50 50;
+}
+
+.ml-root {
+  font-family: var(--ml-font);
+  font-size: var(--ml-size);
+  line-height: var(--ml-line);
+  word-spacing: var(--ml-wordspace);
+  color: rgb(var(--ml-text));
+  -webkit-font-smoothing: antialiased;
+  text-align: left;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+html[data-theme] body {
+  background-color: rgb(var(--ml-bg));
+  color: rgb(var(--ml-text));
+  font-family: var(--ml-font);
+  font-size: var(--ml-size);
+  line-height: var(--ml-line);
+  word-spacing: var(--ml-wordspace);
+}
+
+@layer components {
+  .ml-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(var(--ml-border)) transparent;
+  }
+  .ml-focus {
+    @apply outline-none focus-visible:ring-2 focus-visible:ring-accent/70 focus-visible:ring-offset-0;
+  }
+  .ml-chip {
+    @apply inline-flex items-center rounded-md border border-border bg-elevated px-1.5 py-px text-[11px] font-medium text-muted;
+  }
+  .ml-kbd {
+    @apply inline-flex min-w-[20px] items-center justify-center rounded border border-border bg-elevated px-1 font-mono text-[11px] text-muted;
+  }
+  .ml-tr {
+    font-size: var(--ml-tr-size);
+  }
+  .ml-word {
+    @apply cursor-pointer rounded px-0.5 transition-colors hover:bg-accent/20 hover:text-text;
+  }
+  /* IPA: a font with phonetic symbols (Android's monospace lacks ɪ ɔ ʊ… and shows boxes). */
+  .ml-ipa {
+    font-family: 'Noto Sans', Roboto, 'Segoe UI', 'Lucida Sans Unicode', 'Arial Unicode MS', system-ui, sans-serif;
+    letter-spacing: 0.01em;
+  }
+  /* Section / item cards: lift slightly with a soft glow on hover so each block reads separately. */
+  .ml-card {
+    transition:
+      transform 140ms ease,
+      box-shadow 140ms ease,
+      border-color 140ms ease,
+      background-color 140ms ease;
+  }
+  .ml-card:hover {
+    transform: translateY(-1px);
+  }
+  /* Marching-ants outline around an image / region while OCR runs. */
+  .ml-scan-outline {
+    background:
+      linear-gradient(90deg, rgb(var(--ml-box)) 50%, transparent 0) repeat-x top / 12px 2px,
+      linear-gradient(90deg, rgb(var(--ml-box)) 50%, transparent 0) repeat-x bottom / 12px 2px,
+      linear-gradient(0deg, rgb(var(--ml-box)) 50%, transparent 0) repeat-y left / 2px 12px,
+      linear-gradient(0deg, rgb(var(--ml-box)) 50%, transparent 0) repeat-y right / 2px 12px;
+    background-color: rgb(var(--ml-box) / 0.06);
+    animation: ml-ants 0.6s linear infinite;
+  }
+  @keyframes ml-ants {
+    to {
+      background-position:
+        12px 0,
+        -12px 100%,
+        0 -12px,
+        100% 12px;
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ml-root * {
+    animation-duration: 1ms !important;
+    transition-duration: 1ms !important;
+  }
+}

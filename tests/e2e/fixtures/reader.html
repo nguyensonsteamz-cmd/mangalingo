@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>E2E reader fixture</title>
+    <style>
+      /* Hostile page CSS: global resets that must not leak into the extension UI */
+      html { font-size: 62.5%; }
+      * { box-sizing: content-box !important; letter-spacing: 0.3em; }
+      div, button, span { color: hotpink; font-family: "Courier New", monospace; text-transform: uppercase; }
+      body { margin: 40px; font-size: 18px; line-height: 1.6; }
+      p { max-width: 640px; }
+    </style>
+  </head>
+  <body>
+    <h1>Chapter 1</h1>
+    <p id="p1">The village was destroyed by the demon. I gave up on my dream, but I won't run away again!</p>
+    <p id="p2">"Are you out of your mind?!" she shouted. <b>Wha</b>tever happens, we'll protect it.</p>
+    <p id="p3">If I were you, I would pick it up right now. That's a piece of cake.</p>
+    <p><a id="link" href="#nowhere">This link text should not trigger lookup</a></p>
+    <p><input id="field" value="typing here should not trigger" style="width: 400px" /></p>
+    <p id="p4">Xin chào các bạn, hôm nay chúng ta sẽ học tiếng Anh.</p>
+    <div style="height: 1200px"></div>
+  </body>
+</html>

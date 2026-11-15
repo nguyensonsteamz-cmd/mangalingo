@@ -1,0 +1,44 @@
+{
+  "name": "mangalingo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "MangaLingo – local-first English reading assistant (Chrome Extension MV3)",
+  "type": "module",
+  "scripts": {
+    "data": "node scripts/build-data.mjs",
+    "build": "node scripts/build.mjs",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "pretest": "node scripts/build-data.mjs --if-missing",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "e2e": "node scripts/e2e.mjs",
+    "screenshots": "node scripts/screenshots.mjs",
+    "fixtures:ocr": "node scripts/make-ocr-fixture.mjs",
+    "check": "npm run typecheck && npm run test && npm run build && npm run e2e",
+    "build:mobile": "node scripts/build-data.mjs --if-missing && node scripts/build-mobile.mjs",
+    "android": "node scripts/android.mjs",
+    "build:ios-web": "node scripts/build-data.mjs --if-missing && node scripts/build-mobile.mjs --out ios/MangaLingo/web"
+  },
+  "dependencies": {
+    "react": "19.1.1",
+    "react-dom": "19.1.1",
+    "tesseract.js": "6.0.1"
+  },
+  "devDependencies": {
+    "@tesseract.js-data/eng": "1.0.0",
+    "@types/chrome": "0.0.326",
+    "@types/node": "22.18.0",
+    "@types/react": "19.1.12",
+    "@types/react-dom": "19.1.9",
+    "@vitejs/plugin-react": "5.2.0",
+    "cmu-pronouncing-dictionary": "3.0.0",
+    "fake-indexeddb": "6.2.2",
+    "jsdom": "26.1.0",
+    "postcss": "8.5.6",
+    "tailwindcss": "3.4.19",
+    "typescript": "5.9.3",
+    "vite": "7.3.8",
+    "vitest": "3.2.7",
+    "wordnet-db": "3.1.14"
+  }
+}

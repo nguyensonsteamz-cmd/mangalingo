@@ -1,0 +1,776 @@
+# MangaLingo Starter EN–VI – words (hand-curated, CC0). Format: word|pos|nghĩa; nghĩa|tags|ghi chú
+# ---------- pronouns ----------
+i|pron|tôi; mình; tao (tùy ngữ cảnh)
+me|pron|tôi; mình (tân ngữ)
+my|det|của tôi; của mình
+mine|pron|của tôi
+myself|pron|chính tôi; bản thân tôi
+you|pron|bạn; cậu; anh/chị/em; mày (tùy ngữ cảnh); các bạn
+your|det|của bạn; của cậu
+yours|pron|của bạn
+yourself|pron|chính bạn; tự bạn
+he|pron|anh ấy; ông ấy; cậu ấy; hắn
+him|pron|anh ấy; ông ấy; hắn (tân ngữ)
+his|det|của anh ấy; của hắn
+himself|pron|chính anh ấy; tự hắn
+she|pron|cô ấy; bà ấy; chị ấy
+her|pron|cô ấy (tân ngữ)
+her|det|của cô ấy
+herself|pron|chính cô ấy
+it|pron|nó; điều đó
+its|det|của nó
+itself|pron|chính nó
+we|pron|chúng tôi; chúng ta; bọn mình
+us|pron|chúng tôi; chúng ta (tân ngữ)
+our|det|của chúng tôi; của chúng ta
+ourselves|pron|chính chúng ta
+they|pron|họ; bọn họ; chúng nó
+them|pron|họ; chúng (tân ngữ)
+their|det|của họ
+themselves|pron|chính họ
+this|det|này; cái này
+that|det|đó; kia; cái đó
+that|conj|rằng; là
+these|det|những … này
+those|det|những … đó
+someone|pron|ai đó; một người nào đó
+somebody|pron|ai đó
+something|pron|cái gì đó; điều gì đó
+anyone|pron|bất kỳ ai; có ai (trong câu hỏi)
+anything|pron|bất cứ thứ gì; gì (trong câu hỏi/phủ định)
+everyone|pron|mọi người
+everything|pron|mọi thứ; tất cả
+nobody|pron|không ai
+nothing|pron|không có gì
+who|pron|ai; người mà
+what|pron|cái gì; gì
+which|pron|cái nào; cái mà
+whose|pron|của ai
+# ---------- determiners, quantifiers ----------
+the|det|(mạo từ xác định – thường không dịch)
+a|det|một (mạo từ – thường không dịch)
+an|det|một (mạo từ – thường không dịch)
+some|det|một vài; một ít; nào đó
+any|det|bất kỳ; nào (câu hỏi/phủ định)
+no|det|không có
+no|interj|không
+every|det|mỗi; mọi
+each|det|mỗi
+all|det|tất cả; toàn bộ
+both|det|cả hai
+many|det|nhiều (đếm được)
+much|det|nhiều (không đếm được)
+much|adv|nhiều; lắm
+few|det|ít; vài
+little|det|ít (không đếm được)
+little|adj|nhỏ; bé
+more|adv|hơn; nhiều hơn
+most|adv|nhất; hầu hết
+other|adj|khác
+another|det|một … khác; thêm một
+enough|det|đủ
+such|det|như vậy; đến thế
+# ---------- prepositions ----------
+of|prep|của; về
+to|prep|đến; tới; cho
+to|part|(dấu hiệu động từ nguyên mẫu – thường không dịch)
+in|prep|trong; ở
+on|prep|trên; vào (ngày)
+at|prep|ở; tại; vào (giờ)
+for|prep|cho; vì; trong (khoảng thời gian)
+with|prep|với; cùng
+without|prep|không có; mà không
+from|prep|từ
+by|prep|bởi; bằng; cạnh
+about|prep|về; khoảng
+into|prep|vào trong
+out|adv|ra; ra ngoài
+up|adv|lên
+down|adv|xuống
+over|prep|qua; trên; hơn
+under|prep|dưới
+after|prep|sau; sau khi
+before|prep|trước; trước khi
+behind|prep|phía sau
+between|prep|giữa (hai)
+against|prep|chống lại; dựa vào
+through|prep|xuyên qua; thông qua
+around|prep|xung quanh; khoảng
+like|prep|giống như; như
+than|conj|hơn (so sánh)
+until|conj|cho đến khi
+since|conj|kể từ khi; vì
+during|prep|trong suốt
+near|prep|gần
+inside|prep|bên trong
+outside|prep|bên ngoài
+# ---------- conjunctions ----------
+and|conj|và
+but|conj|nhưng
+or|conj|hoặc; hay
+so|conj|vì vậy; nên
+so|adv|rất; quá; đến thế
+because|conj|bởi vì
+if|conj|nếu
+unless|conj|trừ khi
+when|conj|khi
+while|conj|trong khi
+although|conj|mặc dù
+though|conj|mặc dù
+though|adv|dù vậy; tuy nhiên (cuối câu)
+whether|conj|liệu; dù … hay
+as|conj|khi; vì; như
+# ---------- auxiliaries, modals ----------
+be|v|là; thì; ở; tồn tại
+am|aux|là; thì (ngôi I)
+is|aux|là; thì
+are|aux|là; thì
+was|aux|đã là; đã (quá khứ của is/am)
+were|aux|đã là (quá khứ của are)
+have|v|có; ăn/uống (have breakfast)
+have|aux|đã (thì hoàn thành)
+has|aux|đã (thì hoàn thành, ngôi 3 số ít)
+had|aux|đã (quá khứ hoàn thành)
+do|v|làm
+do|aux|(trợ động từ cho câu hỏi/phủ định – thường không dịch)
+can|modal|có thể; được phép
+could|modal|có thể (quá khứ); có lẽ
+will|modal|sẽ
+would|modal|sẽ (giả định); muốn (would like)
+shall|modal|sẽ; nhé (đề nghị)
+should|modal|nên
+must|modal|phải; hẳn là
+may|modal|có thể; có lẽ; được phép
+might|modal|có lẽ; có thể
+not|adv|không
+never|adv|không bao giờ; chưa bao giờ
+# ---------- common verbs ----------
+go|v|đi
+come|v|đến; tới; lại đây
+get|v|lấy; nhận được; trở nên; hiểu (khẩu ngữ)
+make|v|làm; chế tạo; khiến
+take|v|lấy; cầm; mang đi; mất (thời gian)
+give|v|đưa; cho; tặng
+know|v|biết
+think|v|nghĩ; cho rằng
+see|v|thấy; nhìn thấy; hiểu
+look|v|nhìn; trông có vẻ
+watch|v|xem; theo dõi; canh chừng
+want|v|muốn
+need|v|cần
+like|v|thích
+love|v|yêu; rất thích
+hate|v|ghét
+say|v|nói
+tell|v|kể; bảo; nói cho biết
+talk|v|nói chuyện
+speak|v|nói
+ask|v|hỏi; yêu cầu
+answer|v|trả lời
+call|v|gọi; gọi điện
+hear|v|nghe thấy
+listen|v|lắng nghe
+feel|v|cảm thấy
+find|v|tìm thấy; thấy rằng
+lose|v|mất; thua
+win|v|thắng
+leave|v|rời đi; để lại
+stay|v|ở lại
+wait|v|chờ; đợi
+stop|v|dừng lại; ngăn chặn
+start|v|bắt đầu
+begin|v|bắt đầu
+finish|v|hoàn thành; kết thúc
+end|v|kết thúc
+try|v|thử; cố gắng
+help|v|giúp đỡ
+use|v|sử dụng
+work|v|làm việc; hoạt động
+play|v|chơi
+run|v|chạy; điều hành
+walk|v|đi bộ
+move|v|di chuyển; cử động
+turn|v|quay; rẽ; trở thành
+open|v|mở
+close|v|đóng
+keep|v|giữ; tiếp tục (keep doing)
+hold|v|cầm; giữ
+put|v|đặt; để
+bring|v|mang đến
+carry|v|mang; vác
+send|v|gửi
+buy|v|mua
+sell|v|bán
+pay|v|trả tiền; trả giá
+eat|v|ăn
+drink|v|uống
+sleep|v|ngủ
+wake|v|thức dậy; đánh thức
+live|v|sống
+die|v|chết
+kill|v|giết
+fight|v|chiến đấu; đánh nhau
+hit|v|đánh; đấm; va vào
+attack|v|tấn công
+protect|v|bảo vệ
+save|v|cứu; tiết kiệm; lưu
+escape|v|trốn thoát
+hide|v|trốn; giấu
+follow|v|đi theo; làm theo
+catch|v|bắt; đuổi kịp
+throw|v|ném
+break|v|làm vỡ; phá vỡ
+cut|v|cắt
+fall|v|ngã; rơi
+rise|v|tăng; mọc; đứng lên
+grow|v|lớn lên; trồng
+change|v|thay đổi
+become|v|trở thành
+seem|v|có vẻ như
+believe|v|tin; tin tưởng
+trust|v|tin tưởng
+remember|v|nhớ
+forget|v|quên
+understand|v|hiểu
+learn|v|học
+teach|v|dạy
+read|v|đọc
+write|v|viết
+draw|v|vẽ; rút (kiếm)
+show|v|cho xem; thể hiện
+meet|v|gặp
+join|v|tham gia
+choose|v|chọn
+decide|v|quyết định
+promise|v|hứa
+mean|v|có nghĩa là; ý là
+happen|v|xảy ra
+cry|v|khóc; kêu la
+laugh|v|cười
+smile|v|mỉm cười
+scream|v|hét lên
+shout|v|la hét
+worry|v|lo lắng
+care|v|quan tâm
+hurt|v|làm đau; đau
+forgive|v|tha thứ
+apologize|v|xin lỗi
+thank|v|cảm ơn
+hope|v|hy vọng
+wish|v|ước
+dream|v|mơ
+fly|v|bay
+jump|v|nhảy
+swim|v|bơi
+drive|v|lái xe
+ride|v|cưỡi; đi (xe)
+sit|v|ngồi
+stand|v|đứng; chịu đựng (can't stand)
+lie|v|nằm; nói dối
+steal|v|ăn trộm
+betray|v|phản bội
+defeat|v|đánh bại
+destroy|v|phá hủy
+survive|v|sống sót
+fail|v|thất bại; trượt
+succeed|v|thành công
+appear|v|xuất hiện
+disappear|v|biến mất
+return|v|trở về; trả lại
+arrive|v|đến nơi
+belong|v|thuộc về
+deserve|v|xứng đáng
+allow|v|cho phép
+let|v|để; cho phép
+force|v|ép buộc
+order|v|ra lệnh; gọi món
+obey|v|vâng lời
+refuse|v|từ chối
+accept|v|chấp nhận
+admit|v|thừa nhận
+deny|v|phủ nhận
+prove|v|chứng minh
+notice|v|để ý; nhận thấy
+realize|v|nhận ra
+guess|v|đoán
+wonder|v|tự hỏi
+imagine|v|tưởng tượng
+pretend|v|giả vờ
+explain|v|giải thích
+agree|v|đồng ý
+argue|v|cãi nhau; tranh luận
+blame|v|đổ lỗi
+kick|v|đá
+punch|v|đấm
+grab|v|chộp lấy; túm
+push|v|đẩy
+pull|v|kéo
+touch|v|chạm
+kiss|v|hôn
+hug|v|ôm
+train|v|luyện tập
+prepare|v|chuẩn bị
+rest|v|nghỉ ngơi
+calm|v|làm dịu; bình tĩnh lại
+shut|v|đóng; im (shut up)
+mess|v|làm rối; làm hỏng (mess up)
+bother|v|làm phiền
+annoy|v|làm bực mình
+scare|v|làm sợ
+surprise|v|làm ngạc nhiên
+# ---------- common nouns ----------
+man|n|người đàn ông; anh bạn (khẩu ngữ)
+woman|n|người phụ nữ
+person|n|người
+people|n|mọi người; người ta
+boy|n|cậu bé; con trai
+girl|n|cô bé; con gái
+child|n|đứa trẻ
+kid|n|đứa trẻ; nhóc|informal
+friend|n|bạn; bạn bè
+family|n|gia đình
+mother|n|mẹ
+mom|n|mẹ|informal
+father|n|cha; bố
+dad|n|bố|informal
+brother|n|anh trai; em trai
+sister|n|chị gái; em gái
+son|n|con trai
+daughter|n|con gái
+husband|n|chồng
+wife|n|vợ
+king|n|vua
+queen|n|nữ hoàng; hoàng hậu
+prince|n|hoàng tử
+princess|n|công chúa
+master|n|chủ nhân; sư phụ; bậc thầy
+teacher|n|giáo viên; thầy/cô
+student|n|học sinh; sinh viên
+captain|n|đội trưởng; thuyền trưởng
+leader|n|người lãnh đạo; thủ lĩnh
+enemy|n|kẻ thù
+hero|n|anh hùng; nhân vật chính
+villain|n|kẻ phản diện
+monster|n|quái vật
+demon|n|ác quỷ
+god|n|thần; Chúa (God)
+ghost|n|ma
+soldier|n|người lính
+warrior|n|chiến binh
+knight|n|hiệp sĩ
+ninja|n|ninja
+samurai|n|samurai; võ sĩ Nhật
+pirate|n|cướp biển
+thief|n|tên trộm
+partner|n|cộng sự; bạn đồng hành
+team|n|đội; nhóm
+world|n|thế giới
+time|n|thời gian; lần
+day|n|ngày
+night|n|đêm
+morning|n|buổi sáng
+year|n|năm
+life|n|cuộc sống; mạng sống
+death|n|cái chết
+power|n|sức mạnh; quyền lực
+strength|n|sức mạnh; sức lực
+ability|n|khả năng; năng lực
+skill|n|kỹ năng
+technique|n|kỹ thuật; chiêu thức
+magic|n|phép thuật
+spell|n|câu thần chú
+curse|n|lời nguyền
+sword|n|thanh kiếm
+weapon|n|vũ khí
+gun|n|súng
+blood|n|máu
+heart|n|trái tim; tấm lòng
+mind|n|tâm trí; đầu óc
+soul|n|linh hồn
+body|n|cơ thể
+head|n|đầu
+face|n|khuôn mặt
+eye|n|mắt
+hand|n|tay; bàn tay
+arm|n|cánh tay
+leg|n|chân
+voice|n|giọng nói
+name|n|tên
+word|n|từ; lời
+thing|n|thứ; điều; chuyện
+place|n|nơi; chỗ
+home|n|nhà; quê nhà
+house|n|ngôi nhà
+room|n|phòng
+school|n|trường học
+village|n|ngôi làng
+city|n|thành phố
+country|n|đất nước; vùng quê
+road|n|con đường
+door|n|cửa
+window|n|cửa sổ
+sky|n|bầu trời
+sea|n|biển
+fire|n|lửa
+water|n|nước
+food|n|đồ ăn
+money|n|tiền
+job|n|công việc
+work|n|công việc; tác phẩm
+war|n|chiến tranh
+battle|n|trận chiến
+fight|n|cuộc chiến; trận đánh
+mission|n|nhiệm vụ
+plan|n|kế hoạch
+problem|n|vấn đề
+question|n|câu hỏi
+answer|n|câu trả lời
+reason|n|lý do
+truth|n|sự thật
+lie|n|lời nói dối
+secret|n|bí mật
+promise|n|lời hứa
+dream|n|giấc mơ; ước mơ
+hope|n|hy vọng
+fear|n|nỗi sợ
+pain|n|nỗi đau
+anger|n|sự tức giận
+revenge|n|sự trả thù
+destiny|n|định mệnh; số phận
+fate|n|số phận
+luck|n|may mắn
+chance|n|cơ hội
+choice|n|sự lựa chọn
+mistake|n|lỗi; sai lầm
+fault|n|lỗi (trách nhiệm)
+idea|n|ý tưởng; ý kiến
+way|n|cách; con đường
+side|n|phía; bên
+end|n|kết thúc; cuối
+beginning|n|sự bắt đầu
+story|n|câu chuyện
+chapter|n|chương
+manga|n|truyện tranh Nhật Bản
+moment|n|khoảnh khắc; lát
+minute|n|phút
+second|n|giây
+hour|n|giờ
+week|n|tuần
+month|n|tháng
+today|n|hôm nay
+tomorrow|n|ngày mai
+yesterday|n|hôm qua
+deal|n|thỏa thuận; vụ (big deal)
+guy|n|anh chàng; gã; mọi người (you guys)|informal
+dude|n|anh bạn; ông bạn|slang
+bro|n|người anh em; ông bạn|slang
+buddy|n|bạn; anh bạn|informal
+jerk|n|đồ khốn; kẻ đáng ghét|informal
+idiot|n|đồ ngốc
+fool|n|kẻ ngốc
+moron|n|đồ đần|informal
+loser|n|kẻ thất bại; đồ vô dụng|informal
+brat|n|đứa trẻ hư; nhóc con|informal
+bastard|n|thằng khốn; đồ con hoang|vulgar
+crap|n|đồ rác rưởi; chuyện vớ vẩn|vulgar
+shit|n|đồ tệ hại; chuyện (thô tục)|vulgar
+hell|n|địa ngục
+# ---------- adjectives ----------
+good|adj|tốt; giỏi; ngon
+bad|adj|xấu; tệ; dở
+great|adj|tuyệt vời; to lớn
+nice|adj|đẹp; tốt; dễ chịu
+cool|adj|ngầu; tuyệt; mát|informal
+awesome|adj|tuyệt vời; đỉnh|informal
+amazing|adj|kinh ngạc; tuyệt vời
+terrible|adj|khủng khiếp; tồi tệ
+awful|adj|tồi tệ; kinh khủng
+big|adj|to; lớn
+small|adj|nhỏ
+long|adj|dài; lâu
+short|adj|ngắn; thấp
+new|adj|mới
+old|adj|cũ; già
+young|adj|trẻ
+strong|adj|mạnh
+weak|adj|yếu
+fast|adj|nhanh
+slow|adj|chậm
+hard|adj|cứng; khó; chăm chỉ
+easy|adj|dễ
+difficult|adj|khó
+right|adj|đúng; bên phải
+wrong|adj|sai
+true|adj|đúng; thật
+real|adj|thật; thực sự
+fake|adj|giả
+same|adj|giống nhau; như nhau
+different|adj|khác
+important|adj|quan trọng
+dangerous|adj|nguy hiểm
+safe|adj|an toàn
+afraid|adj|sợ
+scared|adj|sợ hãi
+angry|adj|tức giận
+mad|adj|tức giận; điên
+crazy|adj|điên; điên rồ
+happy|adj|vui; hạnh phúc
+sad|adj|buồn
+tired|adj|mệt
+sick|adj|ốm; phát ngán|informal
+fine|adj|ổn; tốt
+okay|adj|ổn; được|informal
+sure|adj|chắc chắn
+ready|adj|sẵn sàng
+busy|adj|bận
+free|adj|tự do; miễn phí; rảnh
+alone|adj|một mình
+alive|adj|còn sống
+dead|adj|chết
+beautiful|adj|đẹp
+pretty|adj|xinh
+pretty|adv|khá|informal
+cute|adj|dễ thương
+ugly|adj|xấu xí
+smart|adj|thông minh
+stupid|adj|ngu ngốc
+dumb|adj|ngốc; ngu|informal
+weird|adj|kỳ lạ; kỳ quặc
+strange|adj|lạ; kỳ lạ
+serious|adj|nghiêm túc; nghiêm trọng
+funny|adj|buồn cười; hài hước
+quiet|adj|yên lặng
+loud|adj|ồn ào; to (tiếng)
+dark|adj|tối
+bright|adj|sáng
+cold|adj|lạnh
+hot|adj|nóng; hấp dẫn (khẩu ngữ)
+warm|adj|ấm
+whole|adj|toàn bộ
+last|adj|cuối cùng; vừa qua
+next|adj|tiếp theo
+first|adj|đầu tiên
+final|adj|cuối cùng
+only|adj|duy nhất
+possible|adj|có thể
+impossible|adj|không thể
+useless|adj|vô dụng
+worth|adj|đáng giá; đáng
+sorry|adj|xin lỗi; lấy làm tiếc
+lucky|adj|may mắn
+brave|adj|dũng cảm
+kind|adj|tốt bụng
+kind|n|loại; kiểu
+evil|adj|độc ác; tà ác
+pure|adj|thuần khiết; trong sáng
+legendary|adj|huyền thoại
+powerful|adj|mạnh mẽ; quyền năng
+# ---------- adverbs ----------
+very|adv|rất
+really|adv|thật sự; rất
+too|adv|quá; cũng
+also|adv|cũng
+just|adv|chỉ; vừa mới; đúng là
+only|adv|chỉ
+still|adv|vẫn
+already|adv|đã … rồi
+yet|adv|chưa (phủ định); vẫn
+again|adv|lại; lần nữa
+always|adv|luôn luôn
+often|adv|thường xuyên
+sometimes|adv|đôi khi
+here|adv|ở đây
+there|adv|ở đó
+now|adv|bây giờ
+then|adv|lúc đó; sau đó
+soon|adv|sớm; chẳng bao lâu
+later|adv|sau; lát nữa
+maybe|adv|có lẽ
+perhaps|adv|có lẽ
+probably|adv|có lẽ; chắc là
+definitely|adv|chắc chắn
+actually|adv|thực ra
+seriously|adv|nghiêm túc đấy; thật sự
+literally|adv|theo nghĩa đen; thật sự (nhấn mạnh)|informal
+totally|adv|hoàn toàn|informal
+almost|adv|gần như; suýt
+even|adv|thậm chí; ngay cả
+ever|adv|từng; bao giờ
+together|adv|cùng nhau
+away|adv|đi xa; ra xa
+back|adv|trở lại; về phía sau
+anyway|adv|dù sao thì
+instead|adv|thay vào đó
+finally|adv|cuối cùng
+suddenly|adv|đột nhiên
+quickly|adv|nhanh chóng
+slowly|adv|chậm rãi
+well|adv|tốt; giỏi
+how|adv|thế nào; bằng cách nào
+why|adv|tại sao
+where|adv|ở đâu
+when|adv|khi nào
+# ---------- interjections & dialogue words ----------
+yes|interj|vâng; có; ừ
+yeah|interj|ừ; ờ; phải|informal
+yep|interj|ừ; đúng|informal
+nope|interj|không|informal
+nah|interj|không; thôi|informal
+oh|interj|ồ; ôi; à
+ah|interj|à; a
+huh|interj|hả?; hả; ủa
+hey|interj|này; ê; chào
+hi|interj|chào
+hello|interj|xin chào; alô
+wow|interj|chà; ồ; trời
+whoa|interj|ối; khoan đã; chà
+ouch|interj|ui da; á (đau)
+oops|interj|ối; úi (lỡ tay)
+ugh|interj|ực; ghê; chán quá
+hmm|interj|ừm; hừm
+um|interj|ừm; ờ (ngập ngừng)
+uh|interj|ờ; ừm
+please|interj|làm ơn; xin hãy
+thanks|interj|cảm ơn|informal
+damn|interj|chết tiệt; khỉ thật|vulgar
+dammit|interj|chết tiệt|vulgar
+geez|interj|trời ạ; trời đất|informal
+jeez|interj|trời ạ|informal
+gosh|interj|trời ơi|informal
+shh|interj|suỵt
+ha|interj|ha!; hà
+haha|interj|haha (tiếng cười)
+okay|interj|được rồi; ok
+ok|interj|được rồi; ok|informal
+alright|interj|được rồi; ổn|informal
+bye|interj|tạm biệt
+sorry|interj|xin lỗi
+congratulations|interj|chúc mừng
+# ---------- slang & informal single words ----------
+gonna|v|sẽ; định (= going to)|informal,contraction
+wanna|v|muốn (= want to)|informal,contraction
+gotta|v|phải (= have got to)|informal,contraction
+kinda|adv|hơi; kiểu như (= kind of)|informal,contraction
+sorta|adv|hơi hơi (= sort of)|informal,contraction
+dunno|v|không biết (= don't know)|informal,contraction
+lemme|v|để tôi (= let me)|informal,contraction
+gimme|v|đưa tôi (= give me)|informal,contraction
+ain't|aux|không phải; không có (= am/is/are not, have not)|informal,contraction
+y'all|pron|các bạn; mọi người (= you all)|informal,contraction
+ya|pron|bạn; mày (= you)|informal
+freaking|adv|cực kỳ; chết tiệt (nhấn mạnh, nhẹ hơn từ tục)|slang
+frickin|adv|cực kỳ; chết tiệt (nhấn mạnh)|slang
+badass|adj|cực ngầu; dữ dằn|slang,vulgar
+sus|adj|đáng ngờ; khả nghi (= suspicious)|slang
+cringe|adj|ngại thay; sượng trân|slang
+lit|adj|cực đã; sôi động|slang
+legit|adj|thật; xịn; chính hiệu (= legitimate)|slang
+chill|adj|thoải mái; bình tĩnh|slang
+chill|v|thư giãn; bình tĩnh|slang
+noob|n|gà mờ; người mới|slang
+nerd|n|mọt sách; người cuồng (một lĩnh vực)|informal
+geek|n|dân mê công nghệ; mọt|informal
+otaku|n|người cuồng anime/manga|slang
+weeb|n|người cuồng văn hóa Nhật (hàm ý chê)|slang
+creep|n|kẻ đáng sợ; kẻ biến thái|informal
+punk|n|thằng ranh; kẻ côn đồ|slang
+boss|n|ông chủ; trùm; boss (trong game)
+cops|n|cảnh sát (cớm)|slang
+bucks|n|đô la|slang
+pal|n|bạn; anh bạn|informal
+mate|n|bạn (Anh/Úc)|informal
+folks|n|mọi người; bà con|informal
+lol|interj|cười lớn (laugh out loud)|slang,abbr
+omg|interj|trời ơi (oh my god)|slang,abbr
+btw|adv|nhân tiện (by the way)|abbr
+asap|adv|càng sớm càng tốt (as soon as possible)|abbr
+ok|adj|ổn|informal
+# ---------- manga / fantasy vocabulary ----------
+chakra|n|chakra (luồng năng lượng trong cơ thể)
+jutsu|n|nhẫn thuật; thuật
+guild|n|hội (bang hội)
+dungeon|n|ngục tối; hầm ngục
+level|n|cấp độ
+quest|n|nhiệm vụ (phiêu lưu)
+hunter|n|thợ săn
+beast|n|quái thú
+dragon|n|rồng
+spirit|n|linh hồn; tinh thần
+seal|n|phong ấn; con dấu
+seal|v|phong ấn; niêm phong
+summon|v|triệu hồi
+transform|v|biến hình; biến đổi
+awaken|v|thức tỉnh
+unleash|v|giải phóng; tung ra
+rival|n|đối thủ; kình địch
+comrade|n|đồng đội; đồng chí
+nakama|n|đồng đội; bạn bè thân thiết (từ tiếng Nhật)
+senpai|n|đàn anh/đàn chị (tiếng Nhật)
+sensei|n|thầy; sư phụ (tiếng Nhật)
+clan|n|gia tộc
+throne|n|ngai vàng
+empire|n|đế chế
+kingdom|n|vương quốc
+treasure|n|kho báu
+crew|n|thủy thủ đoàn; nhóm
+bounty|n|tiền truy nã; tiền thưởng
+arc|n|phần truyện (story arc)
+# ---------- contractions ----------
+don't|aux|không (= do not)|contraction
+doesn't|aux|không (= does not)|contraction
+didn't|aux|đã không; không (= did not)|contraction
+can't|modal|không thể (= cannot)|contraction
+couldn't|modal|không thể (= could not)|contraction
+won't|modal|sẽ không (= will not)|contraction
+wouldn't|modal|sẽ không (= would not)|contraction
+shouldn't|modal|không nên (= should not)|contraction
+mustn't|modal|không được (= must not)|contraction
+isn't|aux|không phải; không (= is not)|contraction
+aren't|aux|không phải; không (= are not)|contraction
+wasn't|aux|đã không phải; không (= was not)|contraction
+weren't|aux|đã không phải; không (= were not)|contraction
+haven't|aux|chưa (= have not)|contraction
+hasn't|aux|chưa (= has not)|contraction
+hadn't|aux|đã chưa (= had not)|contraction
+i'm|pron|tôi (= I am)|contraction
+you're|pron|bạn (= you are)|contraction
+he's|pron|anh ấy (= he is / he has)|contraction
+she's|pron|cô ấy (= she is / she has)|contraction
+it's|pron|nó; đó (= it is / it has)|contraction
+that's|pron|đó là; thế là (= that is)|contraction
+there's|pron|có (= there is)|contraction
+here's|pron|đây là (= here is)|contraction
+what's|pron|cái gì (= what is / what has)|contraction
+who's|pron|ai (= who is / who has)|contraction
+we're|pron|chúng ta (= we are)|contraction
+they're|pron|họ (= they are)|contraction
+let's|v|hãy cùng; chúng ta hãy (= let us)|contraction
+i'll|pron|tôi sẽ (= I will)|contraction
+you'll|pron|bạn sẽ (= you will)|contraction
+we'll|pron|chúng ta sẽ (= we will)|contraction
+they'll|pron|họ sẽ (= they will)|contraction
+he'll|pron|anh ấy sẽ (= he will)|contraction
+it'll|pron|nó sẽ (= it will)|contraction
+i've|pron|tôi đã (= I have)|contraction
+you've|pron|bạn đã (= you have)|contraction
+we've|pron|chúng ta đã (= we have)|contraction
+they've|pron|họ đã (= they have)|contraction
+i'd|pron|tôi sẽ / tôi đã (= I would / I had)|contraction
+you'd|pron|bạn sẽ / bạn đã (= you would / you had)|contraction
+# ---------- numbers ----------
+one|num|một
+two|num|hai
+three|num|ba
+four|num|bốn
+five|num|năm
+six|num|sáu
+seven|num|bảy
+eight|num|tám
+nine|num|chín
+ten|num|mười
+hundred|num|trăm
+thousand|num|nghìn
+million|num|triệu
+first|num|thứ nhất; đầu tiên
+second|num|thứ hai
+third|num|thứ ba

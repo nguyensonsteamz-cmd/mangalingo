@@ -1,0 +1,10 @@
+<resources>
+    <style name="Theme.MangaLingo" parent="@android:style/Theme.DeviceDefault.NoActionBar">
+        <item name="android:windowBackground">@color/bg</item>
+        <item name="android:statusBarColor">@color/bg</item>
+        <item name="android:navigationBarColor">@color/bg</item>
+    </style>
+    <color name="bg">#FF101218</color>
+    <color name="accent">#FF7C9CFF</color>
+    <color name="launcher_bg">#FF1B2030</color>
+</resources>

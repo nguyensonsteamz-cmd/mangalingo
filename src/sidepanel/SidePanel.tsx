@@ -1,0 +1,419 @@
+/** Reading sidebar (Chrome Side Panel): Translation · Vocabulary · Grammar · Context · Saved. */
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { send, type PageEvent, type SidebarPayload } from '@/shared/messages';
+import type { LookupResult, OcrResult, SentenceAnalysis, VocabHint } from '@/shared/types';
+import type { Settings, SidebarTab } from '@/shared/settings';
+import { useSettings } from '@/ui/hooks';
+import { MachineTranslation } from '@/ui/MachineTranslation';
+import { Badge, Button, Empty, IconButton, Notice, SectionTitle, Spinner, cx } from '@/ui/components';
+import { IconBookmark, IconCompact, IconEdit, IconEraser, IconExpand, IconGear, IconInfo, IconLayers, IconLogo, IconPanel, IconScan, IconSearch, IconVolume } from '@/ui/icons';
+import {
+  ChunksView, GlossBlock, GrammarView, NotesView, PosBadge, SourceLine, VocabHints, WordContextView, WordExamples, WordGrammar, WordMeaning,
+  primaryMeaning,
+} from '@/ui/views';
+import { VocabManager, useVocab, vocabStore } from '@/ui/VocabManager';
+import { canSpeak, speak } from '@/ui/speech';
+
+const SIDEBAR_KEY = 'sidebar:current';
+
+type Entry = { text: string; context?: string; result?: LookupResult; error?: string; loading: boolean; source?: { url?: string; title?: string } };
+
+/** Chrome's on-device Translator API (absent e.g. in the Android app's WebView). */
+const hasTranslator = typeof (globalThis as { Translator?: unknown }).Translator !== 'undefined';
+
+export function SidePanel() {
+  const { settings: s, loaded } = useSettings('sidebar');
+  const [tab, setTab] = useState<SidebarTab>('translation');
+  const [compact, setCompact] = useState(false);
+  const [entry, setEntry] = useState<Entry | null>(null);
+  const [ocr, setOcr] = useState<OcrState | null>(null);
+  const [input, setInput] = useState('');
+
+  useEffect(() => {
+    if (!loaded) return;
+    setTab(s.sidebar.defaultTab);
+    setCompact(s.sidebar.defaultState === 'compact');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loaded]);
+
+  const runLookup = useCallback(async (text: string, context?: string, source?: Entry['source'], preset?: LookupResult) => {
+    if (!text.trim()) return;
+    setEntry({ text, context, loading: !preset, result: preset, source });
+    if (preset) return;
+    try {
+      const result = await send({ type: 'lookup', req: { text, context } });
+      setEntry((e) => (e && e.text === text ? { ...e, result, loading: false } : e));
+    } catch (e) {
+      setEntry((cur) => (cur && cur.text === text ? { ...cur, error: (e as Error).message, loading: false } : cur));
+    }
+  }, []);
+
+  const apply = useCallback(
+    (p: SidebarPayload | null) => {
+      if (!p) return;
+      if (p.type === 'ocr') {
+        setOcr({ result: p.result, pending: p.pending, error: p.error, source: p.source });
+        setEntry(null);
+        setTab('translation');
+      } else void runLookup(p.text, p.context, p.source, p.result);
+    },
+    [runLookup],
+  );
+
+  useEffect(() => {
+    // Register with the background (lets the toggle shortcut close the panel) and load current content.
+    void chrome.windows.getCurrent().then((w) => {
+      if (w.id !== undefined) chrome.runtime.connect({ name: `sidepanel:${w.id}` });
+    });
+    void chrome.storage.session.get(SIDEBAR_KEY).then((r) => apply((r[SIDEBAR_KEY] as SidebarPayload) ?? null));
+    const onMsg = (m: PageEvent) => {
+      if (m?.type === 'sidebar:update') apply(m.payload);
+      if (m?.type === 'sidebar:close') window.close();
+    };
+    chrome.runtime.onMessage.addListener(onMsg);
+    return () => chrome.runtime.onMessage.removeListener(onMsg);
+  }, [apply]);
+
+  const clear = () => {
+    setEntry(null);
+    setOcr(null);
+    void chrome.storage.session.remove(SIDEBAR_KEY);
+  };
+
+  const width = s.sidebar.width === 'narrow' ? 'max-w-[400px]' : s.sidebar.width === 'comfortable' ? 'max-w-[540px]' : 'max-w-none';
+
+  if (!s.sidebar.enabled) {
+    return (
+      <div className="p-4">
+        <Notice tone="warn" title="Sidebar đang tắt">
+          Bật lại trong Cài đặt → Sidebar.
+        </Notice>
+        <Button className="mt-2" size="sm" onClick={() => chrome.runtime.openOptionsPage()}>
+          Mở Cài đặt
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className={cx('mx-auto flex min-h-screen flex-col', width)}>
+      <header className="sticky top-0 z-10 border-b border-border bg-bg/95 backdrop-blur" data-ml-sidebar-header="">
+        <div className="h-1 bg-gradient-to-r from-accent via-[rgb(var(--ml-box))] to-ok" />
+        <div className="flex items-center gap-2.5 px-3 pb-2.5 pt-3">
+          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-accent/15 ring-1 ring-accent/30">
+            <IconLogo size={22} />
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="text-[15px] font-bold leading-tight tracking-tight text-text">MangaLingo</div>
+            <div className="mt-0.5 flex items-center gap-1.5 text-[11.5px] leading-tight text-muted">
+              <span className={cx('h-1.5 w-1.5 rounded-full', s.reading.translationMode === 'machine' && hasTranslator ? 'bg-ok' : 'bg-accent')} />
+              {s.reading.translationMode === 'machine' && hasTranslator ? 'Dịch máy · chạy trên máy' : 'Từ điển · chạy trên máy'}
+            </div>
+          </div>
+          <IconButton label={compact ? 'Chế độ đầy đủ' : 'Chế độ thu gọn'} onClick={() => setCompact((v) => !v)} active={compact}>
+            {compact ? <IconExpand /> : <IconCompact />}
+          </IconButton>
+          <IconButton label="Xóa nội dung" onClick={clear}>
+            <IconEraser />
+          </IconButton>
+          <IconButton label="Cài đặt" onClick={() => chrome.runtime.openOptionsPage()}>
+            <IconGear />
+          </IconButton>
+        </div>
+        <form
+          className="px-3 pb-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            setOcr(null);
+            void runLookup(input);
+          }}
+        >
+          <div className="relative">
+            <IconSearch size={16} className="pointer-events-none absolute left-3 top-[11px] text-accent" />
+            <textarea
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  setOcr(null);
+                  void runLookup(input);
+                }
+              }}
+              rows={input.length > 60 ? 3 : 1}
+              placeholder="Nhập từ, câu tiếng Anh… (Enter)"
+              className="ml-focus w-full resize-none rounded-xl border border-border bg-surface py-2.5 pl-9 pr-3 text-[13.5px] text-text shadow-sm placeholder:text-subtle hover:border-accent/50 focus:border-accent"
+            />
+          </div>
+        </form>
+        <SidebarTabs value={tab} onChange={setTab} />
+      </header>
+      <main className="ml-scroll flex-1 px-3 py-3">
+        {tab === 'saved' ? (
+          <VocabManager compact={compact} />
+        ) : ocr && !entry ? (
+          <OcrPanel ocr={ocr} tab={tab} s={s} onAnalyze={(t) => void runLookup(t, undefined, ocr.source)} />
+        ) : entry ? (
+          <EntryView s={s} entry={entry} tab={tab} compact={compact} onLookup={(t, c) => void runLookup(t, c, entry.source)} onBackToOcr={ocr ? () => setEntry(null) : undefined} />
+        ) : (
+          <Empty title="Chưa có nội dung" icon={<IconLogo size={30} />}>
+            Click hoặc bôi đen văn bản trên trang rồi bấm “Mở Sidebar” trong popup, hoặc nhập văn bản vào ô phía trên. Với manga, rê chuột lên ảnh và bấm “Quét OCR”.
+          </Empty>
+        )}
+      </main>
+    </div>
+  );
+}
+
+const TAB_ITEMS: { id: SidebarTab; label: string; icon: ReactNode }[] = [
+  { id: 'translation', label: 'Dịch', icon: <IconPanel size={16} /> },
+  { id: 'vocabulary', label: 'Từ vựng', icon: <IconLayers size={16} /> },
+  { id: 'grammar', label: 'Ngữ pháp', icon: <IconEdit size={16} /> },
+  { id: 'context', label: 'Ngữ cảnh', icon: <IconInfo size={16} /> },
+  { id: 'saved', label: 'Đã lưu', icon: <IconBookmark size={16} /> },
+];
+
+/** Pill tabs: the active tab is a filled accent pill, easy to spot at a glance. */
+function SidebarTabs({ value, onChange }: { value: SidebarTab; onChange: (v: SidebarTab) => void }) {
+  return (
+    <div className="px-3 pb-2.5">
+      <div role="tablist" className="grid grid-cols-5 gap-1 rounded-xl bg-elevated/70 p-1 ring-1 ring-border">
+        {TAB_ITEMS.map((t) => (
+          <button
+            key={t.id}
+            role="tab"
+            type="button"
+            aria-selected={value === t.id}
+            onClick={() => onChange(t.id)}
+            className={cx(
+              'ml-focus flex min-w-0 flex-col items-center justify-center gap-0.5 rounded-lg px-1 py-1.5 text-[11.5px] font-semibold leading-tight transition-colors',
+              value === t.id ? 'bg-accent text-accent-fg shadow-sm' : 'text-muted hover:bg-surface hover:text-text',
+            )}
+          >
+            {t.icon}
+            <span className="max-w-full truncate">{t.label}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function useSavedLemmas() {
+  const { list } = useVocab();
+  return useMemo(() => new Set(list.map((e) => e.lemma)), [list]);
+}
+
+function saveHint(v: VocabHint, sentence?: string, source?: Entry['source']) {
+  void vocabStore.add({ word: v.word, lemma: v.lemma, meaning: v.vi ?? v.en ?? '', pos: v.pos, sentence, sourceUrl: source?.url, sourceTitle: source?.title });
+}
+
+function EntryView({ s, entry, tab, compact, onLookup, onBackToOcr }: { s: Settings; entry: Entry; tab: SidebarTab; compact: boolean; onLookup: (t: string, c?: string) => void; onBackToOcr?: () => void }) {
+  const saved = useSavedLemmas();
+  const r = entry.result;
+  const back = onBackToOcr && (
+    <button type="button" className="mb-2 text-[12px] text-accent hover:underline" onClick={onBackToOcr}>
+      ← Quay lại kết quả OCR
+    </button>
+  );
+  if (entry.loading || (!r && !entry.error)) {
+    return (
+      <div className="flex items-center gap-2 text-[13px] text-muted">
+        <Spinner /> Đang phân tích…
+      </div>
+    );
+  }
+  if (entry.error || !r) return <Notice tone="error" title="Không tra cứu được">{entry.error}</Notice>;
+
+  const Original = () => (
+    <div className="ml-card mb-3 rounded-xl border border-border border-l-[4px] border-l-subtle bg-surface p-3 hover:shadow-[0_8px_20px_-12px_rgb(0_0_0/0.4)]">
+      <div className="mb-1 flex items-center gap-1.5">
+        <span className="text-[11px] font-bold uppercase tracking-wider text-muted">Văn bản gốc</span>
+        <Badge tone="accent">{r.kind === 'word' ? 'Từ' : r.kind === 'phrase' ? 'Cụm từ' : r.kind === 'sentence' ? 'Câu' : r.kind === 'paragraph' ? 'Đoạn văn' : 'Khác'}</Badge>
+        {canSpeak() && (
+          <IconButton label="Đọc" className="ml-auto h-6 w-6" onClick={() => speak(entry.text)}>
+            <IconVolume size={14} />
+          </IconButton>
+        )}
+      </div>
+      <div className="ml-tr whitespace-pre-wrap text-[1.05em] font-medium text-text">{entry.text}</div>
+      {entry.source?.title && !compact && <div className="mt-1 truncate text-[11px] text-subtle">{entry.source.title}</div>}
+    </div>
+  );
+
+  if (r.kind === 'unsupported') {
+    return (
+      <>
+        {back}
+        <Original />
+        <Notice tone="warn" title={`Ngôn ngữ phát hiện: ${r.language.name}`}>
+          Dữ liệu từ điển hiện chỉ hỗ trợ tiếng Anh, nên MangaLingo không hiển thị bản dịch.
+        </Notice>
+      </>
+    );
+  }
+
+  if (r.kind === 'word') {
+    return (
+      <>
+        {back}
+        <div className="mb-3 flex items-start gap-2">
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-baseline gap-2">
+              <h2 className="text-[20px] font-semibold tracking-tight text-text">{r.found ? r.lemma : r.query}</h2>
+              {s.dictionary.showIpa && r.ipa && <span className="ml-ipa text-[13px] text-muted">{r.ipa}</span>}
+            </div>
+            <div className="mt-1 flex flex-wrap gap-1">{r.posList.map((p) => <PosBadge key={p} pos={p} />)}</div>
+          </div>
+          {canSpeak() && s.dictionary.showPronunciation && (
+            <IconButton label="Phát âm" onClick={() => speak(r.query)}>
+              <IconVolume />
+            </IconButton>
+          )}
+          {r.found && (
+            <Button size="sm" disabled={saved.has(r.lemma)} onClick={() => void vocabStore.add({ word: r.query, lemma: r.lemma, ipa: r.ipa, meaning: primaryMeaning(r), pos: r.context?.likelyPos ?? r.posList[0], sentence: r.context?.sentence, sourceUrl: entry.source?.url, sourceTitle: entry.source?.title })}>
+              {saved.has(r.lemma) ? 'Đã lưu' : 'Lưu từ'}
+            </Button>
+          )}
+        </div>
+        {!r.found ? (
+          <Notice tone="warn" title={`Không tìm thấy “${r.query}”`}>
+            {r.suggestions.length ? <>Gợi ý: {r.suggestions.map((w) => <button key={w} type="button" className="ml-word text-accent" onClick={() => onLookup(w)}>{w}</button>)}</> : 'Không có trong dữ liệu hiện có.'}
+          </Notice>
+        ) : (
+          <>
+            {tab === 'translation' && <WordMeaning r={r} s={s} max={compact ? 4 : 20} />}
+            {tab === 'vocabulary' && <WordExamples r={r} s={s} onLookup={(t) => onLookup(t)} />}
+            {tab === 'grammar' && <WordGrammar r={r} />}
+            {tab === 'context' && <WordContextView r={r} />}
+            {!compact && <SourceLine sources={r.sources} />}
+          </>
+        )}
+      </>
+    );
+  }
+
+  if (r.kind === 'phrase') {
+    const vi = r.senses.filter((x) => x.vi?.length);
+    return (
+      <>
+        {back}
+        <Original />
+        {tab === 'translation' && (
+          <div className="space-y-2">
+            <h2 className="text-[17px] font-semibold text-text">{r.phrase}</h2>
+            <MachineTranslation text={r.query} s={s} />
+            {vi.length ? <ul className="ml-tr space-y-0.5">{vi.map((x, i) => <li key={i}>• {x.vi!.join('; ')}</li>)}</ul> : <Notice tone="warn">Chưa có nghĩa tiếng Việt cho cụm này.</Notice>}
+            {r.senses.filter((x) => x.en).slice(0, 6).map((x, i) => <div key={i} className="text-[13px] text-muted">{i + 1}. {x.en}</div>)}
+          </div>
+        )}
+        {tab === 'vocabulary' && <ChunksView chunks={r.chunks} onLookup={(t) => onLookup(t, entry.text)} />}
+        {tab === 'grammar' && <Notice>Cụm từ cố định – xem từng thành phần ở tab Từ vựng.</Notice>}
+        {tab === 'context' && (
+          <div className="space-y-2">
+            {r.explanation && <Notice title="Cách dùng">{r.explanation}</Notice>}
+            <NotesView notes={r.notes} empty={!r.explanation ? <Notice>Không có ghi chú ngữ cảnh.</Notice> : undefined} />
+          </div>
+        )}
+        {!compact && <SourceLine sources={r.sources} />}
+      </>
+    );
+  }
+
+  const sentences: SentenceAnalysis[] = r.kind === 'sentence' ? [r] : r.sentences;
+  return (
+    <>
+      {back}
+      <Original />
+      {tab === 'translation' && (
+        <div className="space-y-3">
+          <MachineTranslation text={r.text} s={s} />
+          {r.kind === 'paragraph' && <div className="text-[11.5px] text-subtle">{sentences.length} câu · {Math.round(r.coverage * 100)}% từ/cụm có nghĩa tiếng Việt</div>}
+          {sentences.map((x, i) => (
+            <div key={i} className="space-y-1.5">
+              {r.kind === 'paragraph' && <div className="text-[13px] font-medium text-text">{i + 1}. {x.text}</div>}
+              <GlossBlock gloss={x.gloss} coverage={x.coverage} />
+              {!compact && <ChunksView chunks={x.chunks} onLookup={(t) => onLookup(t, x.text)} />}
+            </div>
+          ))}
+        </div>
+      )}
+      {tab === 'vocabulary' && <VocabHints items={r.vocabulary} onLookup={(t) => onLookup(t, entry.text)} onSave={(v) => saveHint(v, entry.text, entry.source)} saved={saved} />}
+      {tab === 'grammar' && (
+        <div className="space-y-4">
+          {sentences.map((x, i) => (
+            <div key={i}>
+              {sentences.length > 1 && <SectionTitle>{`Câu ${i + 1}: ${x.text.slice(0, 60)}${x.text.length > 60 ? '…' : ''}`}</SectionTitle>}
+              <GrammarView g={x.grammar} compact={compact} />
+            </div>
+          ))}
+        </div>
+      )}
+      {tab === 'context' && <NotesView notes={r.notes} empty={<Notice>Không phát hiện slang, thành ngữ hay sắc thái đặc biệt.</Notice>} />}
+      {!compact && <SourceLine sources={r.sources} />}
+    </>
+  );
+}
+
+type OcrState = { result?: OcrResult; pending?: boolean; error?: string; source?: { url?: string; title?: string } };
+
+/** Full-page OCR in the sidebar: one numbered card per speech bubble (same numbers as on the page). */
+function OcrPanel({ ocr, tab, onAnalyze, s }: { ocr: OcrState; tab: SidebarTab; onAnalyze: (text: string) => void; s: Settings }) {
+  const r = ocr.result;
+  if (ocr.pending && !r) {
+    return (
+      <div className="flex flex-col items-center gap-2 py-10 text-[13px] text-muted" data-ml-sidebar-ocr="pending">
+        <Spinner />
+        Đang quét chữ trên trang…
+      </div>
+    );
+  }
+  if (!r) return <Notice tone="warn" title="Không quét được">{ocr.error ?? 'Không có kết quả OCR.'}</Notice>;
+  if (tab !== 'translation') {
+    return <Notice>Bấm “Phân tích” ở một bong bóng trong tab “Dịch” để xem từ vựng, ngữ pháp và ngữ cảnh.</Notice>;
+  }
+  return (
+    <div className="space-y-2.5" data-ml-sidebar-ocr="done">
+      <div className="flex items-center gap-1.5">
+        <IconScan size={16} className="text-accent" />
+        <span className="text-[13px] font-semibold text-text">Chữ trên trang</span>
+        <Badge>{r.blocks.length} bong bóng</Badge>
+        {r.partial && <Badge tone="warn">phần đang hiển thị</Badge>}
+      </div>
+      {r.blocks.length === 0 ? (
+        <Empty title="Không nhận diện được chữ nào" />
+      ) : (
+        <ol className="space-y-2">
+          {r.blocks.map((b, i) => (
+            <li
+              key={b.id}
+              className="ml-card rounded-xl border border-border border-l-[4px] border-l-[rgb(var(--ml-box))] bg-surface p-2.5 hover:border-[rgb(var(--ml-box)/0.6)] hover:shadow-[0_8px_18px_-10px_rgb(var(--ml-box)/0.7)]"
+              data-ml-sidebar-bubble=""
+            >
+              <div className="flex items-start gap-2">
+                <span className="mt-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-[rgb(var(--ml-box))] px-1 text-[11px] font-bold text-white">{i + 1}</span>
+                <div className="ml-tr min-w-0 flex-1 text-text">{b.text}</div>
+                {canSpeak() && (
+                  <IconButton label="Phát âm" onClick={() => speak(b.text)}>
+                    <IconVolume size={15} />
+                  </IconButton>
+                )}
+              </div>
+              <MachineTranslation text={b.text} s={s} className="mt-2" />
+              <div className="mt-2 flex justify-end">
+                <Button size="sm" onClick={() => onAnalyze(b.text)}>
+                  Phân tích
+                </Button>
+              </div>
+            </li>
+          ))}
+        </ol>
+      )}
+      {r.blocks.length > 1 && (
+        <Button size="sm" onClick={() => onAnalyze(r.blocks.map((b) => b.text).join('\n\n'))}>
+          Phân tích tất cả
+        </Button>
+      )}
+    </div>
+  );
+}

@@ -1,0 +1,255 @@
+# MangaLingo Starter EN–VI – phrases (hand-curated, CC0). Format: phrase|type|nghĩa|giải thích|ví dụ
+# ---------- phrasal verbs ----------
+give up|phrasal|bỏ cuộc; từ bỏ|Ngừng cố gắng làm việc gì vì thấy quá khó.|I'll never give up!
+give in|phrasal|chịu thua; nhượng bộ|Đầu hàng trước áp lực hoặc yêu cầu của người khác.|
+give back|phrasal|trả lại||Give it back!
+get up|phrasal|thức dậy; đứng dậy||Get up! We're late.
+get out|phrasal|ra ngoài; cút ra|Câu mệnh lệnh "Get out!" mang sắc thái gay gắt: Cút ra!|Get out of my room!
+get away|phrasal|trốn thoát; đi khỏi||He got away again.
+get back|phrasal|quay lại; lấy lại||I'll get back my sword.
+get over|phrasal|vượt qua (nỗi buồn, bệnh)||You'll get over it.
+get along|phrasal|hòa hợp; hợp nhau||They don't get along.
+get rid of|phrasal|loại bỏ; tống khứ||We have to get rid of him.
+get in|phrasal|vào; lên xe||Get in the car!
+look for|phrasal|tìm kiếm||I'm looking for my brother.
+look after|phrasal|chăm sóc; trông nom||Look after her for me.
+look out|phrasal|coi chừng; cẩn thận|Thường là lời cảnh báo gấp: Coi chừng!|Look out!
+look up to|phrasal|kính trọng; ngưỡng mộ||I've always looked up to you.
+look down on|phrasal|coi thường||Don't look down on me!
+come on|phrasal|thôi nào; nhanh lên; đi mà|Tùy ngữ điệu: thúc giục, khích lệ hoặc tỏ ý không tin.|Come on, hurry up!
+come back|phrasal|quay lại; trở về||I'll come back for you.
+come out|phrasal|đi ra; lộ ra; ra mắt||Come out, I know you're there!
+come up with|phrasal|nghĩ ra (ý tưởng, kế hoạch)||I came up with a plan.
+come across|phrasal|tình cờ gặp/thấy||
+find out|phrasal|phát hiện ra; tìm ra||I'll find out the truth.
+figure out|phrasal|hiểu ra; nghĩ ra cách||I can't figure it out.
+make up|phrasal|bịa ra; làm lành; trang điểm||Stop making things up!
+make up one's mind|idiom|quyết định|Đi đến quyết định sau khi cân nhắc.|Make up your mind!
+pick up|phrasal|nhặt lên; đón (ai); học lỏm||Pick it up.
+put on|phrasal|mặc vào; đeo vào||
+put up with|phrasal|chịu đựng||I can't put up with this anymore.
+run away|phrasal|bỏ chạy; bỏ trốn||Don't run away!
+run out of|phrasal|hết; cạn||We're running out of time.
+run into|phrasal|tình cờ gặp; đâm vào||
+set up|phrasal|sắp đặt; gài bẫy; thiết lập||It was a set up!
+show up|phrasal|xuất hiện; có mặt||He didn't show up.
+show off|phrasal|khoe khoang; thể hiện||Stop showing off.
+shut up|phrasal|im đi; im miệng|Câu ra lệnh khá thô lỗ; giữa bạn bè có thể mang nghĩa "thôi đi, đừng đùa".|Shut up!
+calm down|phrasal|bình tĩnh lại||Calm down, it's okay.
+hang on|phrasal|chờ chút; bám chặt||Hang on a second.
+hang out|phrasal|đi chơi; tụ tập||Wanna hang out?
+hold on|phrasal|khoan đã; chờ chút; bám chặt||Hold on! Something's wrong.
+hold back|phrasal|kìm lại; nương tay||Don't hold back!
+take off|phrasal|cởi ra; cất cánh; rời đi||
+take over|phrasal|tiếp quản; chiếm quyền kiểm soát||
+take care of|phrasal|chăm sóc; xử lý|Trong truyện hành động, "take care of him" có thể ngụ ý "xử lý / thủ tiêu hắn".|I'll take care of it.
+turn on|phrasal|bật; phản bội (turn on someone)||
+turn off|phrasal|tắt||
+turn around|phrasal|quay lại; xoay chuyển||
+turn into|phrasal|biến thành||He turned into a monster.
+break up|phrasal|chia tay; giải tán||
+break down|phrasal|hỏng; suy sụp||
+break out|phrasal|bùng nổ; vượt ngục||
+blow up|phrasal|nổ tung; nổi giận||
+beat up|phrasal|đánh cho một trận||
+back off|phrasal|lùi lại; đừng xen vào||Back off!
+back up|phrasal|hỗ trợ; lùi lại; sao lưu||
+bring up|phrasal|nhắc đến; nuôi nấng||
+carry on|phrasal|tiếp tục||
+check out|phrasal|xem thử; kiểm tra||Check this out!
+cheer up|phrasal|vui lên||Cheer up!
+count on|phrasal|trông cậy vào||You can count on me.
+cut it out|expression|thôi đi; dừng lại ngay|Yêu cầu ai đó ngừng hành động gây khó chịu.|Cut it out!
+deal with|phrasal|giải quyết; đối phó với||I'll deal with him.
+end up|phrasal|rốt cuộc; cuối cùng thì||
+fall apart|phrasal|tan rã; suy sụp||
+fall for|phrasal|phải lòng; mắc lừa||
+go on|phrasal|tiếp tục; xảy ra|"What's going on?" = Chuyện gì đang xảy ra vậy?|Go on.
+go away|phrasal|đi đi; biến đi||Go away!
+go back|phrasal|quay lại||
+go ahead|phrasal|cứ làm đi; tiến lên||Go ahead.
+grow up|phrasal|lớn lên; trưởng thành đi||Grow up!
+hurry up|phrasal|nhanh lên||Hurry up!
+keep up|phrasal|theo kịp; duy trì||
+keep away|phrasal|tránh xa||Keep away from her!
+knock out|phrasal|hạ gục; đánh ngất||
+let go|phrasal|buông ra; thả ra||Let go of me!
+let down|phrasal|làm thất vọng||I won't let you down.
+mess up|phrasal|làm hỏng; làm rối||I messed up.
+mess with|phrasal|gây sự với; đùa giỡn với||Don't mess with me.
+move on|phrasal|bước tiếp; quên đi chuyện cũ||
+pass out|phrasal|ngất xỉu||
+pay back|phrasal|trả nợ; trả đũa||I'll pay you back for this!
+point out|phrasal|chỉ ra||
+screw up|phrasal|làm hỏng bét|Khẩu ngữ, hơi thô.|I screwed up.
+sit down|phrasal|ngồi xuống||
+stand up|phrasal|đứng lên||
+stand up for|phrasal|bênh vực; đứng lên bảo vệ||
+step back|phrasal|lùi lại||
+throw away|phrasal|vứt đi||
+wake up|phrasal|thức dậy; tỉnh lại||Wake up!
+watch out|phrasal|coi chừng; cẩn thận||Watch out!
+work out|phrasal|tập thể dục; giải quyết được; thành công||It'll work out.
+wipe out|phrasal|xóa sổ; tiêu diệt hoàn toàn||
+show around|phrasal|dẫn đi tham quan||
+look forward to|phrasal|mong chờ||
+# ---------- idioms ----------
+break the ice|idiom|phá vỡ bầu không khí ngại ngùng|Làm hoặc nói gì đó để mọi người bớt căng thẳng khi mới gặp.|
+piece of cake|idiom|dễ như ăn bánh|Việc gì đó rất dễ.|That was a piece of cake.
+no way|expression|không đời nào; không thể nào!|Thể hiện sự từ chối dứt khoát hoặc ngạc nhiên tột độ.|No way!
+kick the bucket|idiom|chết; ngỏm|Cách nói đùa, không trang trọng về cái chết.|
+hit the road|idiom|lên đường; đi thôi||Let's hit the road.
+call it a day|idiom|nghỉ thôi; hôm nay thế là đủ||
+cost an arm and a leg|idiom|đắt cắt cổ||
+once in a blue moon|idiom|hiếm khi; năm thì mười họa||
+under the weather|idiom|thấy hơi mệt; không khỏe||
+beat around the bush|idiom|nói vòng vo|Tránh nói thẳng vào vấn đề chính.|Stop beating around the bush.
+bite the dust|idiom|chết; thất bại; gục ngã||
+the last straw|idiom|giọt nước tràn ly||
+in the nick of time|idiom|vừa kịp lúc||
+over my dead body|idiom|bước qua xác tôi trước đã|Phản đối quyết liệt, không đời nào cho phép.|
+easier said than done|idiom|nói thì dễ, làm mới khó||
+speak of the devil|idiom|vừa nhắc Tào Tháo, Tào Tháo đến|Nói khi người vừa được nhắc tới xuất hiện.|
+let the cat out of the bag|idiom|lỡ tiết lộ bí mật||
+keep an eye on|idiom|để mắt đến; trông chừng||Keep an eye on him.
+lose one's temper|idiom|nổi nóng; mất bình tĩnh||
+lose one's mind|idiom|phát điên; mất trí||Have you lost your mind?
+out of one's mind|idiom|điên rồ; mất trí||Are you out of your mind?
+on one's own|idiom|một mình; tự lực||
+take it easy|idiom|bình tĩnh; thư giãn đi||Take it easy.
+the end of the world|idiom|tận thế; chuyện to tát (thường dùng phủ định)|"It's not the end of the world" = Có phải tận thế đâu.|
+time is running out|expression|sắp hết thời gian||
+no matter what|expression|dù có chuyện gì đi nữa||I'll protect you no matter what.
+at all costs|idiom|bằng mọi giá||
+in the end|expression|cuối cùng; rốt cuộc||
+all of a sudden|expression|đột nhiên||
+by the way|expression|nhân tiện||
+as a matter of fact|expression|thực ra là||
+after all|expression|rốt cuộc; dù sao thì||
+at least|expression|ít nhất||
+at last|expression|cuối cùng (sau thời gian chờ đợi)||
+for real|expression|thật đấy; nghiêm túc đấy|Khẩu ngữ, dùng để xác nhận hoặc hỏi lại sự thật.|For real?
+for good|expression|mãi mãi; vĩnh viễn||
+no big deal|expression|không có gì to tát||
+big deal|expression|chuyện lớn; (mỉa mai) thì sao chứ|Nói "Big deal!" thường mang ý mỉa mai: có gì ghê gớm đâu.|
+mind your own business|idiom|lo chuyện của mình đi; đừng xen vào||Mind your own business!
+none of your business|idiom|không phải việc của bạn||
+it's up to you|expression|tùy bạn||
+up to you|expression|tùy bạn||
+you bet|expression|chắc chắn rồi; dĩ nhiên||
+my bad|slang|lỗi của tôi|Cách nhận lỗi nhanh, thân mật.|My bad!
+no problem|expression|không sao; không có gì||
+never mind|expression|không sao đâu; bỏ qua đi||
+what's up|slang|có chuyện gì vậy; khỏe không|Lời chào thân mật hoặc câu hỏi "có chuyện gì thế?".|Hey, what's up?
+what's going on|expression|chuyện gì đang xảy ra vậy||What's going on here?
+what the hell|expression|cái quái gì vậy|Biểu lộ ngạc nhiên hoặc bực tức, hơi thô.|What the hell is that?
+what the heck|expression|cái quái gì thế|Nhẹ hơn "what the hell".|
+oh my god|expression|trời ơi; ôi chúa ơi||
+holy crap|slang|trời đất ơi; ôi trời|Thô tục nhẹ, thể hiện sự sốc.|
+holy cow|slang|trời ơi; ôi trời|Cách nói vui, không thô tục.|
+damn it|expression|chết tiệt|Lời chửi thể hiện bực tức, thô tục nhẹ.|Damn it!
+son of a bitch|slang|đồ khốn nạn|Lời chửi thô tục nặng.|
+screw you|slang|kệ mày; đồ khốn|Thô lỗ, thể hiện tức giận.|
+get lost|slang|biến đi; cút đi||Get lost!
+bring it on|expression|cứ việc tới đây; chơi luôn|Thách thức đối phương.|Bring it on!
+you're on|expression|chơi luôn; đồng ý thách đấu||
+not bad|expression|không tệ; khá đấy||
+not at all|expression|không có gì; hoàn toàn không||
+of course|expression|dĩ nhiên; tất nhiên||
+right now|expression|ngay bây giờ||
+right away|expression|ngay lập tức||
+just in case|expression|phòng khi; để đề phòng||
+take a look|expression|xem thử||
+make sense|expression|hợp lý; có nghĩa|"It doesn't make sense" = Thật vô lý / không hiểu nổi.|
+make it|expression|thành công; kịp; sống sót|Tùy ngữ cảnh: "We made it!" = Chúng ta làm được rồi! / Kịp rồi!|
+pull oneself together|idiom|bình tĩnh lại; trấn tĩnh||Pull yourself together!
+get it|expression|hiểu chưa; hiểu rồi|"Got it" = Hiểu rồi. "Get it?" = Hiểu chưa?|
+got it|expression|hiểu rồi; rõ rồi||Got it!
+i mean|expression|ý tôi là||
+you know|expression|bạn biết đấy; kiểu như|Từ đệm trong hội thoại, thường không mang nghĩa cụ thể.|
+come to think of it|expression|nghĩ lại thì||
+it's over|expression|kết thúc rồi; hết rồi||It's over!
+it's not over|expression|vẫn chưa kết thúc||It's not over yet!
+there you go|expression|đây rồi; đấy, thấy chưa||
+here we go|expression|bắt đầu rồi đây; lại nữa rồi|Tùy ngữ điệu: hào hứng hoặc chán nản.|
+here you go|expression|của bạn đây (khi đưa đồ)||
+leave me alone|expression|để tôi yên||Leave me alone!
+how dare you|expression|sao ngươi dám||How dare you!
+long time no see|expression|lâu rồi không gặp||
+see you|expression|hẹn gặp lại||
+take care|expression|bảo trọng; giữ gìn sức khỏe||
+good luck|expression|chúc may mắn||
+well done|expression|làm tốt lắm||
+thank god|expression|ơn trời||
+no kidding|expression|thật à?; đâu có đùa|"No kidding?" = Thật hả? ; "No kidding!" = Nói thật đấy / Hiển nhiên rồi.|
+just kidding|expression|đùa thôi||
+i'm serious|expression|tôi nghiêm túc đấy||
+lose face|idiom|mất mặt||
+save face|idiom|giữ thể diện||
+on the other hand|expression|mặt khác||
+in a hurry|expression|đang vội||
+at once|expression|ngay lập tức; cùng một lúc||
+from now on|expression|từ giờ trở đi||
+one day|expression|một ngày nào đó||
+once and for all|idiom|một lần cho xong; dứt điểm||
+step aside|expression|tránh ra||
+stay out of this|expression|đừng xen vào chuyện này||
+you'll pay for this|expression|ngươi sẽ phải trả giá||You'll pay for this!
+not on my watch|idiom|không thể xảy ra khi tôi còn ở đây||
+in your dreams|idiom|mơ đi; đừng hòng||
+dream on|slang|cứ mơ đi||
+cut to the chase|idiom|vào thẳng vấn đề||
+spill the beans|idiom|tiết lộ bí mật||
+on fire|idiom|đang rất phong độ; đang cháy|Nghĩa bóng: làm gì cũng thành công liên tục.|
+head over heels|idiom|yêu say đắm||
+hit the sack|idiom|đi ngủ||
+in hot water|idiom|gặp rắc rối||
+the real deal|idiom|hàng thật; người tài thật sự||
+throw in the towel|idiom|chịu thua; bỏ cuộc||
+# ---------- conversational expressions (manga dialogue) ----------
+that's right|expression|đúng rồi; đúng vậy|Xác nhận điều người kia vừa nói là đúng.|That's right, he was here.
+that's it|expression|thế đấy; vậy thôi; đúng nó rồi; đủ rồi!|Tùy ngữ cảnh: "chỉ có vậy", "chính nó", hoặc "đủ rồi!" khi tức giận.|That's it! I've had enough!
+that's not it|expression|không phải vậy||
+that's enough|expression|đủ rồi!|Câu ra lệnh dừng lại.|That's enough, both of you!
+that's why|expression|đó là lý do; vì thế nên||That's why there are no footprints.
+that's true|expression|đúng thật; cũng đúng||
+that's impossible|expression|không thể nào!; điều đó là không thể||T-that's impossible!!
+that's weird|expression|lạ thật||
+you're right|expression|bạn nói đúng||
+i see|expression|ra vậy; tôi hiểu rồi|Thể hiện đã hiểu ra; không liên quan tới "nhìn thấy".|I see... so that's how he did it.
+i know|expression|tôi biết mà; tôi biết rồi||
+i don't know|expression|tôi không biết||
+i got it|expression|tôi hiểu rồi; tôi lo được||
+let's go|expression|đi thôi!; tiến lên!||Let's go!
+let me see|expression|để tôi xem nào||
+what's wrong|expression|có chuyện gì vậy?; sao thế?||What's wrong with you?
+what happened|expression|chuyện gì đã xảy ra?||
+who are you|expression|ngươi là ai?; bạn là ai?||
+who did it|expression|ai đã làm chuyện này?||Who did it!?
+are you okay|expression|bạn có sao không?||
+are you sure|expression|bạn chắc chứ?||
+it's okay|expression|không sao đâu||
+thank you|expression|cảm ơn||
+thanks|expression|cảm ơn||
+i'm sorry|expression|tôi xin lỗi||
+excuse me|expression|xin lỗi (cho hỏi / cho qua)||
+wait a minute|expression|khoan đã; chờ một chút||
+just a moment|expression|chờ một chút||
+who cares|expression|ai thèm quan tâm; mặc kệ||
+help me|expression|cứu tôi với!; giúp tôi với||
+good job|expression|làm tốt lắm||
+nice to meet you|expression|rất vui được gặp bạn||
+good night|expression|chúc ngủ ngon||
+good morning|expression|chào buổi sáng||
+how come|expression|sao lại thế?; tại sao?|Hỏi nguyên nhân, thường kèm ngạc nhiên.|How come you're here?
+# ---------- slang ----------
+no cap|slang|nói thật đấy; không đùa|Tiếng lóng giới trẻ Mỹ: "cap" = nói dối.|
+my man|slang|anh bạn của tôi|Cách gọi thân mật, khen ngợi.|
+level up|slang|lên cấp; tiến bộ vượt bậc|Từ game, dùng rộng rãi để chỉ sự tiến bộ.|
+game over|expression|xong đời; kết thúc rồi||
+plot armor|slang|"giáp cốt truyện"|Nhân vật chính không chết dù gặp nguy hiểm vì cốt truyện cần họ sống.|
+power up|slang|tăng sức mạnh||
+you guys|expression|các cậu; mọi người||
+oh well|expression|thôi thì; đành vậy||
+oh boy|expression|ôi trời; chà chà||
+ugh fine|expression|thôi được rồi (miễn cưỡng)||
