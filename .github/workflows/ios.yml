@@ -25,7 +25,7 @@ jobs:
     timeout-minutes: 30
     env:
       # the repository's .npmrc points the npm cache at drive D of the developer's Windows PC
-      npm_config_cache: ${{ runner.temp }}/npm-cache
+      npm_config_cache: /tmp/mangalingo-npm-cache
     steps:
       - uses: actions/checkout@v4
 
