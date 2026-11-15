@@ -123,7 +123,7 @@ export function OcrMeaning({ text, s }: { text: string; s: Settings }) {
                   title="Xem đầy đủ"
                   onClick={() => A.drillDown(w, text)}
                   onKeyDown={(e) => e.key === 'Enter' && A.drillDown(w, text)}
-                  className="ml-card ml-focus flex cursor-pointer items-start gap-1.5 rounded-xl border border-border border-l-[4px] border-l-ok/70 bg-surface px-2.5 py-2 hover:border-ok/60 hover:border-l-ok hover:bg-ok/[0.05] hover:shadow-[0_8px_18px_-10px_rgb(var(--ml-ok)/0.7)]"
+                  className="ml-card ml-glass-card ml-focus flex cursor-pointer items-start gap-1.5 rounded-2xl border-l-[4px] border-l-ok/70 px-2.5 py-2 hover:border-ok/50 hover:border-l-ok hover:bg-ok/[0.06] hover:shadow-[0_8px_18px_-10px_rgb(var(--ml-ok)/0.7)]"
                 >
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-baseline gap-x-1.5">

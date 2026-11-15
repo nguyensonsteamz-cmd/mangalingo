@@ -72,7 +72,7 @@ function HoverButton({ el }: { el: Element }) {
       <button
         type="button"
         onClick={(e) => e.nativeEvent.isTrusted && A.scanImageToSidebar(el)}
-        className="ml-focus inline-flex items-center gap-1 rounded-lg border border-border bg-surface/95 px-2 py-1 text-[12px] font-medium text-text shadow-pop backdrop-blur hover:border-accent"
+        className="ml-glass ml-focus ml-press inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[12px] font-medium text-text hover:text-accent"
         title="Quét chữ trong ảnh này (OCR cục bộ)"
       >
         <IconScan size={14} /> {done ? 'Quét lại' : 'Quét OCR'}
@@ -80,7 +80,7 @@ function HoverButton({ el }: { el: Element }) {
       <button
         type="button"
         onClick={(e) => e.nativeEvent.isTrusted && store.set({ regionSelect: true, hoverImage: null })}
-        className="ml-focus inline-flex items-center rounded-lg border border-border bg-surface/95 px-1.5 py-1 text-text shadow-pop hover:border-accent"
+        className="ml-glass ml-focus ml-press inline-flex items-center rounded-full px-1.5 py-1 text-text hover:text-accent"
         title="Chọn vùng để quét"
       >
         <IconCrop size={14} />
@@ -103,14 +103,14 @@ function TargetOverlay({ t, showBoxes }: { t: OcrTarget; showBoxes: boolean }) {
           {/* No progress card over the page: an animated outline marks what is being read. */}
           <div className="ml-scan-outline pointer-events-none fixed rounded-md" style={{ left: rect.left, top: rect.top, width: rect.width, height: rect.height }} />
           <div
-            className="pointer-events-auto fixed flex items-center gap-1.5 rounded-full border border-border bg-surface/95 py-0.5 pl-1.5 pr-0.5 text-[11px] text-muted shadow-pop"
+            className="ml-glass pointer-events-auto fixed flex items-center gap-1.5 rounded-full py-0.5 pl-1.5 pr-0.5 text-[11px] text-muted"
             style={{ top: Math.min(Math.max(6, rect.top + 6), window.innerHeight - 30), left: Math.max(6, Math.min(rect.left + rect.width - 92, window.innerWidth - 98)) }}
             data-ml-ocr-status=""
             title={STATUS_VI[t.statusText] ?? t.statusText}
           >
             <Spinner />
             <span className="font-mono">{Math.round(progress * 100)}%</span>
-            <button type="button" className="rounded-full p-0.5 hover:bg-elevated hover:text-text" onClick={() => A.cancelScan(t)} aria-label="Hủy quét (Esc)" title="Hủy quét (Esc)">
+            <button type="button" className="ml-press rounded-full p-0.5 hover:bg-text/[0.08] hover:text-text" onClick={() => A.cancelScan(t)} aria-label="Hủy quét (Esc)" title="Hủy quét (Esc)">
               <IconX size={12} />
             </button>
           </div>
@@ -215,12 +215,12 @@ function ResizableBox({ t, b, box, n }: { t: OcrTarget; b: NonNullable<OcrTarget
           />
         ))}
       {drag && (
-        <span className="pointer-events-none absolute -bottom-6 left-0 whitespace-nowrap rounded bg-surface/95 px-1.5 py-0.5 text-[10.5px] text-text shadow-pop">
+        <span className="ml-glass pointer-events-none absolute -bottom-6 left-0 whitespace-nowrap rounded-full px-2 py-0.5 text-[10.5px] text-text">
           Thả để quét lại vùng này
         </span>
       )}
       {busy && (
-        <span className="pointer-events-none absolute -top-6 right-0 flex items-center gap-1 rounded-full bg-surface/95 px-1.5 py-0.5 text-[10.5px] text-muted shadow-pop">
+        <span className="ml-glass pointer-events-none absolute -top-6 right-0 flex items-center gap-1 rounded-full px-2 py-0.5 text-[10.5px] text-muted">
           <Spinner /> đang quét lại
         </span>
       )}
@@ -285,7 +285,7 @@ function RegionSelector() {
       }}
     >
       {rect && <div className="absolute rounded-sm border-2 border-accent bg-accent/10" style={rect} />}
-      <div className="absolute left-1/2 top-4 flex -translate-x-1/2 items-center gap-2 rounded-lg border border-border bg-surface px-3 py-1.5 text-[12.5px] text-text shadow-pop" onMouseDown={(e) => e.stopPropagation()}>
+      <div className="ml-glass absolute left-1/2 top-4 flex -translate-x-1/2 items-center gap-2 rounded-full px-4 py-1.5 text-[12.5px] text-text" onMouseDown={(e) => e.stopPropagation()}>
         Kéo để chọn vùng cần OCR
         <Button size="sm" onClick={(e) => e.nativeEvent.isTrusted && A.scanRegion({ left: 0, top: 0, width: window.innerWidth, height: window.innerHeight })}>
           Quét toàn màn hình

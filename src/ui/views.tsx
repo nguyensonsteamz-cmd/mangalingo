@@ -48,7 +48,7 @@ export function TagBadges({ tags }: { tags: string[] }) {
 export function SourceLine({ sources }: { sources: SourceInfo[] }) {
   if (!sources.length) return null;
   return (
-    <div className="mt-3 border-t border-border pt-2 text-[11px] leading-snug text-subtle">
+    <div className="mt-3 border-t border-border/60 pt-2 text-[11px] leading-snug text-subtle">
       Nguồn:{' '}
       {sources.map((s, i) => (
         <Fragment key={s.id}>
@@ -207,7 +207,7 @@ export function WordContextView({ r }: { r: WordLookup }) {
   return (
     <div className="space-y-2.5">
       {c ? (
-        <div className="rounded-lg border border-border bg-elevated/50 p-2.5">
+        <div className="ml-glass-card rounded-2xl p-2.5">
           <div className="mb-1 flex flex-wrap items-center gap-1.5">
             <span className="text-[11px] font-semibold uppercase tracking-wider text-subtle">Nghĩa trong ngữ cảnh</span>
             <Badge tone={c.confidence === 'high' ? 'ok' : c.confidence === 'medium' ? 'accent' : 'warn'}>
@@ -256,7 +256,7 @@ export function WordExamples({ r, s, onLookup }: { r: WordLookup; s: Settings; o
           <SectionTitle>Ví dụ</SectionTitle>
           <ul className="space-y-1">
             {examples.map((x, i) => (
-              <li key={i} className="border-l-2 border-border pl-2 text-[13px] italic text-text">
+              <li key={i} className="ml-glass-card rounded-xl border-l-[3px] border-l-accent/50 px-2.5 py-1.5 text-[13px] italic text-text">
                 {x.e}
               </li>
             ))}
@@ -369,7 +369,7 @@ export function ChunksView({ chunks, onLookup }: { chunks: Chunk[]; onLookup?: (
             type="button"
             onClick={() => onLookup?.(c.kind === 'phrase' ? (c.lemma ?? c.text) : c.text)}
             title={c.status === 'none' ? 'Không có dữ liệu' : c.status === 'en-only' ? 'Chỉ có định nghĩa tiếng Anh' : c.source}
-            className={cx('ml-focus max-w-full rounded-md border bg-elevated/40 px-1.5 py-1 text-left transition-colors hover:bg-elevated', CHUNK_STYLE[c.status], c.kind === 'phrase' && 'bg-accent/10')}
+            className={cx('ml-focus ml-press max-w-full rounded-lg border bg-surface/50 px-1.5 py-1 text-left hover:bg-surface/90', CHUNK_STYLE[c.status], c.kind === 'phrase' && 'bg-accent/10')}
           >
             <div className={cx('text-[13px] font-medium', c.kind === 'phrase' ? 'text-accent' : 'text-text')}>{c.text}</div>
             <div className="max-w-[220px] truncate text-[11.5px] text-muted">
@@ -384,7 +384,7 @@ export function ChunksView({ chunks, onLookup }: { chunks: Chunk[]; onLookup?: (
 export function GlossBlock({ gloss, coverage }: { gloss: string; coverage: number }) {
   const pct = Math.round(coverage * 100);
   return (
-    <div className="rounded-lg border border-border bg-elevated/50 p-2.5">
+    <div className="ml-glass-card rounded-2xl p-2.5">
       <div className="mb-1 flex flex-wrap items-center gap-1.5">
         <span className="text-[11px] font-semibold uppercase tracking-wider text-subtle">Ghép nghĩa từng cụm</span>
         <Badge tone={pct >= 85 ? 'ok' : pct >= 50 ? 'accent' : 'warn'} title="Tỉ lệ từ/cụm có nghĩa tiếng Việt trong dữ liệu">
@@ -405,7 +405,7 @@ export function NotesView({ notes, empty }: { notes: ContextNote[]; empty?: Reac
   return (
     <ul className="space-y-1.5">
       {notes.map((n, i) => (
-        <li key={i} className="rounded-lg border border-border bg-elevated/40 px-2.5 py-1.5">
+        <li key={i} className="ml-glass-card rounded-xl px-2.5 py-1.5">
           <div className="flex flex-wrap items-center gap-1.5">
             <Badge tone={tone(n.kind)}>{n.kind === 'tone' ? 'sắc thái' : n.kind === 'contraction' ? 'rút gọn' : (TAG_VI[n.kind] ?? n.kind)}</Badge>
             <span className="text-[13px] font-medium text-text">{n.title}</span>
@@ -485,7 +485,7 @@ export function GrammarView({ g, compact }: { g: GrammarReport; compact?: boolea
           <SectionTitle>Từ loại trong câu</SectionTitle>
           <div className="flex flex-wrap gap-1">
             {g.tags.map((t, i) => (
-              <span key={i} className="rounded-md bg-elevated px-1.5 py-0.5 text-[12px]">
+              <span key={i} className="rounded-full bg-text/[0.06] px-2 py-0.5 text-[12px] ring-1 ring-inset ring-border/70">
                 <span className="text-text">{t.text}</span> <span className="text-[10.5px] text-subtle">{t.tag}</span>
               </span>
             ))}

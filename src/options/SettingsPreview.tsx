@@ -31,7 +31,7 @@ export function SettingsPreview({ s, kind }: { s: Settings; kind: PreviewKind })
   const scale = 0.7;
 
   return (
-    <div className="ml-root rounded-xl border border-border bg-bg p-3" style={vars} data-ml-preview="">
+    <div className="ml-root ml-glass-card rounded-[20px] p-3" style={vars} data-ml-preview="">
       <div className="mb-2 flex items-center justify-between text-[11px] font-semibold uppercase tracking-wider text-subtle">
         <span>Xem trước</span>
         <span className="font-normal normal-case tracking-normal">thay đổi hiện ngay</span>
@@ -65,7 +65,7 @@ export function SettingsPreview({ s, kind }: { s: Settings; kind: PreviewKind })
           <div
             key={tick}
             data-theme={surface.theme}
-            className={cx('overflow-hidden rounded-xl border border-border bg-surface text-text shadow-pop', s.popup.animation && 'animate-ml-in')}
+            className={cx('ml-glass overflow-hidden rounded-[20px] text-text', s.popup.animation && 'animate-ml-in')}
             style={{ ...(surface.vars as CSSProperties), width: s.popup.width, opacity: s.popup.opacity }}
             data-ml-preview-popup=""
           >
@@ -131,7 +131,7 @@ function SidebarPreview({ s }: { s: Settings }) {
   const compact = s.sidebar.defaultState === 'compact';
   const widthLabel = s.sidebar.width === 'narrow' ? 'hẹp (400px)' : s.sidebar.width === 'comfortable' ? 'vừa (540px)' : 'toàn bộ';
   return (
-    <div className="ml-root rounded-xl border border-border bg-bg p-3" data-ml-preview="">
+    <div className="ml-root ml-glass-card rounded-[20px] p-3" data-ml-preview="">
       <div className="mb-2 flex items-center justify-between text-[11px] font-semibold uppercase tracking-wider text-subtle">
         <span>Xem trước</span>
         <span className="font-normal normal-case tracking-normal">thay đổi hiện ngay</span>
@@ -140,10 +140,9 @@ function SidebarPreview({ s }: { s: Settings }) {
         <div
           data-theme={surface.theme}
           style={vars}
-          className="w-[300px] overflow-hidden rounded-xl border border-border bg-bg text-text shadow-pop"
+          className="ml-glass w-[300px] overflow-hidden rounded-[20px] text-text"
           data-ml-preview-sidebar=""
         >
-          <div className="h-1 bg-gradient-to-r from-accent via-[rgb(var(--ml-box))] to-ok" />
           <div className="flex items-center gap-2 px-3 pb-2 pt-2.5">
             <IconLogo size={32} />
             <div className="min-w-0 flex-1">
@@ -155,16 +154,16 @@ function SidebarPreview({ s }: { s: Settings }) {
             <IconGear size={15} className="text-muted" />
           </div>
           <div className="px-3 pb-2">
-            <div className="flex items-center gap-2 rounded-xl border border-border bg-surface px-2.5 py-2 text-[12px] text-subtle">
+            <div className="ml-glass-field flex items-center gap-2 rounded-[16px] px-2.5 py-2 text-[12px] text-subtle">
               <IconSearch size={14} className="text-accent" /> Nhập từ, câu tiếng Anh…
             </div>
           </div>
           <div className="px-3 pb-2">
-            <div className="grid grid-cols-5 gap-1 rounded-xl bg-elevated/70 p-1 ring-1 ring-border">
+            <div className="ml-glass-field grid grid-cols-5 gap-1 rounded-[14px] p-1">
               {SB_TABS.map((t) => (
                 <span
                   key={t.id}
-                  className={cx('flex flex-col items-center gap-0.5 rounded-lg py-1 text-[10px] font-semibold', s.sidebar.defaultTab === t.id ? 'bg-accent text-accent-fg' : 'text-muted')}
+                  className={cx('flex flex-col items-center gap-0.5 rounded-[10px] py-1 text-[10px] font-semibold', s.sidebar.defaultTab === t.id ? 'ml-glass-select border' : 'text-muted')}
                 >
                   {t.icon}
                   {t.label}
@@ -173,21 +172,21 @@ function SidebarPreview({ s }: { s: Settings }) {
             </div>
           </div>
           <div className="space-y-2 border-t border-border px-3 py-2.5">
-            <div className="rounded-xl border border-border border-l-[4px] border-l-subtle bg-surface p-2.5">
+            <div className="ml-glass-card rounded-2xl border-l-[4px] border-l-subtle p-2.5">
               <div className="text-[10px] font-bold uppercase tracking-wider text-muted">Văn bản gốc</div>
               <div className="ml-tr font-medium">I'm gonna become the strongest ninja!</div>
             </div>
-            <div className="rounded-xl border border-accent/25 border-l-[4px] border-l-accent bg-accent/[0.07] p-2.5">
+            <div className="rounded-2xl border border-accent/25 border-l-[4px] border-l-accent bg-accent/[0.08] p-2.5">
               <div className="text-[10px] font-bold uppercase tracking-wider text-accent">Bản dịch</div>
               <div className="ml-tr font-semibold">Tôi sẽ trở thành ninja mạnh nhất!</div>
             </div>
-            <div className="rounded-xl border border-border border-l-[4px] border-l-warn bg-surface p-2.5">
+            <div className="ml-glass-card rounded-2xl border-l-[4px] border-l-warn p-2.5">
               <div className="flex items-baseline gap-1.5">
                 <span className="text-[14px] font-bold">strongest</span>
                 <span className="ml-ipa text-[11px] text-accent">/ˈstrɔŋɡəst/</span>
               </div>
               <div className="ml-tr font-semibold">mạnh nhất</div>
-              {!compact && <div className="mt-1.5 rounded-lg bg-elevated/70 px-2 py-1 text-[11.5px] italic text-muted">“I'M GONNA BECOME THE STRONGEST NINJA!”</div>}
+              {!compact && <div className="mt-1.5 rounded-xl bg-text/[0.05] px-2 py-1 text-[11.5px] italic text-muted">“I'M GONNA BECOME THE STRONGEST NINJA!”</div>}
               <div className="mt-1.5 flex gap-1">
                 <span className="rounded-full px-2 text-[10px] font-semibold text-muted ring-1 ring-border">Mới</span>
                 <span className="rounded-full bg-warn px-2 text-[10px] font-semibold text-white">Đang học</span>

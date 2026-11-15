@@ -1,4 +1,8 @@
-/** Reusable UI primitives shared by the floating popup, the side panel and the settings page. */
+/**
+ * Reusable UI primitives shared by the floating popup, the side panel, the settings page and the
+ * phone app – styled with the Liquid Glass material (classes in ui/styles.css: ml-glass*, ml-press,
+ * ml-sheen, ml-btn-primary).
+ */
 import { useId, type ButtonHTMLAttributes, type ReactNode } from 'react';
 import { IconAlert, IconInfo } from './icons';
 
@@ -12,12 +16,12 @@ export function Button({ variant = 'subtle', size = 'md', className, ...p }: Btn
       type="button"
       {...p}
       className={cx(
-        'ml-focus inline-flex select-none items-center justify-center gap-1.5 rounded-lg font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50',
+        'ml-focus ml-press inline-flex select-none items-center justify-center gap-1.5 rounded-[10px] font-medium disabled:cursor-not-allowed disabled:opacity-50',
         size === 'sm' ? 'h-7 px-2.5 text-[12px]' : 'h-8 px-3 text-[13px]',
-        variant === 'primary' && 'bg-accent text-accent-fg hover:bg-accent/90',
-        variant === 'subtle' && 'border border-border bg-elevated text-text hover:border-subtle/60',
-        variant === 'ghost' && 'text-muted hover:bg-elevated hover:text-text',
-        variant === 'danger' && 'border border-danger/40 text-danger hover:bg-danger/10',
+        variant === 'primary' && 'ml-btn-primary ml-sheen',
+        variant === 'subtle' && 'ml-glass-card text-text hover:border-accent/40 hover:bg-surface/80',
+        variant === 'ghost' && 'text-muted hover:bg-text/[0.06] hover:text-text',
+        variant === 'danger' && 'border border-danger/40 bg-danger/[0.06] text-danger hover:bg-danger/[0.12]',
         className,
       )}
     />
@@ -32,8 +36,8 @@ export function IconButton({ label, active, className, children, ...p }: ButtonH
       title={label}
       {...p}
       className={cx(
-        'ml-focus inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md transition-colors disabled:opacity-40',
-        active ? 'bg-accent/15 text-accent' : 'text-muted hover:bg-elevated hover:text-text',
+        'ml-focus ml-press inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full disabled:opacity-40',
+        active ? 'ml-glass-select border border-transparent' : 'border border-transparent text-muted hover:bg-text/[0.07] hover:text-text',
         className,
       )}
     >
@@ -44,7 +48,7 @@ export function IconButton({ label, active, className, children, ...p }: ButtonH
 
 export function Tabs<T extends string>({ tabs, value, onChange, className }: { tabs: { id: T; label: string; count?: number }[]; value: T; onChange: (v: T) => void; className?: string }) {
   return (
-    <div role="tablist" className={cx('flex gap-0.5 border-b border-border', className)}>
+    <div role="tablist" className={cx('flex gap-1 border-b border-border/70 pb-1.5 pt-1', className)}>
       {tabs.map((t) => (
         <button
           key={t.id}
@@ -53,8 +57,8 @@ export function Tabs<T extends string>({ tabs, value, onChange, className }: { t
           aria-selected={value === t.id}
           onClick={() => onChange(t.id)}
           className={cx(
-            'ml-focus -mb-px whitespace-nowrap border-b-2 px-2.5 py-1.5 text-[12.5px] font-medium transition-colors',
-            value === t.id ? 'border-accent text-text' : 'border-transparent text-muted hover:text-text',
+            'ml-focus ml-press whitespace-nowrap rounded-full border px-3 py-1 text-[12.5px] font-medium',
+            value === t.id ? 'ml-glass-select font-semibold' : 'border-transparent text-muted hover:bg-text/[0.06] hover:text-text',
           )}
         >
           {t.label}
@@ -70,8 +74,8 @@ export function Badge({ children, tone = 'neutral', title }: { children: ReactNo
     <span
       title={title}
       className={cx(
-        'inline-flex items-center gap-1 whitespace-nowrap rounded-md px-1.5 py-px text-[11px] font-medium',
-        tone === 'neutral' && 'bg-elevated text-muted ring-1 ring-inset ring-border',
+        'inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-px text-[11px] font-medium',
+        tone === 'neutral' && 'bg-text/[0.06] text-muted ring-1 ring-inset ring-border/80',
         tone === 'accent' && 'bg-accent/15 text-accent',
         tone === 'ok' && 'bg-ok/15 text-ok',
         tone === 'warn' && 'bg-warn/15 text-warn',
@@ -96,8 +100,8 @@ export function Spinner({ size = 16 }: { size?: number }) {
 
 export function Progress({ value }: { value: number }) {
   return (
-    <div className="h-1.5 w-full overflow-hidden rounded-full bg-elevated" role="progressbar" aria-valuenow={Math.round(value * 100)} aria-valuemin={0} aria-valuemax={100}>
-      <div className="h-full rounded-full bg-accent transition-[width] duration-200" style={{ width: `${Math.max(2, Math.min(100, value * 100))}%` }} />
+    <div className="ml-glass-field h-1.5 w-full overflow-hidden rounded-full" role="progressbar" aria-valuenow={Math.round(value * 100)} aria-valuemin={0} aria-valuemax={100}>
+      <div className="ml-btn-primary h-full rounded-full transition-[width] duration-200" style={{ width: `${Math.max(2, Math.min(100, value * 100))}%` }} />
     </div>
   );
 }
@@ -116,8 +120,8 @@ export function Notice({ tone = 'info', children, title }: { tone?: 'info' | 'wa
   return (
     <div
       className={cx(
-        'flex gap-2 rounded-lg border px-2.5 py-2 text-[12.5px]',
-        tone === 'info' && 'border-border bg-elevated/60 text-muted',
+        'flex gap-2 rounded-xl border px-2.5 py-2 text-[12.5px]',
+        tone === 'info' && 'ml-glass-card text-muted',
         tone === 'warn' && 'border-warn/30 bg-warn/10 text-text',
         tone === 'error' && 'border-danger/30 bg-danger/10 text-text',
       )}
@@ -148,9 +152,17 @@ export function Toggle({ checked, onChange, label, description, disabled }: { ch
         aria-checked={checked}
         disabled={disabled}
         onClick={() => onChange(!checked)}
-        className={cx('ml-focus relative mt-0.5 h-5 w-9 shrink-0 rounded-full transition-colors', checked ? 'bg-accent' : 'bg-border')}
+        className={cx(
+          'ml-focus relative mt-0.5 h-6 w-11 shrink-0 rounded-full border transition-colors duration-200',
+          checked ? 'ml-btn-primary border-transparent' : 'ml-glass-field',
+        )}
       >
-        <span className={cx('absolute left-0 top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform', checked ? 'translate-x-[18px]' : 'translate-x-0.5')} />
+        <span
+          className={cx(
+            'absolute left-0 top-1/2 h-5 w-5 -translate-y-1/2 rounded-full bg-white shadow-[0_2px_6px_rgb(0_0_0/0.25),inset_0_-1px_1px_rgb(0_0_0/0.06)] transition-transform duration-300 [transition-timing-function:var(--ml-ease-spring)]',
+            checked ? 'translate-x-[21px]' : 'translate-x-[1px]',
+          )}
+        />
       </button>
     </div>
   );
@@ -191,7 +203,7 @@ export function Select<T extends string>({ value, options, onChange }: { value: 
       <select
         value={value}
         onChange={(e) => onChange(e.target.value as T)}
-        className="ml-focus h-8 min-w-[170px] cursor-pointer appearance-none rounded-lg border border-border bg-elevated pl-2.5 pr-8 text-[13px] text-text"
+        className="ml-focus ml-glass-field ml-press h-9 min-w-[170px] cursor-pointer appearance-none rounded-[10px] pl-3 pr-8 text-[13px] text-text hover:border-accent/40"
       >
         {options.map((o) => (
           <option key={o.value} value={o.value}>
@@ -208,14 +220,17 @@ export function Select<T extends string>({ value, options, onChange }: { value: 
 
 export function Segmented<T extends string>({ value, options, onChange }: { value: T; options: { value: T; label: string }[]; onChange: (v: T) => void }) {
   return (
-    <div className="inline-flex rounded-lg border border-border bg-elevated p-0.5">
+    <div className="ml-glass-field inline-flex rounded-full p-0.5">
       {options.map((o) => (
         <button
           key={o.value}
           type="button"
           onClick={() => onChange(o.value)}
           aria-pressed={value === o.value}
-          className={cx('ml-focus rounded-md px-2.5 py-1 text-[12.5px] font-medium transition-colors', value === o.value ? 'bg-surface text-text shadow-sm ring-1 ring-border' : 'text-muted hover:text-text')}
+          className={cx(
+            'ml-focus ml-press rounded-full px-3 py-1 text-[12.5px] font-medium',
+            value === o.value ? 'ml-glass-select border font-semibold' : 'border border-transparent text-muted hover:text-text',
+          )}
         >
           {o.label}
         </button>

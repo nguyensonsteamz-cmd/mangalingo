@@ -114,8 +114,8 @@ export function Scan({ src, onBack }: { src: string; onBack: () => void }) {
   const activeBlock = blocks.find((b) => b.id === active);
 
   return (
-    <div className="mx-auto max-w-2xl pb-28" data-ml-scan="">
-      <div className="sticky top-0 z-10 flex items-center gap-2 border-b border-border bg-bg/95 px-3 py-2 backdrop-blur">
+    <div className="mx-auto max-w-2xl pb-36" data-ml-scan="">
+      <div className="ml-glass-bar sticky top-0 z-10 flex items-center gap-2 border-b px-3 py-2">
         <button type="button" onClick={onBack} className="rounded-lg p-1.5 text-muted" aria-label="Quay lại">
           <IconBack size={20} />
         </button>
@@ -162,11 +162,11 @@ export function Scan({ src, onBack }: { src: string; onBack: () => void }) {
       {error && <div className="mx-3 mt-3 rounded-xl border border-warn/40 bg-warn/10 px-3 py-2 text-[13px] text-text">{error}</div>}
       {activeBlock && <ScanResult key={activeBlock.id + activeBlock.text} text={activeBlock.text} n={blocks.length > 1 ? blocks.indexOf(activeBlock) + 1 : 0} />}
 
-      <div className="fixed inset-x-0 bottom-[84px] z-20 flex gap-2 border-t border-border bg-surface/95 px-3 py-2.5 backdrop-blur">
-        <button type="button" disabled={!!busy || !showFrame} onClick={() => void run('region')} className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-accent py-2.5 text-[14px] font-bold text-accent-fg disabled:opacity-40">
+      <div className="ml-glass fixed inset-x-3 bottom-[calc(max(10px,env(safe-area-inset-bottom))+76px)] z-20 flex gap-2 rounded-[26px] p-2">
+        <button type="button" disabled={!!busy || !showFrame} onClick={() => void run('region')} className="ml-press ml-btn-primary flex flex-1 items-center justify-center gap-1.5 rounded-[20px] py-2.5 text-[14px] font-bold disabled:opacity-40">
           {busy === 'region' ? <Spinner /> : <IconScan size={16} />} Quét vùng này
         </button>
-        <button type="button" disabled={!!busy} onClick={() => void run('full')} className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-border bg-elevated py-2.5 text-[14px] font-semibold text-text disabled:opacity-40">
+        <button type="button" disabled={!!busy} onClick={() => void run('full')} className="ml-press ml-glass-card flex flex-1 items-center justify-center gap-1.5 rounded-[20px] py-2.5 text-[14px] font-semibold text-text disabled:opacity-40">
           {busy === 'full' ? <Spinner /> : null} Quét toàn màn hình
         </button>
       </div>
@@ -207,7 +207,7 @@ function ScanResult({ text, n }: { text: string; n: number }) {
 
   return (
     <div className="mx-3 mt-3 space-y-3" data-ml-scan-result="">
-      <div className="rounded-2xl border border-border border-l-[4px] border-l-subtle bg-surface p-3">
+      <div className="ml-glass-card rounded-[20px] border-l-[4px] border-l-subtle p-3">
         <div className="mb-1 flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-muted">
           {n > 0 && <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[rgb(var(--ml-box))] px-1 text-[11px] text-white">{n}</span>}
           Nguyên văn
@@ -234,7 +234,7 @@ function ScanResult({ text, n }: { text: string; n: number }) {
       </div>
 
       {gloss !== null && (
-        <div className="rounded-2xl border border-accent/25 border-l-[4px] border-l-accent bg-accent/[0.07] p-3">
+        <div className="rounded-[20px] border border-accent/25 border-l-[4px] border-l-accent bg-accent/[0.08] p-3">
           <div className="mb-1 text-[11px] font-bold uppercase tracking-wider text-accent">Nghĩa (từ điển)</div>
           {gloss === undefined ? (
             <div className="flex items-center gap-2 text-[13px] text-muted">
@@ -254,7 +254,7 @@ function ScanResult({ text, n }: { text: string; n: number }) {
               const r = rows[w];
               const meaning = r ? primaryMeaning(r) : '';
               return (
-                <li key={w} className="flex items-start gap-2 rounded-xl border border-border border-l-[4px] border-l-ok/70 bg-surface px-3 py-2" onClick={() => openLookup(w)}>
+                <li key={w} className="ml-glass-card ml-press flex items-start gap-2 rounded-[18px] border-l-[4px] border-l-ok/70 px-3 py-2" onClick={() => openLookup(w)}>
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-baseline gap-x-1.5">
                       <span className="text-[15px] font-semibold">{w}</span>

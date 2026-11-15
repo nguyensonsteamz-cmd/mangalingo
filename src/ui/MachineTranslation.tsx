@@ -79,7 +79,7 @@ export function MachineTranslation({ text, s, className, onState }: { text: stri
     if (!offerable) return null;
     return (
       <div className={className} data-ml-mt="" data-state="off">
-        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-dashed border-border px-2.5 py-1.5 text-[12px] text-muted">
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-dashed border-border px-2.5 py-1.5 text-[12px] text-muted">
           <span className="min-w-0 flex-1">Đang ở chế độ chỉ từ điển. Bật bản dịch máy của Chrome (chạy trên máy) để có câu dịch tự nhiên?</span>
           <Button
             size="sm"
@@ -109,7 +109,7 @@ export function MachineTranslation({ text, s, className, onState }: { text: stri
 
   return (
     <div
-      className={cx('ml-card rounded-xl border border-accent/25 border-l-[4px] border-l-accent bg-accent/[0.07] px-3 py-2.5 hover:border-accent/50 hover:shadow-[0_8px_20px_-10px_rgb(var(--ml-accent)/0.6)]', className)}
+      className={cx('ml-card rounded-2xl border border-accent/25 border-l-[4px] border-l-accent bg-accent/[0.08] px-3 py-2.5 shadow-[inset_0_1px_0_rgb(255_255_255/calc(var(--ml-glass-hi)*0.5))] hover:border-accent/50 hover:shadow-[0_8px_20px_-10px_rgb(var(--ml-accent)/0.6)]', className)}
       data-ml-mt=""
       data-state={st.k}
     >

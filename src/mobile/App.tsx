@@ -88,8 +88,8 @@ export function App() {
   };
 
   return (
-    <div className="flex min-h-[100dvh] flex-col bg-bg text-text" style={{ zoom: SCALE[settings.appearance.uiScale] ?? 1 }} data-ml-app="">
-      <main className="min-h-0 flex-1 pb-[84px]">
+    <div className="flex min-h-[100dvh] flex-col text-text" style={{ zoom: SCALE[settings.appearance.uiScale] ?? 1 }} data-ml-app="">
+      <main className="min-h-0 flex-1 pb-[100px]">
         {tab === 'home' && (PLATFORM === 'ios' ? <IosHome onOpen={go} onFile={scanFile} /> : <Home onOpen={go} />)}
         {tab === 'scan' && (scanSrc ? <Scan src={scanSrc} onBack={() => go('home')} /> : <IosHome onOpen={go} onFile={scanFile} />)}
         {tab === 'lookup' && <SidePanel />}
@@ -101,16 +101,16 @@ export function App() {
         )}
         {tab === 'settings' && <SettingsCenter hidden={['shortcuts']} />}
       </main>
-      <nav className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-4 border-t border-border bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur" data-ml-app-nav="">
+      <nav className="ml-glass fixed inset-x-3 bottom-[max(10px,env(safe-area-inset-bottom))] z-20 grid grid-cols-4 rounded-[30px] p-1" data-ml-app-nav="">
         {TABS.map((t) => (
           <button
             key={t.id}
             type="button"
             onClick={() => go(t.id)}
-            className={cx('flex flex-col items-center gap-1 py-2.5 text-[12.5px] font-semibold', tab === t.id || (tab === 'scan' && t.id === 'home') ? 'text-accent' : 'text-muted')}
+            className={cx('ml-press flex flex-col items-center gap-0.5 rounded-[26px] py-1.5 text-[12px] font-semibold', tab === t.id || (tab === 'scan' && t.id === 'home') ? 'ml-glass-select border border-transparent' : 'border border-transparent text-muted')}
             aria-current={tab === t.id ? 'page' : undefined}
           >
-            <span className={cx('rounded-full px-4 py-1', (tab === t.id || (tab === 'scan' && t.id === 'home')) && 'bg-accent/15')}>{t.icon}</span>
+            <span className="px-4 py-0.5">{t.icon}</span>
             {t.label}
           </button>
         ))}
@@ -128,10 +128,10 @@ function BigSwitch({ on, onChange, disabled }: { on: boolean; onChange: (v: bool
       aria-label="Bật / tắt nút nổi LingoLens"
       disabled={disabled}
       onClick={() => onChange(!on)}
-      className={cx('relative h-[52px] w-[92px] shrink-0 rounded-full transition-colors disabled:opacity-40', on ? 'bg-accent' : 'bg-border')}
+      className={cx('relative h-[52px] w-[92px] shrink-0 rounded-full border transition-colors duration-200 disabled:opacity-40', on ? 'ml-btn-primary border-transparent' : 'ml-glass-field')}
       data-ml-main-switch=""
     >
-      <span className={cx('absolute left-0 top-1/2 h-[44px] w-[44px] -translate-y-1/2 rounded-full bg-white shadow-md transition-transform', on ? 'translate-x-[44px]' : 'translate-x-[4px]')} />
+      <span className={cx('absolute left-0 top-1/2 h-[44px] w-[44px] -translate-y-1/2 rounded-full bg-white shadow-[0_3px_10px_rgb(0_0_0/0.25)] transition-transform duration-300 [transition-timing-function:var(--ml-ease-spring)]', on ? 'translate-x-[43px]' : 'translate-x-[3px]')} />
     </button>
   );
 }
@@ -164,7 +164,7 @@ function Home({ onOpen }: { onOpen: (t: Tab) => void }) {
         </div>
       </div>
 
-      <div className={cx('rounded-3xl border p-5 transition-colors', on ? 'border-accent/40 bg-accent/10' : 'border-border bg-surface')} data-ml-home-card="">
+      <div className={cx('ml-glass rounded-[28px] p-5 transition-colors', on && 'bg-accent/10')} data-ml-home-card="">
         <div className="flex items-center gap-4">
           <div className="min-w-0 flex-1">
             <div className="text-[20px] font-bold">{on ? 'Đang bật' : 'Đang tắt'}</div>
@@ -186,7 +186,7 @@ function Home({ onOpen }: { onOpen: (t: Tab) => void }) {
         </Notice>
       )}
 
-      <div className="space-y-2 rounded-3xl border border-border bg-surface p-4">
+      <div className="space-y-2 ml-glass-card rounded-[28px] p-4">
         <div className="text-[13px] font-bold">Nút nổi</div>
         <ul className="space-y-1.5 text-[13px] text-muted">
           <li>• Kéo nút đi bất kỳ đâu; thả ra, nút tự hít vào cạnh màn hình.</li>
@@ -199,7 +199,7 @@ function Home({ onOpen }: { onOpen: (t: Tab) => void }) {
         {(['lookup', 'vocab', 'settings'] as Tab[]).map((t) => {
           const item = TABS.find((x) => x.id === t)!;
           return (
-            <button key={t} type="button" onClick={() => onOpen(t)} className="ml-card flex flex-col items-center gap-1 rounded-2xl border border-border bg-surface py-3 text-[12.5px] font-semibold text-text">
+            <button key={t} type="button" onClick={() => onOpen(t)} className="ml-card ml-glass-card ml-press ml-sheen flex flex-col items-center gap-1 rounded-[22px] py-3 text-[12.5px] font-semibold text-text">
               <span className="text-accent">{item.icon}</span>
               {item.label}
             </button>
@@ -248,7 +248,7 @@ function IosHome({ onOpen, onFile }: { onOpen: (t: Tab) => void; onFile: (f: Fil
         </label>
       </div>
 
-      <div className="rounded-3xl border border-border bg-surface p-4" data-ml-ios-setup="">
+      <div className="ml-glass-card rounded-[28px] p-4" data-ml-ios-setup="">
         <div className="text-[15px] font-bold">Nút nổi (AssistiveTouch)</div>
         <div className="mt-0.5 text-[12.5px] text-muted">iOS không cho ứng dụng tự hiện nút nổi trên ứng dụng khác, nên LingoLens dùng nút AssistiveTouch của iPhone. Thiết lập một lần:</div>
         <ol className="mt-3 space-y-2.5">
@@ -271,7 +271,7 @@ function IosHome({ onOpen, onFile }: { onOpen: (t: Tab) => void; onFile: (f: Fil
         {(['lookup', 'vocab', 'settings'] as Tab[]).map((t) => {
           const item = TABS.find((x) => x.id === t)!;
           return (
-            <button key={t} type="button" onClick={() => onOpen(t)} className="ml-card flex flex-col items-center gap-1 rounded-2xl border border-border bg-surface py-3 text-[12.5px] font-semibold text-text">
+            <button key={t} type="button" onClick={() => onOpen(t)} className="ml-card ml-glass-card ml-press ml-sheen flex flex-col items-center gap-1 rounded-[22px] py-3 text-[12.5px] font-semibold text-text">
               <span className="text-accent">{item.icon}</span>
               {item.label}
             </button>

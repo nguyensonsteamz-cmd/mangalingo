@@ -61,6 +61,23 @@ async function step(name, fn) {
 const assert = (cond, msg) => {
   if (!cond) throw new Error(msg);
 };
+/** ML_SHOTS=1 → screenshots of the real UI (popups, sidebar, settings) in test-results/ui-*.png. */
+const snap = async (p, name) => {
+  if (!process.env.ML_SHOTS) return;
+  await sleep(350); // let the entrance animation finish
+  const shot = await p.send('Page.captureScreenshot', { format: 'png' });
+  await writeFile(join(outDir, `ui-${name}.png`), Buffer.from(shot.data, 'base64'));
+};
+/** Screenshot the open popup again with another popup material (applied live, then restored). */
+const snapMaterial = async (sw, p, name, material) => {
+  if (!process.env.ML_SHOTS) return;
+  const set = (m) => sw.evaluate(`chrome.storage.local.get('settings:v1').then(r => { const s = r['settings:v1'] ?? {}; s.popup = { ...(s.popup ?? {}), material: '${m}' }; return chrome.storage.local.set({ 'settings:v1': s }); })`);
+  await set(material);
+  await sleep(500);
+  await snap(p, name);
+  await set('glass');
+  await sleep(300);
+};
 
 const browser = await launch({ headless: !headed });
 const external = new Set();
@@ -182,6 +199,8 @@ try {
     const a = p.rect;
     const overlap = pr.left < a.left + a.width && a.left < pr.left + pr.width && pr.top < a.top + a.height && a.top < pr.top + pr.height;
     assert(!overlap, 'popup must not cover the clicked word');
+    await snap(page, 'popup-word');
+    await snapMaterial(sw, page, 'popup-word-clear', 'clear');
     return 'destroyed → destroy (phá hủy), popup below/above word, scroll unchanged';
   });
 
@@ -234,6 +253,7 @@ try {
     await page.evaluate(`[...${shadowQ('[data-ml-popup]')}.querySelectorAll('[role=tab]')].find(t => t.textContent.startsWith('Ngữ pháp')).click()`);
     const g = await waitFor(async () => ((await popupText()) ?? '').includes('Bị động') && (await popupText()), { label: 'grammar tab' });
     assert(g.includes('Quá khứ đơn'), 'grammar should detect past simple');
+    await snap(page, 'popup-sentence');
     await closePopup();
     return 'gloss "ngôi làng bị/được phá hủy bởi ác quỷ", passive + past simple';
   });
@@ -331,6 +351,8 @@ try {
     const act = await attach(browser, actId);
     await act.send('Runtime.enable');
     await waitFor(() => act.evaluate(`!!document.querySelector('[role=switch][aria-label="Bật LingoLens trên trang này"]')`), { label: 'per-site switch in the toolbar popup' });
+    if (process.env.ML_SHOTS) await act.send('Emulation.setDeviceMetricsOverride', { width: 324, height: 330, deviceScaleFactor: 2, mobile: false });
+    await snap(act, 'toolbar-popup');
     await browser.send('Target.closeTarget', { targetId: actId });
     await browser.send('Target.activateTarget', { targetId: readerId });
     const tabId = (await sw.evaluate(`chrome.tabs.query({ url: '${BASE}/reader.html' }).then(t => t[0].id)`));
@@ -416,12 +438,15 @@ try {
         page.evaluate(`(() => { const d = ${shadowQ('[data-ml-popup]')}; const rows = [...d.querySelectorAll('[data-ml-ocr-word]')]; const ipa = d.querySelectorAll('[data-ml-ipa]').length; const mt = d.querySelector('[data-ml-mt]'); if (!rows.length || !ipa || !(mt || d.querySelector('[data-ml-ocr-gloss]')) || !rows.some(x => /strongest|ninja/i.test(x.innerText) && x.innerText.includes('/'))) return null; const r = d.getBoundingClientRect(); return { theme: d.dataset.theme, placement: d.dataset.placement, l: r.left, r: r.right, bg: getComputedStyle(d).backgroundColor, ipa, rows: rows.map(x => x.innerText.split(String.fromCharCode(10)).join(' ')), noBadges: !/tin cậy \d+%/.test(d.innerText) && ![...d.querySelectorAll('span')].some(x => x.textContent === 'OCR'), cards: !!d.querySelector('[data-ml-ocr-original].ml-card') && rows.every(x => x.classList.contains('ml-card')) }; })()`),
       { label: 'word list with IPA' },
     );
-    assert(info.theme === 'light' && info.bg === 'rgb(255, 255, 255)', `light popup expected: ${info.theme} ${info.bg}`);
+    // Liquid Glass: white tint with transparency (opaque when the glass effect is off)
+    assert(info.theme === 'light' && /^rgba?\(255, 255, 255/.test(info.bg), `light popup expected: ${info.theme} ${info.bg}`);
     assert(info.noBadges, 'OCR / confidence badges should be gone');
     assert(info.cards, 'original text and word rows should be cards');
     assert(['right', 'left'].includes(info.placement), `popup should sit beside the bubble, got ${info.placement}`);
     assert(info.l >= boxInfo.r || info.r <= boxInfo.l, 'popup must not cover the bubble');
     assert(info.rows.some((r) => /strongest|ninja/i.test(r) && r.includes('/')), `word rows with IPA expected: ${info.rows.join(' / ')}`);
+    await snap(page, 'popup-ocr');
+    await snapMaterial(sw, page, 'popup-ocr-clear', 'clear');
     await closePopup();
     return `${info.placement}, ${info.rows.slice(0, 3).join(' · ')}`;
   });
@@ -614,6 +639,8 @@ try {
     await panel.send('Input.insertText', { text: "Don't look down on me!" });
     await panel.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 });
     await waitFor(async () => (await panel.evaluate('document.body.innerText')).includes('coi thường'), { label: 'panel lookup' });
+    if (process.env.ML_SHOTS) await panel.send('Emulation.setDeviceMetricsOverride', { width: 420, height: 860, deviceScaleFactor: 1, mobile: false });
+    await snap(panel, 'sidebar');
   });
 
   const { targetId: optId } = await browser.send('Target.createTarget', { url: `chrome-extension://${extId}/options/index.html#appearance` });

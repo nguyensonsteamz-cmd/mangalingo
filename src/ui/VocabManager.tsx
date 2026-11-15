@@ -60,7 +60,7 @@ export function VocabManager({ compact }: { compact?: boolean }) {
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Tìm từ, nghĩa, ghi chú…"
-            className="ml-focus h-8 w-full rounded-lg border border-border bg-elevated pl-8 pr-2 text-[13px] text-text placeholder:text-subtle"
+            className="ml-focus ml-glass-field h-9 w-full rounded-full pl-8 pr-3 text-[13px] text-text placeholder:text-subtle"
           />
         </div>
         <Select value={sort} onChange={setSort} options={[{ value: 'newest', label: 'Mới nhất' }, { value: 'oldest', label: 'Cũ nhất' }, { value: 'az', label: 'A → Z' }]} />
@@ -127,7 +127,7 @@ function VocabItem({ e, compact }: { e: VocabEntry; compact?: boolean }) {
   return (
     <li
       className={cx(
-        'ml-card rounded-xl border border-border border-l-[4px] bg-surface p-3 hover:shadow-[0_10px_22px_-12px_rgb(0_0_0/0.45)]',
+        'ml-card ml-glass-card rounded-2xl border-l-[4px] p-3 hover:shadow-[0_10px_24px_-14px_rgb(0_0_0/0.45)]',
         e.status === 'known' ? 'border-l-ok hover:border-ok/50' : e.status === 'learning' ? 'border-l-warn hover:border-warn/50' : 'border-l-accent hover:border-accent/50',
       )}
       data-ml-vocab-item=""
@@ -137,7 +137,7 @@ function VocabItem({ e, compact }: { e: VocabEntry; compact?: boolean }) {
           <div className="flex flex-wrap items-baseline gap-x-2">
             <span className="text-[16px] font-bold tracking-tight text-text">{e.word}</span>
             {e.ipa && <span className="ml-ipa text-[12px] text-accent">{e.ipa}</span>}
-            {e.pos && <span className="rounded bg-elevated px-1.5 text-[10.5px] font-medium text-muted">{e.pos}</span>}
+            {e.pos && <span className="rounded-full bg-text/[0.06] px-1.5 text-[10.5px] font-medium text-muted">{e.pos}</span>}
           </div>
           <div className="ml-tr mt-0.5 font-semibold text-text">{e.meaning || <span className="font-normal text-subtle">—</span>}</div>
         </div>
@@ -150,7 +150,7 @@ function VocabItem({ e, compact }: { e: VocabEntry; compact?: boolean }) {
           <IconTrash size={14} />
         </IconButton>
       </div>
-      {!compact && e.sentence && <div className="mt-2 rounded-lg bg-elevated/70 px-2.5 py-1.5 text-[12.5px] italic leading-snug text-muted">“{e.sentence}”</div>}
+      {!compact && e.sentence && <div className="mt-2 rounded-xl bg-text/[0.05] px-2.5 py-1.5 text-[12.5px] italic leading-snug text-muted">“{e.sentence}”</div>}
       {!compact && e.translation && <div className="mt-0.5 pl-2.5 text-[12px] text-subtle">{e.translation}</div>}
       <div className="mt-2 flex flex-wrap items-center gap-1.5">
         {(['new', 'learning', 'known'] as LearningStatus[]).map((st) => (
@@ -182,10 +182,10 @@ function VocabItem({ e, compact }: { e: VocabEntry; compact?: boolean }) {
         )}
         <span className="text-[10.5px] text-subtle">{new Date(e.createdAt).toLocaleDateString()}</span>
       </div>
-      {e.notes && !editing && <div className="mt-1 rounded-md bg-elevated px-2 py-1 text-[12px] text-text">{e.notes}</div>}
+      {e.notes && !editing && <div className="mt-1 rounded-xl bg-text/[0.05] px-2 py-1 text-[12px] text-text">{e.notes}</div>}
       {editing && (
         <div className="mt-1.5 flex gap-1.5">
-          <textarea value={notes} onChange={(ev) => setNotes(ev.target.value)} rows={2} maxLength={1000} className="ml-focus min-w-0 flex-1 rounded-md border border-border bg-elevated p-1.5 text-[12.5px] text-text" placeholder="Ghi chú của bạn" />
+          <textarea value={notes} onChange={(ev) => setNotes(ev.target.value)} rows={2} maxLength={1000} className="ml-focus ml-glass-field min-w-0 flex-1 rounded-xl p-1.5 text-[12.5px] text-text" placeholder="Ghi chú của bạn" />
           <Button
             size="sm"
             variant="primary"

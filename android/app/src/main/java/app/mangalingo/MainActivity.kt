@@ -136,7 +136,7 @@ class MainActivity : Activity() {
         /** Logo chosen in Settings → Giao diện: enables that launcher entry (icon), disables the others. */
         @JavascriptInterface
         fun setLogo(id: String): Boolean {
-            val ids = listOf("lens", "bubble", "spark", "book")
+            val ids = listOf("glass", "clear", "oil", "sunset", "clay", "ink")
             if (id !in ids) return false
             val pm = packageManager
             for (other in ids) {

@@ -24,9 +24,15 @@ export interface Settings {
     theme: ThemeMode;
     accent: string;
     /** App logo (in the UI, the app icon on phones, the Chrome toolbar icon). */
-    logo: 'lens' | 'bubble' | 'spark' | 'book';
+    logo: 'glass' | 'clear' | 'oil' | 'sunset' | 'clay' | 'ink';
     /** Size of the phone app's interface (text, buttons). */
     uiScale: 'small' | 'medium' | 'large';
+    /** Liquid Glass material (translucent, blurred panels); off = opaque panels. */
+    glass: boolean;
+    /** Background of the app pages (side panel, settings, toolbar popup, phone app). */
+    background: 'ambient' | 'vivid' | 'plain';
+    /** Colour of the glass selection pill (active tab, chosen option); '' = the accent colour. */
+    selectColor: string;
   };
   popup: {
     enabled: boolean;
@@ -35,6 +41,10 @@ export interface Settings {
     theme: PopupTheme;
     /** Custom popup background (#rrggbb); '' = the theme's default surface. */
     background: string;
+    /** Popup material on web pages: tinted Liquid Glass, clear glass (like the "Kính trong" logo) or solid. */
+    material: 'glass' | 'clear' | 'solid';
+    /** Opacity of the popup glass tint, 0.05–0.95; 0 = the material's own value. */
+    glassAlpha: number;
     fontSize: number; // 0 = follow typography
     position: PopupPosition;
     opacity: number;
@@ -100,12 +110,14 @@ export interface Settings {
 
 export const DEFAULT_SETTINGS: Settings = {
   general: { enabled: true, sites: [] },
-  appearance: { theme: 'dark', accent: '#7c9cff', logo: 'lens', uiScale: 'medium' },
+  appearance: { theme: 'dark', accent: '#7c9cff', logo: 'glass', uiScale: 'medium', glass: true, background: 'ambient', selectColor: '' },
   popup: {
     enabled: true,
     width: 380,
     theme: 'light',
     background: '',
+    material: 'glass',
+    glassAlpha: 0,
     fontSize: 0,
     position: 'auto',
     opacity: 1,
@@ -161,7 +173,11 @@ type Rule =
 export const RULES: Record<string, Rule> = {
   'appearance.theme': { t: 'enum', values: ['dark', 'light', 'system'] },
   'appearance.accent': { t: 'color' },
-  'appearance.logo': { t: 'enum', values: ['lens', 'bubble', 'spark', 'book'] },
+  'appearance.logo': { t: 'enum', values: ['glass', 'clear', 'oil', 'sunset', 'clay', 'ink'] },
+  'appearance.background': { t: 'enum', values: ['ambient', 'vivid', 'plain'] },
+  'popup.material': { t: 'enum', values: ['glass', 'clear', 'solid'] },
+  'popup.glassAlpha': { t: 'num', min: 0, max: 0.95 },
+  'appearance.selectColor': { t: 'color', optional: true },
   'appearance.uiScale': { t: 'enum', values: ['small', 'medium', 'large'] },
   'popup.width': { t: 'num', min: 300, max: 600, int: true },
   'popup.background': { t: 'color', optional: true },

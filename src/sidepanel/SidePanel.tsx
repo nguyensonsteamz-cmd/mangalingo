@@ -99,8 +99,7 @@ export function SidePanel() {
 
   return (
     <div className={cx('mx-auto flex min-h-screen flex-col', width)}>
-      <header className="sticky top-0 z-10 border-b border-border bg-bg/95 backdrop-blur" data-ml-sidebar-header="">
-        <div className="h-1 bg-gradient-to-r from-accent via-[rgb(var(--ml-box))] to-ok" />
+      <header className="ml-glass-bar sticky top-0 z-10 border-b" data-ml-sidebar-header="">
         <div className="flex items-center gap-2.5 px-3 pb-2.5 pt-3">
           <IconLogo size={38} />
           <div className="min-w-0 flex-1">
@@ -131,7 +130,7 @@ export function SidePanel() {
           {/* Large, high-contrast search box (16 px text: iPhone does not zoom the page on focus). */}
           <div className="flex items-stretch gap-2" data-ml-search="">
             <div className="relative min-w-0 flex-1">
-              <IconSearch size={20} className="pointer-events-none absolute left-3.5 top-[15px] text-accent" />
+              <IconSearch size={20} className="pointer-events-none absolute left-3.5 top-[15px] z-10 text-accent" />
               <textarea
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
@@ -146,15 +145,15 @@ export function SidePanel() {
                 enterKeyHint="search"
                 placeholder="Nhập từ hoặc câu tiếng Anh…"
                 aria-label="Từ hoặc câu cần tra"
-                className="ml-focus block min-h-[52px] w-full resize-none rounded-2xl border-2 border-border bg-surface py-3 pl-11 pr-10 text-[16px] font-medium leading-snug text-text shadow-sm placeholder:font-normal placeholder:text-subtle hover:border-accent/50 focus:border-accent"
+                className="ml-focus ml-glass block min-h-[52px] w-full resize-none rounded-[20px] py-3 pl-11 pr-10 text-[16px] font-medium leading-snug text-text transition-[border-color,box-shadow] duration-200 placeholder:font-normal placeholder:text-subtle hover:border-accent/40 focus:border-accent/70"
               />
               {input && (
-                <button type="button" onClick={() => setInput('')} className="absolute right-2.5 top-[13px] flex h-7 w-7 items-center justify-center rounded-full bg-elevated text-muted hover:text-text" aria-label="Xóa">
+                <button type="button" onClick={() => setInput('')} className="ml-press absolute right-2.5 top-[13px] z-10 flex h-7 w-7 items-center justify-center rounded-full bg-text/[0.08] text-muted hover:bg-text/[0.14] hover:text-text" aria-label="Xóa">
                   ×
                 </button>
               )}
             </div>
-            <button type="submit" disabled={!input.trim()} className="shrink-0 rounded-2xl bg-accent px-4 text-[15px] font-bold text-accent-fg shadow-sm disabled:opacity-40">
+            <button type="submit" disabled={!input.trim()} className="ml-focus ml-press ml-btn-primary ml-sheen shrink-0 rounded-[20px] px-5 text-[15px] font-bold disabled:opacity-40">
               Tra
             </button>
           </div>
@@ -192,7 +191,7 @@ const TAB_ITEMS: { id: SidebarTab; label: string; icon: ReactNode }[] = [
 function SidebarTabs({ value, onChange }: { value: SidebarTab; onChange: (v: SidebarTab) => void }) {
   return (
     <div className="px-3 pb-2.5">
-      <div role="tablist" className="grid grid-cols-5 gap-1 rounded-xl bg-elevated/70 p-1 ring-1 ring-border">
+      <div role="tablist" className="ml-glass-field grid grid-cols-5 gap-1 rounded-[18px] p-1">
         {TAB_ITEMS.map((t) => (
           <button
             key={t.id}
@@ -201,8 +200,8 @@ function SidebarTabs({ value, onChange }: { value: SidebarTab; onChange: (v: Sid
             aria-selected={value === t.id}
             onClick={() => onChange(t.id)}
             className={cx(
-              'ml-focus flex min-w-0 flex-col items-center justify-center gap-0.5 rounded-lg px-1 py-1.5 text-[11.5px] font-semibold leading-tight transition-colors',
-              value === t.id ? 'bg-accent text-accent-fg shadow-sm' : 'text-muted hover:bg-surface hover:text-text',
+              'ml-focus ml-press flex min-w-0 flex-col items-center justify-center gap-0.5 rounded-[14px] px-1 py-1.5 text-[11.5px] font-semibold leading-tight',
+              value === t.id ? 'ml-glass-select border' : 'border border-transparent text-muted hover:bg-surface/70 hover:text-text',
             )}
           >
             {t.icon}
@@ -241,7 +240,7 @@ function EntryView({ s, entry, tab, compact, onLookup, onBackToOcr }: { s: Setti
   if (entry.error || !r) return <Notice tone="error" title="Không tra cứu được">{entry.error}</Notice>;
 
   const Original = () => (
-    <div className="ml-card mb-3 rounded-xl border border-border border-l-[4px] border-l-subtle bg-surface p-3 hover:shadow-[0_8px_20px_-12px_rgb(0_0_0/0.4)]">
+    <div className="ml-card ml-glass-card mb-3 rounded-2xl border-l-[4px] border-l-subtle p-3 hover:shadow-[0_10px_24px_-14px_rgb(0_0_0/0.45)]">
       <div className="mb-1 flex items-center gap-1.5">
         <span className="text-[11px] font-bold uppercase tracking-wider text-muted">Văn bản gốc</span>
         <Badge tone="accent">{r.kind === 'word' ? 'Từ' : r.kind === 'phrase' ? 'Cụm từ' : r.kind === 'sentence' ? 'Câu' : r.kind === 'paragraph' ? 'Đoạn văn' : 'Khác'}</Badge>
@@ -402,7 +401,7 @@ function OcrPanel({ ocr, tab, onAnalyze, s }: { ocr: OcrState; tab: SidebarTab; 
           {r.blocks.map((b, i) => (
             <li
               key={b.id}
-              className="ml-card rounded-xl border border-border border-l-[4px] border-l-[rgb(var(--ml-box))] bg-surface p-2.5 hover:border-[rgb(var(--ml-box)/0.6)] hover:shadow-[0_8px_18px_-10px_rgb(var(--ml-box)/0.7)]"
+              className="ml-card ml-glass-card rounded-2xl border-l-[4px] border-l-[rgb(var(--ml-box))] p-2.5 hover:border-[rgb(var(--ml-box)/0.6)] hover:shadow-[0_8px_18px_-10px_rgb(var(--ml-box)/0.7)]"
               data-ml-sidebar-bubble=""
             >
               <div className="flex items-start gap-2">

@@ -13,6 +13,32 @@
   --ml-wordspace: 0px;
   --ml-tr-size: 15px;
   --ml-anim: 140ms;
+
+  /* Liquid Glass – shape + motion */
+  --ml-radius-sm: 10px;
+  --ml-radius: 14px;
+  --ml-radius-lg: 20px;
+  --ml-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ml-ease-spring: cubic-bezier(0.34, 1.36, 0.64, 1);
+  --ml-dur: 160ms;
+  /* Liquid Glass – material. --ml-glass-solid (0…1) is the material opacity; --ml-glass-off (set from the settings
+     "Hiệu ứng kính") = 1 turns the glass into opaque panels without blur. */
+  --ml-glass-solid: 0;
+  --ml-glass-blur: 24px;
+  --ml-glass-saturate: 180%;
+  /* selection pill colour (overridden from the settings) */
+  --ml-sel: 124 156 255;
+  --ml-sel-text: 124 156 255;
+}
+
+/* resolved where the theme is set, so the theme's alpha and the inherited "solid" both apply */
+.ml-root[data-theme],
+.ml-root [data-theme],
+:root[data-theme] {
+  --ml-glass-k: max(var(--ml-glass-solid), var(--ml-glass-off, 0));
+  --ml-glass-a: calc(var(--ml-glass-alpha) + (1 - var(--ml-glass-alpha)) * var(--ml-glass-k));
+  --ml-glass-card-a: calc(var(--ml-glass-card-alpha) + (1 - var(--ml-glass-card-alpha)) * var(--ml-glass-k));
+  --ml-glass-blur-on: calc(var(--ml-glass-blur) * (1 - var(--ml-glass-off, 0)));
 }
 
 .ml-root[data-theme='dark'],
@@ -29,6 +55,16 @@
   --ml-ok: 92 199 140;
   --ml-warn: 232 179 86;
   --ml-danger: 240 108 108;
+  --ml-glass-alpha: 0.72;
+  --ml-glass-card-alpha: 0.5;
+  --ml-glass-edge: 255 255 255;
+  --ml-glass-edge-a: 0.13;
+  --ml-glass-hi: 0.16;
+  --ml-glass-shadow: 0 24px 56px -16px rgb(0 0 0 / 0.6), 0 4px 14px -4px rgb(0 0 0 / 0.35);
+  --ml-glass-card-shadow: 0 1px 2px rgb(0 0 0 / 0.25);
+  --ml-ambient-1: 90 110 255;
+  --ml-ambient-2: 190 80 255;
+  --ml-ambient-a: 0.2;
 }
 
 .ml-root[data-theme='light'],
@@ -45,6 +81,16 @@
   --ml-ok: 24 140 84;
   --ml-warn: 176 112 12;
   --ml-danger: 200 50 50;
+  --ml-glass-alpha: 0.7;
+  --ml-glass-card-alpha: 0.62;
+  --ml-glass-edge: 255 255 255;
+  --ml-glass-edge-a: 0.75;
+  --ml-glass-hi: 0.9;
+  --ml-glass-shadow: 0 24px 56px -18px rgb(30 40 90 / 0.35), 0 4px 14px -6px rgb(30 40 90 / 0.18), 0 0 0 1px rgb(20 30 60 / 0.07);
+  --ml-glass-card-shadow: 0 1px 2px rgb(30 40 90 / 0.08), 0 0 0 1px rgb(20 30 60 / 0.05);
+  --ml-ambient-1: 90 120 255;
+  --ml-ambient-2: 255 120 190;
+  --ml-ambient-a: 0.22;
 }
 
 .ml-root {
@@ -61,6 +107,34 @@
 
 html[data-theme] body {
   background-color: rgb(var(--ml-bg));
+  /* soft ambient light behind the glass panels */
+  background-image:
+    radial-gradient(60% 45% at 0% 0%, rgb(var(--ml-ambient-1) / var(--ml-ambient-a)), transparent 70%),
+    radial-gradient(55% 45% at 100% 100%, rgb(var(--ml-ambient-2) / var(--ml-ambient-a)), transparent 70%),
+    radial-gradient(40% 30% at 100% 0%, rgb(var(--ml-accent) / calc(var(--ml-ambient-a) * 0.6)), transparent 70%);
+  background-attachment: fixed;
+}
+
+/* Nền ứng dụng (Settings → Giao diện): plain = flat colour; vivid = LingoLens colour field that
+   shows the glass panels at their best. */
+html[data-bg='plain'] body {
+  background-image: none;
+}
+html[data-theme='dark'][data-bg='vivid'] body {
+  background-image:
+    radial-gradient(55% 45% at 0% 0%, rgb(0 200 210 / 0.45), transparent 70%),
+    radial-gradient(60% 50% at 100% 0%, rgb(255 170 60 / 0.3), transparent 70%),
+    radial-gradient(70% 55% at 100% 100%, rgb(230 50 160 / 0.5), transparent 70%),
+    radial-gradient(70% 60% at 0% 100%, rgb(80 60 255 / 0.55), transparent 70%),
+    linear-gradient(135deg, rgb(30 50 160), rgb(70 30 150));
+}
+html[data-theme='light'][data-bg='vivid'] body {
+  background-image:
+    radial-gradient(55% 45% at 0% 0%, rgb(0 210 220 / 0.35), transparent 70%),
+    radial-gradient(60% 50% at 100% 0%, rgb(255 180 80 / 0.35), transparent 70%),
+    radial-gradient(70% 55% at 100% 100%, rgb(255 90 180 / 0.35), transparent 70%),
+    radial-gradient(70% 60% at 0% 100%, rgb(110 100 255 / 0.4), transparent 70%),
+    linear-gradient(135deg, rgb(225 232 255), rgb(240 225 255));
   color: rgb(var(--ml-text));
   font-family: var(--ml-font);
   font-size: var(--ml-size);
@@ -69,12 +143,131 @@ html[data-theme] body {
 }
 
 @layer components {
+  /* ---------------------------------------------------------------- Liquid Glass material
+     .ml-glass       floating panel (popups, menus, toasts): blur + tint + specular edge + depth
+     .ml-glass-bar   sticky header / bottom navigation: blur + hairline, no depth
+     .ml-glass-card  content card inside a panel: tint + fine edge, no blur (cheap, readable)
+     .ml-glass-field input / select / segmented track: recessed glass
+     .ml-sheen       light reflection sweeping across on hover (buttons, tiles)
+     .ml-press       press feedback (scale) + smooth state transitions
+     .ml-btn-primary accent pill with an inner highlight */
+  .ml-glass {
+    position: relative;
+    isolation: isolate;
+    background-color: rgb(var(--ml-surface) / var(--ml-glass-a));
+    background-image: linear-gradient(180deg, rgb(255 255 255 / calc(var(--ml-glass-hi) * 0.18)), transparent 38%);
+    -webkit-backdrop-filter: blur(var(--ml-glass-blur-on)) saturate(var(--ml-glass-saturate));
+    backdrop-filter: blur(var(--ml-glass-blur-on)) saturate(var(--ml-glass-saturate));
+    border: 1px solid rgb(var(--ml-glass-edge) / var(--ml-glass-edge-a));
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / var(--ml-glass-hi)),
+      inset 0 -1px 0 rgb(255 255 255 / calc(var(--ml-glass-hi) * 0.25)),
+      var(--ml-glass-shadow);
+  }
+  /* specular light along the top-left edge */
+  .ml-glass::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    pointer-events: none;
+    background: radial-gradient(120% 60% at 0% 0%, rgb(255 255 255 / calc(var(--ml-glass-hi) * 0.35)), transparent 55%);
+  }
+  .ml-glass-bar {
+    background-color: rgb(var(--ml-bg) / calc(var(--ml-glass-a) - 0.06));
+    -webkit-backdrop-filter: blur(var(--ml-glass-blur-on)) saturate(var(--ml-glass-saturate));
+    backdrop-filter: blur(var(--ml-glass-blur-on)) saturate(var(--ml-glass-saturate));
+    border-color: rgb(var(--ml-border) / 0.7);
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / calc(var(--ml-glass-hi) * 0.5));
+  }
+  .ml-glass-card {
+    background-color: rgb(var(--ml-surface) / var(--ml-glass-card-a));
+    background-image: linear-gradient(180deg, rgb(255 255 255 / calc(var(--ml-glass-hi) * 0.08)), transparent 60%);
+    border: 1px solid rgb(var(--ml-glass-edge) / calc(var(--ml-glass-edge-a) * 0.7));
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / calc(var(--ml-glass-hi) * 0.6)),
+      var(--ml-glass-card-shadow);
+  }
+  .ml-glass-field {
+    background-color: rgb(var(--ml-elevated) / calc(var(--ml-glass-card-a) + 0.15));
+    border: 1px solid rgb(var(--ml-border) / 0.85);
+    box-shadow:
+      inset 0 1px 2px rgb(0 0 0 / 0.08),
+      0 1px 0 rgb(255 255 255 / calc(var(--ml-glass-hi) * 0.35));
+  }
+  .ml-sheen {
+    position: relative;
+    overflow: hidden;
+  }
+  .ml-sheen::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    border-radius: inherit;
+    background: linear-gradient(115deg, transparent 30%, rgb(255 255 255 / calc(var(--ml-glass-hi) * 0.45)) 50%, transparent 70%);
+    transform: translateX(-120%);
+    transition: transform 520ms var(--ml-ease);
+  }
+  .ml-sheen:hover::after {
+    transform: translateX(120%);
+  }
+  .ml-press {
+    transition:
+      transform var(--ml-dur) var(--ml-ease),
+      background-color var(--ml-dur) var(--ml-ease),
+      border-color var(--ml-dur) var(--ml-ease),
+      box-shadow var(--ml-dur) var(--ml-ease),
+      color var(--ml-dur) var(--ml-ease);
+  }
+  .ml-press:active:not(:disabled) {
+    transform: scale(0.96);
+  }
+  /* Selected state (active tab, chosen option, current page): a glass pill tinted with the
+     selection colour (--ml-sel, Settings → Giao diện → Màu hiệu ứng chọn), lit from the top. */
+  .ml-glass-select {
+    position: relative;
+    color: rgb(var(--ml-sel-text));
+    background-color: rgb(var(--ml-sel) / 0.16);
+    background-image: linear-gradient(180deg, rgb(255 255 255 / calc(var(--ml-glass-hi) * 0.35)), rgb(255 255 255 / 0) 60%);
+    -webkit-backdrop-filter: blur(calc(var(--ml-glass-blur-on) * 0.5)) saturate(160%);
+    backdrop-filter: blur(calc(var(--ml-glass-blur-on) * 0.5)) saturate(160%);
+    border-color: rgb(var(--ml-sel) / 0.38) !important;
+    box-shadow:
+      inset 0 0 0 1px rgb(var(--ml-sel) / 0.3),
+      inset 0 1px 0 rgb(255 255 255 / calc(var(--ml-glass-hi) * 0.8)),
+      0 6px 16px -8px rgb(var(--ml-sel) / 0.6);
+  }
+  /* keep the selection text readable on either theme */
+  [data-theme='light'] .ml-glass-select,
+  .ml-glass-select[data-theme='light'] {
+    color: color-mix(in srgb, rgb(var(--ml-sel)) 62%, black);
+  }
+  [data-theme='dark'] .ml-glass-select {
+    color: color-mix(in srgb, rgb(var(--ml-sel)) 70%, white);
+  }
+  .ml-btn-primary {
+    background-color: rgb(var(--ml-accent));
+    background-image: linear-gradient(180deg, rgb(255 255 255 / 0.22), rgb(255 255 255 / 0) 55%);
+    color: rgb(var(--ml-accent-fg));
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.35),
+      0 6px 16px -6px rgb(var(--ml-accent) / 0.7);
+  }
+  .ml-btn-primary:hover:not(:disabled) {
+    filter: brightness(1.06);
+  }
+
   .ml-scroll {
     scrollbar-width: thin;
     scrollbar-color: rgb(var(--ml-border)) transparent;
   }
   .ml-focus {
     @apply outline-none focus-visible:ring-2 focus-visible:ring-accent/70 focus-visible:ring-offset-0;
+  }
+  .ml-focus:focus-visible {
+    box-shadow: 0 0 0 5px rgb(var(--ml-accent) / 0.16);
   }
   .ml-chip {
     @apply inline-flex items-center rounded-md border border-border bg-elevated px-1.5 py-px text-[11px] font-medium text-muted;
@@ -104,6 +297,17 @@ html[data-theme] body {
   .ml-card:hover {
     transform: translateY(-1px);
   }
+  /* popup exit (the entrance is the ml-in animation) */
+  .ml-out {
+    animation: ml-out var(--ml-anim, 140ms) var(--ml-ease) forwards;
+    pointer-events: none !important;
+  }
+  @keyframes ml-out {
+    to {
+      opacity: 0;
+      transform: translateY(3px) scale(0.97);
+    }
+  }
   /* Marching-ants outline around an image / region while OCR runs. */
   .ml-scan-outline {
     background:
@@ -129,5 +333,31 @@ html[data-theme] body {
   .ml-root * {
     animation-duration: 1ms !important;
     transition-duration: 1ms !important;
+  }
+}
+
+/* Browsers without backdrop-filter: keep the panels readable (nearly opaque). */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .ml-root,
+  :root {
+    --ml-glass-solid: 0.85;
+  }
+}
+
+/* "Reduce transparency" in the OS → opaque panels. */
+@media (prefers-reduced-transparency: reduce) {
+  .ml-root,
+  :root {
+    --ml-glass-solid: 1;
+    --ml-glass-blur: 0px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ml-sheen::after {
+    display: none;
+  }
+  .ml-press:active:not(:disabled) {
+    transform: none;
   }
 }

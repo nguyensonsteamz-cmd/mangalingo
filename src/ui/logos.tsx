@@ -1,29 +1,34 @@
 /**
- * LingoLens logos – one definition (64×64 SVG paths) used everywhere: in the UI (SVG), the Chrome
- * toolbar icon (Path2D in the service worker), the Android launcher icons (vector drawables) and
- * the iPhone app icons (PNG rendered by scripts/make-logo-assets.mjs). Chosen in Settings → Giao diện.
+ * LingoLens logos – one canvas renderer (logo-data.ts) used everywhere: in the UI (<canvas>), the
+ * Chrome toolbar icon (OffscreenCanvas in the service worker) and the Android / iPhone app icons
+ * (PNGs rendered by scripts/make-logo-assets.mjs). Chosen in Settings → Giao diện.
  */
-import { useEffect, useState } from 'react';
-import { logoById, type LogoId } from './logo-data';
+import { useEffect, useRef, useState } from 'react';
+import { DEFAULT_LOGO, drawLogo, logoById, type LogoId } from './logo-data';
 
-export { LOGOS, logoById, drawLogo, type LogoId, type LogoDef } from './logo-data';
+export { LOGOS, DEFAULT_LOGO, logoById, drawLogo, type LogoId, type LogoDef } from './logo-data';
 
-/** The logo as an SVG tile (rounded square like an app icon). */
-export function LogoMark({ id, size = 24, className, tile = true }: { id?: string; size?: number; className?: string; tile?: boolean }) {
+/** The logo as a rounded app-icon tile, drawn sharp for the screen's pixel density. */
+export function LogoMark({ id, size = 24, className }: { id?: string; size?: number; className?: string }) {
   const logo = logoById(id);
-  return (
-    <svg width={size} height={size} viewBox="0 0 64 64" className={className} aria-hidden="true" data-ml-logo={logo.id}>
-      {tile && <rect width="64" height="64" rx="15" fill={logo.bg} />}
-      {logo.paths.map((p, i) => (
-        <path key={i} d={p.d} fill={p.fill} fillRule={p.rule ?? 'nonzero'} />
-      ))}
-    </svg>
-  );
+  const ref = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    const c = ref.current;
+    if (!c) return;
+    const px = Math.round(size * Math.min(3, Math.max(1, globalThis.devicePixelRatio || 1)));
+    c.width = px;
+    c.height = px;
+    const ctx = c.getContext('2d');
+    if (!ctx) return;
+    ctx.clearRect(0, 0, px, px);
+    drawLogo(ctx, logo.id, px);
+  }, [logo.id, size]);
+  return <canvas ref={ref} width={size} height={size} style={{ width: size, height: size }} className={className} aria-hidden="true" data-ml-logo={logo.id} />;
 }
 
 /** Current logo from the settings (live). Works in every extension / app context with chrome.storage. */
 export function useLogoId(): LogoId {
-  const [id, setId] = useState<LogoId>('lens');
+  const [id, setId] = useState<LogoId>(DEFAULT_LOGO);
   useEffect(() => {
     let alive = true;
     const g = globalThis as { chrome?: typeof chrome };

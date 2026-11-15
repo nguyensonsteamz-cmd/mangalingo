@@ -49,7 +49,7 @@ export function SettingsCenter({ hidden = [] }: { hidden?: string[] } = {}) {
 
   return (
     <div className={cx('mx-auto flex min-h-screen flex-col md:flex-row', PREVIEW_SECTIONS.includes(section) ? 'max-w-7xl' : 'max-w-5xl')}>
-      <nav className="shrink-0 border-b border-border px-4 py-4 md:sticky md:top-0 md:h-screen md:w-60 md:border-b-0 md:border-r">
+      <nav className="ml-glass-bar sticky top-0 z-10 shrink-0 border-b px-4 py-4 md:h-screen md:w-60 md:border-b-0 md:border-r">
         <div className="mb-4 flex items-center gap-2">
           <IconLogo size={26} />
           <div>
@@ -66,7 +66,7 @@ export function SettingsCenter({ hidden = [] }: { hidden?: string[] } = {}) {
                   setSection(x.id);
                   history.replaceState(null, '', `#${x.id}`);
                 }}
-                className={cx('ml-focus w-full whitespace-nowrap rounded-lg px-2.5 py-1.5 text-left text-[13px] transition-colors', section === x.id ? 'bg-elevated font-medium text-text' : 'text-muted hover:text-text')}
+                className={cx('ml-focus ml-press w-full whitespace-nowrap rounded-full px-3 py-1.5 text-left text-[13px] md:rounded-xl', section === x.id ? 'ml-glass-select border font-semibold' : 'border border-transparent text-muted hover:bg-text/[0.05] hover:text-text')}
               >
                 {x.label}
               </button>
@@ -128,13 +128,14 @@ function Page({ title, desc, children, onReset }: { title: string; desc?: string
           </Button>
         )}
       </div>
-      <div className="divide-y divide-border/70 rounded-xl border border-border bg-surface px-4">{children}</div>
+      <div className="ml-glass-card divide-y divide-border/60 rounded-[20px] px-4">{children}</div>
     </section>
   );
 }
 
 const BOX_COLORS = ['#f97316', '#ef4444', '#eab308', '#22c55e', '#06b6d4', '#3b82f6', '#a855f7', '#ec4899'];
 const SIDEBAR_COLORS = ['#f8fafc', '#fffbeb', '#f0f9ff', '#f0fdf4', '#0f172a', '#111827', '#1e1b4b', '#18181b'];
+const SELECT_COLORS = ['#3451d1', '#7c9cff', '#8b5cf6', '#ec4899', '#f97316', '#10b981', '#06b6d4', '#64748b'];
 const POPUP_COLORS = ['#ffffff', '#fffbeb', '#f0f9ff', '#f0fdf4', '#fdf2f8', '#1e293b', '#111827', '#3b0764'];
 
 /** Swatches + native colour picker + hex input. `emptyLabel` adds a "default" choice (value ''). */
@@ -148,7 +149,7 @@ function ColorField({ value, onChange, swatches, emptyLabel }: { value: string; 
         <button
           type="button"
           onClick={() => onChange('')}
-          className={cx('ml-focus h-7 rounded-md border px-2 text-[12px]', value === '' ? 'border-accent text-accent' : 'border-border text-muted hover:text-text')}
+          className={cx('ml-focus ml-press h-7 rounded-full border px-2.5 text-[12px]', value === '' ? 'border-accent bg-accent/10 text-accent' : 'border-border text-muted hover:text-text')}
         >
           {emptyLabel}
         </button>
@@ -168,7 +169,7 @@ function ColorField({ value, onChange, swatches, emptyLabel }: { value: string; 
         type="color"
         value={/^#[0-9a-fA-F]{6}$/.test(value) ? value : '#ffffff'}
         onChange={(e) => onChange(e.target.value.toLowerCase())}
-        className="ml-focus h-7 w-9 cursor-pointer rounded-md border border-border bg-elevated p-0.5"
+        className="ml-focus ml-glass-field h-7 w-9 cursor-pointer rounded-lg p-0.5"
         aria-label="Chọn màu"
       />
       <input
@@ -179,7 +180,7 @@ function ColorField({ value, onChange, swatches, emptyLabel }: { value: string; 
           if (/^#[0-9a-fA-F]{6}$/.test(e.target.value)) onChange(e.target.value.toLowerCase());
           else if (e.target.value === '' && emptyLabel) onChange('');
         }}
-        className={cx('ml-focus h-7 w-24 rounded-md border bg-elevated px-2 font-mono text-[12px] text-text', valid ? 'border-border' : 'border-danger')}
+        className={cx('ml-focus ml-glass-field h-7 w-24 rounded-lg px-2 font-mono text-[12px] text-text', !valid && '!border-danger')}
         aria-label="Mã màu hex"
       />
     </div>
@@ -193,14 +194,14 @@ function Appearance({ s, update }: { s: Settings; update: Update }) {
   return (
     <Page title="Giao diện" onReset={() => update({ appearance: DEFAULT_SETTINGS.appearance })}>
       <Field stacked label="Logo" description="Dùng trong ứng dụng, làm biểu tượng app trên điện thoại và biểu tượng tiện ích trên Chrome.">
-        <div className="grid grid-cols-4 gap-2" data-ml-logo-picker="">
+        <div className="grid grid-cols-3 gap-2 sm:grid-cols-6" data-ml-logo-picker="">
           {LOGOS.map((l) => (
             <button
               key={l.id}
               type="button"
               aria-pressed={s.appearance.logo === l.id}
               onClick={() => update({ appearance: { logo: l.id } })}
-              className={cx('ml-focus flex flex-col items-center gap-1.5 rounded-2xl border-2 p-2.5 transition-colors', s.appearance.logo === l.id ? 'border-accent bg-accent/10' : 'border-border hover:border-accent/50')}
+              className={cx('ml-focus ml-press flex flex-col items-center gap-1.5 rounded-[18px] border-2 p-2.5', s.appearance.logo === l.id ? 'ml-glass-select' : 'border-transparent bg-text/[0.04] hover:border-accent/40')}
             >
               <LogoMark id={l.id} size={48} />
               <span className="text-[12px] font-medium text-text">{l.name}</span>
@@ -208,6 +209,18 @@ function Appearance({ s, update }: { s: Settings; update: Update }) {
           ))}
         </div>
       </Field>
+      <Field stacked label="Nền ứng dụng" description="Nền phía sau Sidebar, trang Cài đặt, popup trên thanh công cụ và ứng dụng điện thoại. Rực rỡ làm các khung kính nổi bật nhất.">
+        <Segmented value={s.appearance.background} onChange={(v) => update({ appearance: { background: v } })} options={[{ value: 'ambient', label: 'Ánh sáng dịu' }, { value: 'vivid', label: 'Rực rỡ' }, { value: 'plain', label: 'Trơn' }]} />
+      </Field>
+      <Field stacked label="Màu hiệu ứng chọn" description="Màu của viên kính đánh dấu mục đang chọn: tab, nút lựa chọn, trang đang mở. “Theo màu nhấn” dùng màu nhấn của giao diện.">
+        <ColorField value={s.appearance.selectColor} onChange={(v) => update({ appearance: { selectColor: v } })} swatches={SELECT_COLORS} emptyLabel="Theo màu nhấn" />
+      </Field>
+      <Toggle
+        label="Hiệu ứng kính (Liquid Glass)"
+        description="Popup, Sidebar và thẻ nội dung trong suốt, làm mờ nền phía sau. Tắt nếu muốn nền đặc hoặc máy chạy chậm."
+        checked={s.appearance.glass}
+        onChange={(v) => update({ appearance: { glass: v } })}
+      />
       <Field label="Cỡ giao diện ứng dụng" description="Cỡ chữ và nút trong ứng dụng trên điện thoại.">
         <Segmented value={s.appearance.uiScale} onChange={(v) => update({ appearance: { uiScale: v } })} options={[{ value: 'small', label: 'Nhỏ' }, { value: 'medium', label: 'Vừa' }, { value: 'large', label: 'Lớn' }]} />
       </Field>
@@ -232,7 +245,7 @@ function Appearance({ s, update }: { s: Settings; update: Update }) {
               setCustom(e.target.value);
               if (/^#[0-9a-fA-F]{6}$/.test(e.target.value)) update({ appearance: { accent: e.target.value } });
             }}
-            className={cx('ml-focus h-7 w-24 rounded-md border bg-elevated px-2 font-mono text-[12px] text-text', valid ? 'border-border' : 'border-danger')}
+            className={cx('ml-focus ml-glass-field h-7 w-24 rounded-lg px-2 font-mono text-[12px] text-text', !valid && '!border-danger')}
             aria-label="Mã màu hex"
           />
         </div>
@@ -252,6 +265,14 @@ function PopupSettings({ s, update }: { s: Settings; update: Update }) {
       <Field label="Cỡ chữ" description="0 = theo mục Chữ.">
         <Slider value={p.fontSize} min={0} max={22} onChange={(v) => update({ popup: { fontSize: v === 0 ? 0 : Math.max(11, v) } })} format={(v) => (v ? `${v}px` : 'auto')} />
       </Field>
+      <Field stacked label="Chất liệu popup" description="Liquid Glass: kính mờ có màu theo chủ đề. Kính trong: kính trắng trong suốt như logo “Kính trong”, nhìn xuyên thấy trang phía sau. Nền đặc: không trong suốt. Kính trong dễ đọc nhất trên trang sáng; trên trang tối nên chọn Màu popup: Tối.">
+        <Segmented value={p.material} onChange={(v) => update({ popup: { material: v } })} options={[{ value: 'glass', label: 'Liquid Glass' }, { value: 'clear', label: 'Kính trong' }, { value: 'solid', label: 'Nền đặc' }]} />
+      </Field>
+      {p.material !== 'solid' && (
+        <Field label="Độ đục của kính" description="Kéo sang trái để popup trong hơn. 0 = tự động theo chất liệu (Liquid Glass 72%, Kính trong 12%).">
+          <Slider value={p.glassAlpha} min={0} max={0.95} step={0.01} onChange={(v) => update({ popup: { glassAlpha: v === 0 ? 0 : Math.max(0.05, v) } })} format={(v) => (v ? `${Math.round(v * 100)}%` : 'tự động')} />
+        </Field>
+      )}
       <Field label="Màu popup" description="Popup trên trang web. Sáng dễ đọc hơn trên trang manga.">
         <Segmented value={p.theme} onChange={(v) => update({ popup: { theme: v } })} options={[{ value: 'light', label: 'Sáng' }, { value: 'dark', label: 'Tối' }, { value: 'follow', label: 'Theo giao diện' }]} />
       </Field>

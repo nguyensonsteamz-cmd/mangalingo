@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import type { LookupResult, ParagraphAnalysis, PhraseLookup, SentenceAnalysis, WordLookup } from '@/shared/types';
 import type { Settings } from '@/shared/settings';
 import { Badge, Button, IconButton, Notice, SectionTitle, Spinner, Tabs, cx } from '@/ui/components';
@@ -18,9 +18,24 @@ import * as A from '@/content/actions';
 const MODE_LABEL = { word: 'Từ', phrase: 'Cụm từ', sentence: 'Câu', paragraph: 'Đoạn văn', unsupported: 'Ngôn ngữ khác' } as const;
 
 export function FloatingPopup({ shadow }: { shadow: ShadowRoot }) {
-  const popup = useStore((s) => s.popup);
+  const live = useStore((s) => s.popup);
   const s = useStore((s) => s.settings);
   const ref = useRef<HTMLDivElement>(null);
+  // Exit animation: after closing, the last popup stays on screen (inert) while it fades out.
+  const last = useRef(live);
+  const [, rerender] = useState(0);
+  if (live?.open) last.current = live;
+  const leaving = !live?.open && !!last.current?.open && s.popup.animation;
+  if (!live?.open && !s.popup.animation) last.current = null;
+  useEffect(() => {
+    if (!leaving) return;
+    const t = setTimeout(() => {
+      last.current = null;
+      rerender((n) => n + 1);
+    }, 170);
+    return () => clearTimeout(t);
+  }, [leaving]);
+  const popup = live?.open ? live : leaving ? last.current : null;
   const [height, setHeight] = useState(320);
   const [vp, setVp] = useState({ width: window.innerWidth, height: window.innerHeight });
 
@@ -46,10 +61,10 @@ export function FloatingPopup({ shadow }: { shadow: ShadowRoot }) {
       ref={ref}
       role="dialog"
       aria-label="LingoLens"
-      data-ml-popup=""
+      {...(leaving ? { 'data-ml-popup-leaving': '', 'aria-hidden': true } : { 'data-ml-popup': '' })}
       data-theme={surface.theme}
       data-placement={pos.placement}
-      className={cx('pointer-events-auto fixed flex flex-col overflow-hidden rounded-xl border border-border bg-surface text-text shadow-pop', s.popup.animation && 'animate-ml-in')}
+      className={cx('ml-glass pointer-events-auto fixed flex flex-col overflow-hidden rounded-[20px] text-text', leaving ? 'ml-out' : s.popup.animation && 'animate-ml-in')}
       style={{ ...(surface.vars as React.CSSProperties), left: pos.left, top: pos.top, width: pos.width, maxHeight: Math.min(pos.maxHeight, 640), opacity: s.popup.opacity }}
     >
       <div className="flex min-h-0 flex-1 flex-col">
@@ -61,7 +76,7 @@ export function FloatingPopup({ shadow }: { shadow: ShadowRoot }) {
 
 function Header({ title, sub, badges, actions, canBack }: { title: ReactNode; sub?: ReactNode; badges?: ReactNode; actions?: ReactNode; canBack: boolean }) {
   return (
-    <div className="flex items-start gap-1 border-b border-border px-3 pb-2 pt-2.5">
+    <div className="flex items-start gap-1 border-b border-border/60 px-3.5 pb-2.5 pt-3">
       {canBack && (
         <IconButton label="Quay lại" onClick={A.back} className="-ml-1.5 mt-px">
           <IconBack />
@@ -122,7 +137,7 @@ function SaveButton({ onSave, lemma }: { onSave: () => void; lemma: string }) {
 }
 
 function Body({ children }: { children: ReactNode }) {
-  return <div className="ml-scroll min-h-0 flex-1 overflow-y-auto px-3 py-2.5">{children}</div>;
+  return <div className="ml-scroll min-h-0 flex-1 overflow-y-auto px-3.5 py-3">{children}</div>;
 }
 
 function LookupView({ view, s, canBack, tab }: { view: Extract<PopupView, { kind: 'lookup' }>; s: Settings; canBack: boolean; tab: string }) {
@@ -322,7 +337,7 @@ function PhraseView({ r, s, canBack, tab, context }: { r: PhraseLookup; s: Setti
           </div>
         )}
         {active === 'examples' && (examples.length ? (
-          <ul className="space-y-1">{examples.map((e, i) => <li key={i} className="border-l-2 border-border pl-2 text-[13px] italic">{e}</li>)}</ul>
+          <ul className="space-y-1.5">{examples.map((e, i) => <li key={i} className="ml-glass-card rounded-xl border-l-[3px] border-l-accent/50 px-2.5 py-1.5 text-[13px] italic">{e}</li>)}</ul>
         ) : <Notice>Không có ví dụ trong dữ liệu.</Notice>)}
         {active === 'grammar' && <ChunksView chunks={r.chunks} onLookup={(t) => A.drillDown(t)} />}
         <SourceLine sources={r.sources} />
@@ -402,7 +417,7 @@ function ParagraphView({ r, s, canBack, tab }: { r: ParagraphAnalysis; s: Settin
             <div className="text-[11px] text-subtle">Ghép nghĩa từng cụm theo câu (Dictionary Mode) – không phải bản dịch tự nhiên. {Math.round(r.coverage * 100)}% từ/cụm có nghĩa tiếng Việt.</div>
             <ol className="space-y-2">
               {r.sentences.map((x, i) => (
-                <li key={i} className="rounded-lg border border-border bg-elevated/40 p-2">
+                <li key={i} className="ml-glass-card rounded-xl p-2.5">
                   <button type="button" className="ml-focus block w-full text-left text-[13px] text-text hover:text-accent" onClick={() => A.drillDown(x.text)} title="Phân tích câu này">
                     {x.text}
                   </button>
@@ -473,7 +488,7 @@ function OcrView({ view, s, shadow, canBack }: { view: Extract<PopupView, { kind
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               rows={Math.min(8, Math.max(3, Math.ceil(draft.length / 40)))}
-              className="ml-focus w-full resize-y rounded-lg border border-border bg-elevated p-2 text-[13.5px] text-text"
+              className="ml-focus ml-glass-field w-full resize-y rounded-xl p-2.5 text-[13.5px] text-text"
               autoFocus
             />
             <div className="flex gap-1.5">
@@ -492,7 +507,7 @@ function OcrView({ view, s, shadow, canBack }: { view: Extract<PopupView, { kind
           </div>
         ) : (
           <>
-            <div className="ml-card rounded-xl border border-border border-l-[4px] border-l-subtle bg-elevated/60 px-3 py-2.5 hover:border-subtle/60 hover:shadow-[0_8px_20px_-12px_rgb(0_0_0/0.35)]" data-ml-ocr-original="">
+            <div className="ml-card ml-glass-card rounded-2xl border-l-[4px] border-l-subtle px-3 py-2.5 hover:border-l-accent/70" data-ml-ocr-original="">
             <div className="mb-1 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-muted">
               <span className="h-1.5 w-1.5 rounded-full bg-subtle" /> Nguyên văn
             </div>
@@ -521,7 +536,7 @@ function OcrView({ view, s, shadow, canBack }: { view: Extract<PopupView, { kind
             </div>
             </div>
             <OcrMeaning text={view.text} s={s} />
-            <div className="mt-3 flex flex-wrap gap-1.5 border-t border-border pt-2.5">
+            <div className="mt-3 flex flex-wrap gap-1.5 border-t border-border/60 pt-2.5">
               <Button size="sm" variant="primary" onClick={() => A.drillDown(view.text)}>
                 Phân tích câu
               </Button>

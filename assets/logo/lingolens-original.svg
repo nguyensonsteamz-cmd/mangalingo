@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 64 64">
+  <title>LingoLens – original flat logo</title>
+  <rect width="64" height="64" rx="15" fill="#3451D1"/>
+  <path fill="#FFFFFF" fill-rule="evenodd" d="M28 11a17 17 0 1 1 0 34a17 17 0 1 1 0-34zm0 6a11 11 0 1 0 0 22a11 11 0 1 0 0-22z"/>
+  <path fill="#FFFFFF" d="M38.6 41.4l4.2-4.2l11.4 11.4a3 3 0 0 1-4.2 4.2z"/>
+  <path fill="#FFD43B" d="M21 23.5h14v3.6H21zM21 30h9v3.6h-9z"/>
+</svg>

@@ -214,20 +214,22 @@ describe('sidebar appearance settings', () => {
 });
 
 describe('LingoLens logos and app appearance settings', () => {
-  it('ships four logos with valid tile colours and SVG paths; the default is the lens', async () => {
-    const { LOGOS, logoById } = await import('@/ui/logo-data');
-    expect(LOGOS.map((l) => l.id)).toEqual(['lens', 'bubble', 'spark', 'book']);
+  it('ships six styles of the same lens logo (incl. Kính trong); the default is Liquid Glass', async () => {
+    const { LOGOS, logoById, DEFAULT_LOGO } = await import('@/ui/logo-data');
+    expect(LOGOS.map((l) => l.id)).toEqual(['glass', 'clear', 'oil', 'sunset', 'clay', 'ink']);
     for (const l of LOGOS) {
-      expect(l.bg).toMatch(/^#[0-9A-F]{6}$/i);
-      for (const p of l.paths) expect(p.d).toMatch(/^M[\d.\s,a-zA-Z-]+$/);
+      expect(l.name.length).toBeGreaterThan(0);
+      expect(typeof l.bg).toBe('function');
+      expect(typeof l.fg).toBe('function');
     }
-    expect(logoById('nope').id).toBe('lens');
-    expect(DEFAULT_SETTINGS.appearance.logo).toBe('lens');
+    expect(logoById('nope').id).toBe('glass');
+    expect(DEFAULT_LOGO).toBe('glass');
+    expect(DEFAULT_SETTINGS.appearance.logo).toBe('glass');
   });
   it('renders the chosen logo and validates logo / UI scale settings', async () => {
     const { LogoMark } = await import('@/ui/logos');
-    expect(renderToStaticMarkup(<LogoMark id="book" size={40} />)).toContain('data-ml-logo="book"');
-    expect(sanitizeSettings({ appearance: { logo: 'rocket', uiScale: 'huge' } }).appearance).toMatchObject({ logo: 'lens', uiScale: 'medium' });
-    expect(sanitizeSettings({ appearance: { logo: 'spark', uiScale: 'large' } }).appearance).toMatchObject({ logo: 'spark', uiScale: 'large' });
+    expect(renderToStaticMarkup(<LogoMark id="clay" size={40} />)).toContain('data-ml-logo="clay"');
+    expect(sanitizeSettings({ appearance: { logo: 'rocket', uiScale: 'huge' } }).appearance).toMatchObject({ logo: 'glass', uiScale: 'medium' });
+    expect(sanitizeSettings({ appearance: { logo: 'ink', uiScale: 'large' } }).appearance).toMatchObject({ logo: 'ink', uiScale: 'large' });
   });
 });

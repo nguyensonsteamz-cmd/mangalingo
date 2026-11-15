@@ -34,6 +34,6 @@ export const latestScanUrl = (stamp: number) => `__scan/latest?t=${stamp}`;
 export async function setAppIcon(logo: string): Promise<void> {
   const h = handler();
   if (!h) return;
-  const name = logo === 'lens' ? null : `AppIcon-${logo[0].toUpperCase()}${logo.slice(1)}`;
+  const name = logo === 'glass' ? null : `AppIcon-${logo[0].toUpperCase()}${logo.slice(1)}`;
   await h.postMessage({ cmd: 'setIcon', name }).catch(() => {});
 }
