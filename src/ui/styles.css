@@ -491,6 +491,24 @@ html[data-theme='light'][data-bg='vivid'] body {
   .ml-card:hover {
     transform: translateY(-1px);
   }
+  /* bottom sheet: rises from / sinks into the bottom edge of the screen */
+  .ml-sheet-in {
+    animation: ml-sheet-in 420ms cubic-bezier(0.22, 1.15, 0.4, 1);
+  }
+  .ml-sheet-out {
+    animation: ml-sheet-out 320ms cubic-bezier(0.5, 0, 0.75, 0) forwards;
+    pointer-events: none;
+  }
+  @keyframes ml-sheet-in {
+    from {
+      transform: translateY(100%);
+    }
+  }
+  @keyframes ml-sheet-out {
+    to {
+      transform: translateY(100%);
+    }
+  }
   /* popup exit (the entrance is the ml-in animation) */
   .ml-out {
     animation: ml-out 200ms var(--ml-ease) forwards;
@@ -570,4 +588,25 @@ html[data-theme='light'][data-bg='vivid'] body {
   .ml-xfade-b {
     animation: none !important;
   }
+}
+
+/* Phone app, edge to edge (viewport-fit=cover): content starts below the status bar / notch, a
+   glass strip covers the status bar while scrolling, sticky headers stop under it. */
+html[data-app='mobile'] body {
+  padding-top: env(safe-area-inset-top);
+  min-height: 100dvh;
+}
+html[data-app='mobile'] body::before {
+  content: '';
+  position: fixed;
+  inset: 0 0 auto;
+  height: env(safe-area-inset-top);
+  z-index: 40;
+  pointer-events: none;
+  background-color: rgb(var(--ml-bg) / 0.7);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  backdrop-filter: blur(20px) saturate(160%);
+}
+html[data-app='mobile'] .sticky.top-0 {
+  top: env(safe-area-inset-top);
 }

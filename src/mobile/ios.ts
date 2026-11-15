@@ -43,6 +43,22 @@ export async function translateOnDevice(text: string): Promise<string | null> {
   }
 }
 
+/** Is the Vietnamese translation pack on the phone? ('unavailable' = older iOS / not the iPhone app) */
+export async function translationPackStatus(): Promise<'installed' | 'download' | 'unsupported' | 'unavailable'> {
+  const h = handler();
+  if (!h) return 'unavailable';
+  const r = (await h.postMessage({ cmd: 'mtStatus' }).catch(() => null)) as { status?: string } | null;
+  const s = r?.status;
+  return s === 'installed' || s === 'download' || s === 'unsupported' ? s : 'unavailable';
+}
+
+/** Downloads the Vietnamese pack now (iOS shows its own download sheet). */
+export async function prepareTranslationPack(): Promise<boolean> {
+  const h = handler();
+  if (!h) return false;
+  return h.postMessage({ cmd: 'mtPrepare' }).then(() => true, () => false);
+}
+
 /** The image the Shortcuts action delivered (served by the app at app://local/__scan/latest). */
 export const latestScanUrl = (stamp: number) => `__scan/latest?t=${stamp}`;
 

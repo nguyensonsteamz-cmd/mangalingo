@@ -12,7 +12,7 @@ import { useSettings } from '@/ui/hooks';
 import { cx, GlassIndicator, Notice } from '@/ui/components';
 import { IconBookmark, IconGear, IconLogo, IconScan, IconSearch } from '@/ui/icons';
 import { native, onResume } from './native';
-import { latestScanUrl, pendingScanStamp, setAppIcon } from './ios';
+import { latestScanUrl, pendingScanStamp, prepareTranslationPack, setAppIcon, translationPackStatus } from './ios';
 import { Scan } from './Scan';
 import { IosGuide } from './IosGuide';
 
@@ -28,16 +28,82 @@ const LAST_SCAN = 'mlapp:lastScanStamp';
 /** Set by the iPhone app's WebView ('ios'); the Android app exposes `MangaLingoNative` instead. */
 const PLATFORM = (globalThis as { MangaLingoPlatform?: string }).MangaLingoPlatform ?? (native ? 'android' : 'web');
 
+const APPLIED_ICON = 'mlapp:appliedIcon';
+const PACK_ASKED = 'mlapp:packAsked';
+type PackStatus = Awaited<ReturnType<typeof translationPackStatus>>;
+
+/**
+ * iPhone: the Vietnamese translation pack is fetched ahead of time, not when the first bubble is
+ * scanned. Checked at launch; if it is missing iOS is asked (once, 2 s after start) to download it,
+ * and the home screen keeps a card for it until it is installed.
+ */
+function useTranslationPack() {
+  const [status, setStatus] = useState<PackStatus>('unavailable');
+  const [busy, setBusy] = useState(false);
+  const refresh = () => translationPackStatus().then(setStatus);
+  const download = async () => {
+    setBusy(true);
+    await prepareTranslationPack();
+    await refresh();
+    setBusy(false);
+  };
+  useEffect(() => {
+    if (PLATFORM !== 'ios') return;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    void translationPackStatus().then((s) => {
+      setStatus(s);
+      let asked = false;
+      try {
+        asked = localStorage.getItem(PACK_ASKED) === '1';
+      } catch {
+        /* storage unavailable */
+      }
+      if (s === 'download' && !asked) {
+        timer = setTimeout(() => {
+          try {
+            localStorage.setItem(PACK_ASKED, '1');
+          } catch {
+            /* storage unavailable */
+          }
+          void download();
+        }, 2000);
+      }
+    });
+    const back = onResume(() => void refresh());
+    return () => {
+      clearTimeout(timer);
+      back();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  return { status, busy, download };
+}
 const SCALE = { small: 0.9, medium: 1, large: 1.15 } as const;
 
 export function App() {
-  const { settings } = useSettings('page');
-  // logo → app icon (iPhone alternate icon / Android launcher entry); both are idempotent
+  const { settings, loaded } = useSettings('page');
+  const pack = useTranslationPack();
+  // logo → app icon (iPhone alternate icon / Android launcher entry). Only once the saved settings
+  // are loaded (not for the default logo shown before that) and only when the logo really changed
+  // since the last switch – iOS shows an alert for every icon change.
   useEffect(() => {
+    if (!loaded) return;
     const logo = settings.appearance.logo;
+    let applied: string | null = null;
+    try {
+      applied = localStorage.getItem(APPLIED_ICON);
+    } catch {
+      /* storage unavailable */
+    }
+    if (applied === logo) return;
+    try {
+      localStorage.setItem(APPLIED_ICON, logo);
+    } catch {
+      /* storage unavailable */
+    }
     if (PLATFORM === 'ios') void setAppIcon(logo);
     else native?.setLogo?.(logo);
-  }, [settings.appearance.logo]);
+  }, [loaded, settings.appearance.logo]);
   const [tab, setTab] = useState<Tab>(() => {
     const h = location.hash.slice(1);
     return isTab(h) ? h : 'home';
@@ -96,10 +162,10 @@ export function App() {
   };
 
   return (
-    <div className="flex min-h-[100dvh] flex-col text-text" style={{ zoom: SCALE[settings.appearance.uiScale] ?? 1 }} data-ml-app="">
-      <main className="min-h-0 flex-1 pb-[100px]">
+    <div className="flex min-h-[calc(100dvh-env(safe-area-inset-top))] flex-col text-text" style={{ zoom: SCALE[settings.appearance.uiScale] ?? 1 }} data-ml-app="">
+      <main className="min-h-0 flex-1 pb-[calc(100px+env(safe-area-inset-bottom))]">
         {(tab === 'home' || (tab === 'scan' && !scanSrc)) &&
-          (PLATFORM === 'ios' ? <IosHome onOpen={go} onFile={scanFile} onResumeScan={scanSrc ? () => go('scan') : undefined} /> : <Home onOpen={go} />)}
+          (PLATFORM === 'ios' ? <IosHome onOpen={go} onFile={scanFile} onResumeScan={scanSrc ? () => go('scan') : undefined} pack={pack} /> : <Home onOpen={go} />)}
         {/* kept mounted while you look words up in other tabs, so the result is still there when you come back */}
         {scanSrc && (
           <div hidden={tab !== 'scan'}>
@@ -234,7 +300,7 @@ function Home({ onOpen }: { onOpen: (t: Tab) => void }) {
 
 /** iPhone: iOS does not let apps draw over other apps — the system AssistiveTouch button runs a
  *  Shortcut (Take Screenshot → Quét ảnh với LingoLens) instead. */
-function IosHome({ onOpen, onFile, onResumeScan }: { onOpen: (t: Tab) => void; onFile: (f: File) => void; onResumeScan?: () => void }) {
+function IosHome({ onOpen, onFile, onResumeScan, pack }: { onOpen: (t: Tab) => void; onFile: (f: File) => void; onResumeScan?: () => void; pack: ReturnType<typeof useTranslationPack> }) {
   useSettings('page'); // applies the theme
   return (
     <div className="mx-auto max-w-lg space-y-4 px-4 pt-6" data-ml-ios-home="">
@@ -247,16 +313,29 @@ function IosHome({ onOpen, onFile, onResumeScan }: { onOpen: (t: Tab) => void; o
       </div>
 
       {onResumeScan && (
-        <button type="button" onClick={onResumeScan} className="ml-glass ml-press flex w-full items-center gap-3 rounded-[24px] px-4 py-3 text-left" data-ml-resume-scan="">
-          <span className="ml-btn-primary flex h-9 w-9 shrink-0 items-center justify-center rounded-full">
-            <IconScan size={18} />
+        <button type="button" onClick={onResumeScan} data-ml-magnetic="" className="ml-btn-primary ml-press ml-ripple ml-sheen flex w-full items-center gap-3 rounded-[24px] px-4 py-3.5 text-left" data-ml-resume-scan="">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/25 ring-1 ring-white/40">
+            <IconScan size={20} />
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block text-[14.5px] font-semibold">Quay lại bản quét vừa rồi</span>
-            <span className="block text-[12px] text-muted">Ảnh và kết quả dịch vẫn còn</span>
+            <span className="block text-[15px] font-bold">Quay lại bản quét vừa rồi</span>
+            <span className="block text-[12.5px] opacity-85">Ảnh và kết quả dịch vẫn còn</span>
           </span>
-          <span className="text-muted">›</span>
+          <span className="text-[22px] leading-none opacity-90">›</span>
         </button>
+      )}
+
+      {pack.status === 'download' && (
+        <div className="ml-glass flex items-center gap-3 rounded-[24px] px-4 py-3" data-ml-pack="">
+          <span className="text-[24px]">🌐</span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-[14px] font-semibold">Tải gói dịch tiếng Việt</span>
+            <span className="block text-[12px] leading-snug text-muted">Tải một lần (Apple Dịch, chạy trên máy) để lần quét đầu tiên dịch được ngay.</span>
+          </span>
+          <button type="button" disabled={pack.busy} onClick={() => void pack.download()} className="ml-btn-primary ml-press shrink-0 rounded-full px-3.5 py-1.5 text-[13px] font-semibold disabled:opacity-50">
+            {pack.busy ? 'Đang tải…' : 'Tải'}
+          </button>
+        </div>
       )}
 
       <div className="ml-glass space-y-2 rounded-[28px] p-5">

@@ -8,6 +8,8 @@ struct MangaLingoApp: App {
         WindowGroup {
             WebContainer()
                 .modifier(TranslationHost())
+                // edge to edge: the web UI pads itself with env(safe-area-inset-*)
+                .ignoresSafeArea()
                 .background(Color(red: 16 / 255, green: 18 / 255, blue: 24 / 255).ignoresSafeArea())
         }
     }

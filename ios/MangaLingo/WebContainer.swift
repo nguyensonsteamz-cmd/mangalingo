@@ -26,6 +26,7 @@ struct WebContainer: UIViewRepresentable {
         web.isOpaque = false
         web.backgroundColor = Self.background
         web.scrollView.backgroundColor = Self.background
+        web.scrollView.contentInsetAdjustmentBehavior = .never // the page handles the safe areas (viewport-fit=cover)
         web.navigationDelegate = context.coordinator
         if #available(iOS 16.4, *) { web.isInspectable = true }
         context.coordinator.web = web
@@ -85,6 +86,14 @@ struct WebContainer: UIViewRepresentable {
                     return
                 }
                 TranslationQueue.shared.enqueue(text) { result, error in replyHandler(result.map { ["text": $0] }, error) }
+            case "mtStatus":
+                TranslationQueue.status { replyHandler(["status": $0], nil) }
+            case "mtPrepare":
+                guard TranslationQueue.isAvailable else {
+                    replyHandler(nil, "unavailable")
+                    return
+                }
+                TranslationQueue.shared.enqueue(.prepare { ok, error in replyHandler(ok, error) })
             case "ocr":
                 guard let b64 = body["image"] as? String, let data = Data(base64Encoded: b64) else {
                     replyHandler(nil, "Không đọc được ảnh.")

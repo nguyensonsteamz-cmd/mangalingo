@@ -4,7 +4,7 @@
  * then “Quét vùng này”, or “Quét toàn màn hình” for every bubble (numbered). Text recognition is
  * Apple Vision on the device; meanings come from the in-app dictionary.
  */
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { LookupResult, OcrBlock, WordLookup } from '@/shared/types';
 import { send } from '@/shared/messages';
 import { bubbleBlock, groupLines } from '@/ocr/result';
@@ -43,6 +43,7 @@ const CORNERS: Handle[] = ['nw', 'ne', 'sw', 'se'];
 const CORNER_POS: Record<string, string> = { nw: '-left-[18px] -top-[18px]', ne: '-right-[18px] -top-[18px]', sw: '-left-[18px] -bottom-[18px]', se: '-right-[18px] -bottom-[18px]' };
 
 export function Scan({ src, onBack }: { src: string; onBack: () => void }) {
+  const viewport = useRef<HTMLDivElement>(null);
   const wrap = useRef<HTMLDivElement>(null);
   const [frame, setFrame] = useState<Box>({ x: 0.15, y: 0.38, w: 0.7, h: 0.18 });
   const [showFrame, setShowFrame] = useState(true);
@@ -50,8 +51,101 @@ export function Scan({ src, onBack }: { src: string; onBack: () => void }) {
   const [error, setError] = useState('');
   const [blocks, setBlocks] = useState<OcrBlock[]>([]);
   const [active, setActive] = useState<string | null>(null);
+  const [sheetKey, setSheetKey] = useState(0); // bumps → the result sheet rises to its middle height
   const b64 = useRef<Promise<string> | null>(null);
   const drag = useRef<{ kind: 'move' | Handle; x: number; y: number; start: Rect } | null>(null);
+
+  // ---------------------------------------------------------------- zoom / pan of the screenshot
+  const [aspect, setAspect] = useState(9 / 19.5);
+  const [vp, setVp] = useState({ w: 1, h: 1 });
+  const [view, setView] = useState({ s: 1, x: 0, y: 0 });
+  const fit = (() => {
+    const w = Math.min(vp.w, vp.h * aspect);
+    return { w, h: w / aspect };
+  })();
+  /** Keeps the image on screen: centred while smaller than the viewport, edge-to-edge otherwise. */
+  const clampView = (s: number, x: number, y: number) => {
+    const W = fit.w * s;
+    const H = fit.h * s;
+    return {
+      s,
+      x: W <= vp.w ? (vp.w - W) / 2 : Math.min(0, Math.max(vp.w - W, x)),
+      y: H <= vp.h ? (vp.h - H) / 2 : Math.min(0, Math.max(vp.h - H, y)),
+    };
+  };
+  useEffect(() => {
+    const el = viewport.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(() => setVp({ w: el.clientWidth, h: el.clientHeight }));
+    ro.observe(el);
+    setVp({ w: el.clientWidth, h: el.clientHeight });
+    return () => ro.disconnect();
+  }, []);
+  // fit the whole screenshot whenever the image or the viewport changes
+  useEffect(() => setView(clampView(1, 0, 0)), [vp.w, vp.h, aspect]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const pointers = useRef(new Map<number, { x: number; y: number }>());
+  const gesture = useRef<{ kind: 'pan' | 'pinch'; x: number; y: number; dist: number; view: typeof view } | null>(null);
+  const lastTap = useRef({ t: 0, x: 0, y: 0 });
+  const local = (e: React.PointerEvent) => {
+    const r = viewport.current!.getBoundingClientRect();
+    return { x: e.clientX - r.left, y: e.clientY - r.top };
+  };
+  const startGesture = () => {
+    const pts = [...pointers.current.values()];
+    if (pts.length >= 2) {
+      const [a, b] = pts;
+      gesture.current = { kind: 'pinch', x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, dist: Math.hypot(a.x - b.x, a.y - b.y) || 1, view };
+    } else if (pts.length === 1) {
+      gesture.current = { kind: 'pan', x: pts[0].x, y: pts[0].y, dist: 0, view };
+    } else gesture.current = null;
+  };
+  const onViewDown = (e: React.PointerEvent) => {
+    viewport.current?.setPointerCapture(e.pointerId);
+    pointers.current.set(e.pointerId, local(e));
+    startGesture();
+  };
+  const onViewMove = (e: React.PointerEvent) => {
+    if (drag.current) return onMove(e); // dragging the scan frame
+    if (!pointers.current.has(e.pointerId)) return;
+    pointers.current.set(e.pointerId, local(e));
+    const g = gesture.current;
+    if (!g) return;
+    const pts = [...pointers.current.values()];
+    if (g.kind === 'pinch' && pts.length >= 2) {
+      const [a, b] = pts;
+      const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+      const s = Math.min(5, Math.max(1, (g.view.s * Math.hypot(a.x - b.x, a.y - b.y)) / g.dist));
+      // the point that was under the fingers stays under them
+      const cx = (g.x - g.view.x) / g.view.s;
+      const cy = (g.y - g.view.y) / g.view.s;
+      setView(clampView(s, mid.x - cx * s, mid.y - cy * s));
+    } else if (g.kind === 'pan' && pts.length === 1) {
+      setView(clampView(g.view.s, g.view.x + (pts[0].x - g.x), g.view.y + (pts[0].y - g.y)));
+    }
+  };
+  const onViewUp = (e: React.PointerEvent) => {
+    if (drag.current) return onUp();
+    const p = pointers.current.get(e.pointerId);
+    const g = gesture.current;
+    pointers.current.delete(e.pointerId);
+    // double tap: zoom in at the finger / back to fit
+    if (p && g?.kind === 'pan' && Math.hypot(p.x - g.x, p.y - g.y) < 8) {
+      const now = performance.now();
+      if (now - lastTap.current.t < 300 && Math.hypot(p.x - lastTap.current.x, p.y - lastTap.current.y) < 30) {
+        if (view.s > 1.05) setView(clampView(1, 0, 0));
+        else {
+          const s = 2.5;
+          const cx = (p.x - view.x) / view.s;
+          const cy = (p.y - view.y) / view.s;
+          setView(clampView(s, p.x - cx * s, p.y - cy * s));
+        }
+        lastTap.current = { t: 0, x: 0, y: 0 };
+      } else lastTap.current = { t: now, x: p.x, y: p.y };
+    }
+    startGesture();
+  };
+  const animating = !gesture.current && !drag.current;
 
   useEffect(() => {
     b64.current = toBase64(src);
@@ -61,6 +155,7 @@ export function Scan({ src, onBack }: { src: string; onBack: () => void }) {
     setShowFrame(true);
   }, [src]);
 
+  // ---------------------------------------------------------------- scan frame (drag / resize)
   const size = () => {
     const r = wrap.current?.getBoundingClientRect();
     return { w: r?.width ?? 1, h: r?.height ?? 1 };
@@ -68,7 +163,7 @@ export function Scan({ src, onBack }: { src: string; onBack: () => void }) {
   const onDown = (kind: 'move' | Handle) => (e: React.PointerEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    (e.currentTarget as Element).setPointerCapture(e.pointerId);
+    viewport.current?.setPointerCapture(e.pointerId);
     const { w, h } = size();
     drag.current = { kind, x: e.clientX, y: e.clientY, start: { left: frame.x * w, top: frame.y * h, width: frame.w * w, height: frame.h * h } };
   };
@@ -106,7 +201,7 @@ export function Scan({ src, onBack }: { src: string; onBack: () => void }) {
       setBlocks(found);
       setActive(found[0]?.id ?? null);
       setShowFrame(false);
-      setSheet(true);
+      setSheetKey((k) => k + 1);
       if (!found.length) setError(mode === 'region' ? 'Không thấy chữ trong khung. Kéo khung trùng lên chữ rồi quét lại.' : 'Không nhận ra chữ nào trong ảnh.');
     } catch (e) {
       setError((e as Error).message);
@@ -116,15 +211,20 @@ export function Scan({ src, onBack }: { src: string; onBack: () => void }) {
   };
 
   const activeBlock = blocks.find((b) => b.id === active);
-  const [sheet, setSheet] = useState(true); // result sheet open
+  const inv = 1 / view.s; // keeps the frame's dots and label the same size while zoomed
 
   return (
-    <div className="mx-auto max-w-2xl pb-36" data-ml-scan="">
+    <div className="mx-auto max-w-2xl" data-ml-scan="">
       <div className="ml-glass-bar sticky top-0 z-10 flex items-center gap-2 border-b px-3 py-2">
         <button type="button" onClick={onBack} className="rounded-lg p-1.5 text-muted" aria-label="Quay lại">
           <IconBack size={20} />
         </button>
         <div className="flex-1 text-[15px] font-bold">Quét chữ</div>
+        {view.s > 1.05 && (
+          <button type="button" onClick={() => setView(clampView(1, 0, 0))} className="rounded-lg px-2 py-1 text-[13px] font-semibold text-muted">
+            Vừa màn hình
+          </button>
+        )}
         {!showFrame && (
           <button type="button" onClick={() => setShowFrame(true)} className="rounded-lg px-2 py-1 text-[13px] font-semibold text-accent">
             Khung mới
@@ -132,65 +232,82 @@ export function Scan({ src, onBack }: { src: string; onBack: () => void }) {
         )}
       </div>
 
-      <div className="relative mx-auto select-none touch-none" ref={wrap} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}>
-        <img src={src} alt="Ảnh cần quét" className="block w-full" draggable={false} onError={() => setError('Không mở được ảnh.')} />
-        {!showFrame &&
-          blocks.map((b, i) => (
-            <button
-              key={b.id}
-              type="button"
-              onClick={() => {
-                setActive(b.id);
-                setSheet(true);
-              }}
-              className={cx('absolute rounded-md border-2', b.id === active ? 'border-accent bg-accent/20' : 'border-[rgb(var(--ml-box))] bg-[rgb(var(--ml-box)/0.12)]')}
-              style={{ left: `${b.box.x * 100}%`, top: `${b.box.y * 100}%`, width: `${b.box.w * 100}%`, height: `${b.box.h * 100}%` }}
-              aria-label={`Bong bóng ${i + 1}`}
-            >
-              {blocks.length > 1 && (
-                <span className="absolute -left-2 -top-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-[rgb(var(--ml-box))] px-1 text-[11px] font-bold text-white">{i + 1}</span>
-              )}
-            </button>
-          ))}
-        {showFrame && (
-          <div
-            className="absolute rounded-lg border-2 border-accent bg-accent/10 shadow-[0_0_0_9999px_rgba(0,0,0,0.35)]"
-            style={{ left: `${frame.x * 100}%`, top: `${frame.y * 100}%`, width: `${frame.w * 100}%`, height: `${frame.h * 100}%` }}
-            onPointerDown={onDown('move')}
-            data-ml-scan-frame=""
-          >
-            <span className="pointer-events-none absolute -top-7 left-0 whitespace-nowrap rounded bg-accent px-1.5 py-0.5 text-[11px] font-semibold text-accent-fg">Kéo khung vào chữ cần đọc</span>
-            {CORNERS.map((h) => (
-              <span key={h} onPointerDown={onDown(h)} className={cx('absolute flex h-9 w-9 items-center justify-center', CORNER_POS[h])} data-ml-scan-corner="">
-                <span className="pointer-events-none h-3 w-3 rounded-full border-2 border-white bg-accent shadow-[0_1px_3px_rgb(0_0_0/0.4)]" />
-              </span>
+      {/* the screenshot fits the screen; pinch to zoom, drag to move, double tap to zoom in / out */}
+      <div
+        ref={viewport}
+        className="relative h-[calc(100dvh-env(safe-area-inset-top)-49px-150px-env(safe-area-inset-bottom))] select-none touch-none overflow-hidden"
+        onPointerDown={onViewDown}
+        onPointerMove={onViewMove}
+        onPointerUp={onViewUp}
+        onPointerCancel={onViewUp}
+        data-ml-scan-viewport=""
+      >
+        <div
+          ref={wrap}
+          className={cx('absolute left-0 top-0 origin-top-left', animating && 'transition-transform duration-300 ease-[cubic-bezier(.16,1,.3,1)]')}
+          style={{ width: fit.w, height: fit.h, transform: `translate(${view.x}px, ${view.y}px) scale(${view.s})` }}
+          data-ml-scan-image=""
+        >
+          <img
+            src={src}
+            alt="Ảnh cần quét"
+            className="block h-full w-full"
+            draggable={false}
+            onLoad={(e) => {
+              const i = e.currentTarget;
+              if (i.naturalWidth && i.naturalHeight) setAspect(i.naturalWidth / i.naturalHeight);
+            }}
+            onError={() => setError('Không mở được ảnh.')}
+          />
+          {!showFrame &&
+            blocks.map((b, i) => (
+              <button
+                key={b.id}
+                type="button"
+                onClick={() => {
+                  setActive(b.id);
+                  setSheetKey((k) => k + 1);
+                }}
+                className={cx('absolute rounded-md border-2', b.id === active ? 'border-accent bg-accent/20' : 'border-[rgb(var(--ml-box))] bg-[rgb(var(--ml-box)/0.12)]')}
+                style={{ left: `${b.box.x * 100}%`, top: `${b.box.y * 100}%`, width: `${b.box.w * 100}%`, height: `${b.box.h * 100}%`, borderWidth: 2 * inv }}
+                aria-label={`Bong bóng ${i + 1}`}
+              >
+                {blocks.length > 1 && (
+                  <span className="absolute -left-2 -top-2 flex h-5 min-w-5 origin-top-left items-center justify-center rounded-full bg-[rgb(var(--ml-box))] px-1 text-[11px] font-bold text-white" style={{ scale: String(inv) }}>
+                    {i + 1}
+                  </span>
+                )}
+              </button>
             ))}
-          </div>
-        )}
-      </div>
-
-      {/* result / error: a glass sheet floating above the buttons, so it is visible without scrolling */}
-      {(error || (activeBlock && !showFrame)) && (
-        <div className="fixed inset-x-3 bottom-[calc(max(10px,env(safe-area-inset-bottom))+140px)] z-20" data-ml-scan-sheet="">
-          {error ? (
-            <div className="ml-glass animate-ml-in rounded-[22px] px-4 py-3 text-[13.5px] text-text">⚠️ {error}</div>
-          ) : sheet && activeBlock ? (
-            <div className="ml-glass animate-ml-in ml-scroll max-h-[48vh] overflow-y-auto rounded-[24px] pb-3">
-              <div className="sticky top-0 z-10 flex items-center justify-between px-3 pb-1 pt-2">
-                <span className="text-[12px] font-bold uppercase tracking-wider text-muted">{blocks.length > 1 ? `Bong bóng ${blocks.indexOf(activeBlock) + 1}/${blocks.length} · chạm khung khác để đổi` : 'Kết quả'}</span>
-                <button type="button" onClick={() => setSheet(false)} className="ml-press rounded-full bg-text/[0.08] px-2.5 py-0.5 text-[12px] font-semibold text-muted" aria-label="Thu gọn kết quả">
-                  Thu gọn
-                </button>
-              </div>
-              <ScanResult key={activeBlock.id + activeBlock.text} text={activeBlock.text} n={0} />
+          {showFrame && (
+            <div
+              className="absolute rounded-lg border-accent bg-accent/10 shadow-[0_0_0_9999px_rgba(0,0,0,0.35)]"
+              style={{ left: `${frame.x * 100}%`, top: `${frame.y * 100}%`, width: `${frame.w * 100}%`, height: `${frame.h * 100}%`, borderWidth: 2 * inv }}
+              onPointerDown={onDown('move')}
+              data-ml-scan-frame=""
+            >
+              <span className="pointer-events-none absolute bottom-full left-0 mb-1 origin-bottom-left whitespace-nowrap rounded bg-accent px-1.5 py-0.5 text-[11px] font-semibold text-accent-fg" style={{ scale: String(inv) }}>
+                Kéo khung vào chữ cần đọc
+              </span>
+              {CORNERS.map((h) => (
+                <span key={h} onPointerDown={onDown(h)} className={cx('absolute flex h-9 w-9 items-center justify-center', CORNER_POS[h])} style={{ scale: String(inv) }} data-ml-scan-corner="">
+                  <span className="pointer-events-none h-3 w-3 rounded-full border-2 border-white bg-accent shadow-[0_1px_3px_rgb(0_0_0/0.4)]" />
+                </span>
+              ))}
             </div>
-          ) : (
-            <button type="button" onClick={() => setSheet(true)} className="ml-glass ml-press w-full rounded-full px-4 py-2 text-[13.5px] font-semibold">
-              Xem kết quả dịch ↑
-            </button>
           )}
         </div>
+      </div>
+
+      {error && (
+        <div className="ml-glass animate-ml-in fixed inset-x-3 bottom-[calc(max(10px,env(safe-area-inset-bottom))+140px)] z-[25] rounded-[22px] px-4 py-3 text-[13.5px] text-text" data-ml-scan-error="">
+          ⚠️ {error}
+        </div>
       )}
+
+      <ResultSheet open={!!activeBlock && !showFrame && !error} riseKey={sheetKey} title={activeBlock && blocks.length > 1 ? `Bong bóng ${blocks.indexOf(activeBlock) + 1}/${blocks.length} · chạm khung khác để đổi` : 'Kết quả dịch'}>
+        {activeBlock && <ScanResult key={activeBlock.id + activeBlock.text} text={activeBlock.text} n={0} />}
+      </ResultSheet>
 
       <div className="ml-glass fixed inset-x-3 bottom-[calc(max(10px,env(safe-area-inset-bottom))+76px)] z-20 flex gap-2 rounded-[26px] p-2">
         <button type="button" disabled={!!busy || !showFrame} onClick={() => void run('region')} data-ml-magnetic="" className="ml-press ml-btn-primary ml-ripple flex flex-1 items-center justify-center gap-1.5 rounded-[20px] py-2.5 text-[14px] font-bold disabled:opacity-40">
@@ -200,6 +317,100 @@ export function Scan({ src, onBack }: { src: string; onBack: () => void }) {
           {busy === 'full' ? <Spinner /> : null} Quét toàn màn hình
         </button>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Bottom sheet for the result: rises from the bottom edge of the screen (behind the glass button
+ * bars) and slides back down when closed. Drag its handle up / down – it snaps to three heights
+ * (peek · half · tall) following the swipe direction; tapping the handle toggles half ↔ peek.
+ */
+const BARS = 'calc(150px + env(safe-area-inset-bottom))'; // height of the button bar + tab bar area
+
+function ResultSheet({ open, riseKey, title, children }: { open: boolean; riseKey: number; title: string; children: ReactNode }) {
+  const snaps = () => {
+    const H = window.innerHeight;
+    return [56, Math.round(H * 0.4), Math.round(H * 0.68)];
+  };
+  const [h, setH] = useState(() => snaps()[1]);
+  const [mounted, setMounted] = useState(open);
+  const [leaving, setLeaving] = useState(false);
+  const drag = useRef<{ y: number; h: number; t: number; lastY: number; lastT: number; moved: boolean } | null>(null);
+  const [dragging, setDragging] = useState(false);
+
+  // open / close with the slide animation
+  useEffect(() => {
+    if (open) {
+      setMounted(true);
+      setLeaving(false);
+    } else if (mounted) {
+      setLeaving(true);
+      const id = setTimeout(() => {
+        setMounted(false);
+        setLeaving(false);
+      }, 320);
+      return () => clearTimeout(id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+  // a new result: rise to the middle height
+  useEffect(() => setH(snaps()[1]), [riseKey]);
+
+  if (!mounted) return null;
+  const onDown = (e: React.PointerEvent) => {
+    (e.currentTarget as Element).setPointerCapture(e.pointerId);
+    drag.current = { y: e.clientY, h, t: performance.now(), lastY: e.clientY, lastT: performance.now(), moved: false };
+    setDragging(true);
+  };
+  const onMove = (e: React.PointerEvent) => {
+    const d = drag.current;
+    if (!d) return;
+    const [lo, , hi] = snaps();
+    const dy = e.clientY - d.y;
+    if (Math.abs(dy) > 4) d.moved = true;
+    // rubber band beyond the ends
+    let next = d.h - dy;
+    if (next > hi) next = hi + (next - hi) * 0.25;
+    if (next < lo) next = lo - (lo - next) * 0.25;
+    setH(next);
+    d.lastY = e.clientY;
+    d.lastT = performance.now();
+  };
+  const onUp = (e: React.PointerEvent) => {
+    const d = drag.current;
+    drag.current = null;
+    setDragging(false);
+    if (!d) return;
+    const s = snaps();
+    if (!d.moved) {
+      setH(h > s[0] + 10 ? s[0] : s[1]); // tap: toggle peek ↔ half
+      return;
+    }
+    const v = (e.clientY - d.lastY) / Math.max(1, performance.now() - d.lastT) || (e.clientY - d.y) / Math.max(1, performance.now() - d.t); // px/ms, + = down
+    const cur = h;
+    let target: number;
+    if (v > 0.45) target = [...s].reverse().find((x) => x < cur - 8) ?? s[0];
+    else if (v < -0.45) target = s.find((x) => x > cur + 8) ?? s[2];
+    else target = s.reduce((a, b) => (Math.abs(b - cur) < Math.abs(a - cur) ? b : a));
+    setH(target);
+  };
+
+  return (
+    <div
+      key={riseKey}
+      className={cx('ml-glass fixed inset-x-0 bottom-0 z-[15] flex flex-col rounded-t-[28px] border-b-0', leaving ? 'ml-sheet-out' : 'ml-sheet-in', !dragging && 'transition-[height] duration-[380ms] ease-[cubic-bezier(.22,1.15,.4,1)]')}
+      style={{ height: `calc(${Math.max(40, h)}px + ${BARS})`, paddingBottom: BARS }}
+      data-ml-scan-sheet=""
+    >
+      <div className="shrink-0 cursor-grab touch-none select-none px-4 pb-1 pt-2" onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp} data-ml-sheet-handle="">
+        <div className="mx-auto mb-1.5 h-1.5 w-11 rounded-full bg-text/25" />
+        <div className="flex items-center justify-between text-[12px] font-bold uppercase tracking-wider text-muted">
+          <span className="truncate">{title}</span>
+          <span className="shrink-0 pl-2 text-[11px] font-semibold normal-case tracking-normal text-subtle">kéo lên / xuống</span>
+        </div>
+      </div>
+      <div className="ml-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain pb-3">{children}</div>
     </div>
   );
 }

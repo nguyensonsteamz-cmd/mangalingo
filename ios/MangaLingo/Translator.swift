@@ -4,33 +4,64 @@ import Translation
 #endif
 
 /// English → Vietnamese machine translation with Apple's on-device Translation framework (iOS 18+).
-/// The web UI asks through the bridge ({cmd: "translate", text}); requests are queued here and a
-/// hidden SwiftUI view runs them inside `.translationTask` (the only way to get a session).
-/// The first time, iOS shows its own sheet to download the Vietnamese language pack.
+/// The web UI asks through the bridge:
+///   {cmd: "translate", text} → {text}
+///   {cmd: "mtStatus"}        → {status: "installed" | "download" | "unsupported" | "unavailable"}
+///   {cmd: "mtPrepare"}       → downloads the Vietnamese pack ahead of time (iOS shows its sheet)
+/// Jobs are queued here and a hidden SwiftUI view runs them inside `.translationTask` – the only
+/// way to obtain a TranslationSession.
 final class TranslationQueue: ObservableObject {
     static let shared = TranslationQueue()
 
     typealias Reply = (String?, String?) -> Void
+    enum Job {
+        case translate(String, Reply)
+        case prepare(Reply)
+    }
+
     @Published private(set) var version = 0
-    private var pending: [(text: String, reply: Reply)] = []
+    private var pending: [Job] = []
 
     static var isAvailable: Bool {
         if #available(iOS 18.0, *) { return true }
         return false
     }
 
-    func enqueue(_ text: String, reply: @escaping Reply) {
+    func enqueue(_ job: Job) {
         DispatchQueue.main.async {
-            self.pending.append((text, reply))
+            self.pending.append(job)
             self.version += 1
         }
     }
 
+    func enqueue(_ text: String, reply: @escaping Reply) { enqueue(.translate(text, reply)) }
+
     /// Takes everything queued so far (main thread).
-    func take() -> [(text: String, reply: Reply)] {
+    func take() -> [Job] {
         let items = pending
         pending = []
         return items
+    }
+
+    /// Is the EN→VI pack installed, downloadable or unsupported?
+    static func status(_ reply: @escaping (String) -> Void) {
+        #if canImport(Translation)
+        if #available(iOS 18.0, *) {
+            Task {
+                let s = await LanguageAvailability().status(from: Locale.Language(identifier: "en"), to: Locale.Language(identifier: "vi"))
+                let value: String
+                switch s {
+                case .installed: value = "installed"
+                case .supported: value = "download"
+                case .unsupported: value = "unsupported"
+                @unknown default: value = "unsupported"
+                }
+                await MainActor.run { reply(value) }
+            }
+            return
+        }
+        #endif
+        reply("unavailable")
     }
 }
 
@@ -45,13 +76,23 @@ struct TranslationBridge: View {
             .frame(width: 0, height: 0)
             .allowsHitTesting(false)
             .translationTask(config) { session in
-                let items = await MainActor.run { queue.take() }
-                for item in items {
-                    do {
-                        let response = try await session.translate(item.text)
-                        await MainActor.run { item.reply(response.targetText, nil) }
-                    } catch {
-                        await MainActor.run { item.reply(nil, error.localizedDescription) }
+                let jobs = await MainActor.run { queue.take() }
+                for job in jobs {
+                    switch job {
+                    case let .translate(text, reply):
+                        do {
+                            let response = try await session.translate(text)
+                            await MainActor.run { reply(response.targetText, nil) }
+                        } catch {
+                            await MainActor.run { reply(nil, error.localizedDescription) }
+                        }
+                    case let .prepare(reply):
+                        do {
+                            try await session.prepareTranslation()
+                            await MainActor.run { reply("ok", nil) }
+                        } catch {
+                            await MainActor.run { reply(nil, error.localizedDescription) }
+                        }
                     }
                 }
             }

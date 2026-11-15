@@ -7,5 +7,6 @@ import { installGlassMotion } from '@/ui/motion';
 import { App } from './App';
 
 installGlassMotion();
+document.documentElement.dataset.app = 'mobile'; // edge-to-edge layout rules in styles.css
 
 createRoot(document.getElementById('root')!).render(<App />);
