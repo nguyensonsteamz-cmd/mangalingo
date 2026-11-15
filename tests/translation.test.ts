@@ -160,3 +160,19 @@ describe('common manga dialogue expressions (Starter phrases)', () => {
     expect((await sentence("T-THAT'S IMPOSSIBLE!!")).gloss).toContain('không thể nào');
   });
 });
+
+describe('natural casing for machine translation of comic text', async () => {
+  const { naturalCase, isMostlyUpper } = await import('@/translation/casing');
+  it('turns ALL CAPS bubbles into sentence case and keeps the pronoun I', () => {
+    expect(naturalCase("I'M GONNA BECOME THE STRONGEST NINJA!")).toBe("I'm gonna become the strongest ninja!");
+    expect(naturalCase('WHAT? NO WAY. I WILL GO.')).toBe('What? No way. I will go.');
+  });
+  it('keeps proper names (words missing from the dictionary) capitalised', () => {
+    const names = new Set(['naruto', 'konoha']);
+    expect(naturalCase('NARUTO, I WILL PROTECT KONOHA!', (w) => names.has(w))).toBe('Naruto, I will protect Konoha!');
+  });
+  it('leaves normally written text alone', () => {
+    expect(isMostlyUpper('The village was destroyed.')).toBe(false);
+    expect(naturalCase('Naruto met Sasuke in NYC.')).toBe('Naruto met Sasuke in NYC.');
+  });
+});

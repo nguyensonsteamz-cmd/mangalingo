@@ -27,6 +27,22 @@ export async function recognize(imageBase64: string, region?: { x: number; y: nu
   return r?.lines ?? [];
 }
 
+/**
+ * English → Vietnamese with Apple Translation on the iPhone (iOS 18+, on the device). null when
+ * unavailable (older iOS, outside the app); throws on a translation error.
+ */
+export async function translateOnDevice(text: string): Promise<string | null> {
+  const h = handler();
+  if (!h) return null;
+  try {
+    const r = (await h.postMessage({ cmd: 'translate', text })) as { text?: string } | null;
+    return r?.text ?? null;
+  } catch (e) {
+    if (String((e as Error)?.message ?? e).includes('unavailable')) return null;
+    throw e;
+  }
+}
+
 /** The image the Shortcuts action delivered (served by the app at app://local/__scan/latest). */
 export const latestScanUrl = (stamp: number) => `__scan/latest?t=${stamp}`;
 

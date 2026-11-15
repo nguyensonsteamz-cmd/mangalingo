@@ -8,6 +8,7 @@ import WebKit
 ///   {cmd: "pendingScan"}                 → {stamp} of the latest image from the Shortcuts action
 ///   {cmd: "ocr", image: base64, region?} → Apple Vision lines for that image
 ///   {cmd: "setIcon", name?}             → switches the app icon (alternate icons)
+///   {cmd: "translate", text}            → {text} Vietnamese translation (Apple Translation, iOS 18+)
 struct WebContainer: UIViewRepresentable {
     static let background = UIColor(red: 16 / 255, green: 18 / 255, blue: 24 / 255, alpha: 1)
 
@@ -77,6 +78,13 @@ struct WebContainer: UIViewRepresentable {
                 UIApplication.shared.setAlternateIconName(name) { error in
                     replyHandler(error == nil, error?.localizedDescription)
                 }
+            case "translate":
+                // Apple Translation (iOS 18+), English → Vietnamese, on the device
+                guard TranslationQueue.isAvailable, let text = body["text"] as? String, !text.isEmpty else {
+                    replyHandler(nil, "unavailable")
+                    return
+                }
+                TranslationQueue.shared.enqueue(text) { result, error in replyHandler(result.map { ["text": $0] }, error) }
             case "ocr":
                 guard let b64 = body["image"] as? String, let data = Data(base64Encoded: b64) else {
                     replyHandler(nil, "Không đọc được ảnh.")

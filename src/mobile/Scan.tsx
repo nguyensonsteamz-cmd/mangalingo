@@ -15,7 +15,9 @@ import { primaryMeaning } from '@/ui/views';
 import { Spinner, cx } from '@/ui/components';
 import { IconBack, IconScan, IconVolume } from '@/ui/icons';
 import { canSpeak, speak } from '@/ui/speech';
-import { recognize } from './ios';
+import { recognize, translateOnDevice } from './ios';
+import { prepareForMt } from '@/translation/chrome-mt';
+import { naturalCase } from '@/translation/casing';
 
 type Box = { x: number; y: number; w: number; h: number }; // normalised 0..1 of the image
 
@@ -37,7 +39,8 @@ export function openLookup(text: string) {
 }
 
 const CORNERS: Handle[] = ['nw', 'ne', 'sw', 'se'];
-const CORNER_POS: Record<string, string> = { nw: '-left-3 -top-3', ne: '-right-3 -top-3', sw: '-left-3 -bottom-3', se: '-right-3 -bottom-3' };
+// 36 px touch area (easy to grab) around a small 12 px dot (does not hide the text)
+const CORNER_POS: Record<string, string> = { nw: '-left-[18px] -top-[18px]', ne: '-right-[18px] -top-[18px]', sw: '-left-[18px] -bottom-[18px]', se: '-right-[18px] -bottom-[18px]' };
 
 export function Scan({ src, onBack }: { src: string; onBack: () => void }) {
   const wrap = useRef<HTMLDivElement>(null);
@@ -103,6 +106,7 @@ export function Scan({ src, onBack }: { src: string; onBack: () => void }) {
       setBlocks(found);
       setActive(found[0]?.id ?? null);
       setShowFrame(false);
+      setSheet(true);
       if (!found.length) setError(mode === 'region' ? 'Không thấy chữ trong khung. Kéo khung trùng lên chữ rồi quét lại.' : 'Không nhận ra chữ nào trong ảnh.');
     } catch (e) {
       setError((e as Error).message);
@@ -112,6 +116,7 @@ export function Scan({ src, onBack }: { src: string; onBack: () => void }) {
   };
 
   const activeBlock = blocks.find((b) => b.id === active);
+  const [sheet, setSheet] = useState(true); // result sheet open
 
   return (
     <div className="mx-auto max-w-2xl pb-36" data-ml-scan="">
@@ -134,7 +139,10 @@ export function Scan({ src, onBack }: { src: string; onBack: () => void }) {
             <button
               key={b.id}
               type="button"
-              onClick={() => setActive(b.id)}
+              onClick={() => {
+                setActive(b.id);
+                setSheet(true);
+              }}
               className={cx('absolute rounded-md border-2', b.id === active ? 'border-accent bg-accent/20' : 'border-[rgb(var(--ml-box))] bg-[rgb(var(--ml-box)/0.12)]')}
               style={{ left: `${b.box.x * 100}%`, top: `${b.box.y * 100}%`, width: `${b.box.w * 100}%`, height: `${b.box.h * 100}%` }}
               aria-label={`Bong bóng ${i + 1}`}
@@ -146,21 +154,43 @@ export function Scan({ src, onBack }: { src: string; onBack: () => void }) {
           ))}
         {showFrame && (
           <div
-            className="absolute rounded-lg border-[3px] border-accent bg-accent/10 shadow-[0_0_0_9999px_rgba(0,0,0,0.35)]"
+            className="absolute rounded-lg border-2 border-accent bg-accent/10 shadow-[0_0_0_9999px_rgba(0,0,0,0.35)]"
             style={{ left: `${frame.x * 100}%`, top: `${frame.y * 100}%`, width: `${frame.w * 100}%`, height: `${frame.h * 100}%` }}
             onPointerDown={onDown('move')}
             data-ml-scan-frame=""
           >
             <span className="pointer-events-none absolute -top-7 left-0 whitespace-nowrap rounded bg-accent px-1.5 py-0.5 text-[11px] font-semibold text-accent-fg">Kéo khung vào chữ cần đọc</span>
             {CORNERS.map((h) => (
-              <span key={h} onPointerDown={onDown(h)} className={cx('absolute h-7 w-7 rounded-full border-[3px] border-white bg-accent shadow', CORNER_POS[h])} />
+              <span key={h} onPointerDown={onDown(h)} className={cx('absolute flex h-9 w-9 items-center justify-center', CORNER_POS[h])} data-ml-scan-corner="">
+                <span className="pointer-events-none h-3 w-3 rounded-full border-2 border-white bg-accent shadow-[0_1px_3px_rgb(0_0_0/0.4)]" />
+              </span>
             ))}
           </div>
         )}
       </div>
 
-      {error && <div className="mx-3 mt-3 rounded-xl border border-warn/40 bg-warn/10 px-3 py-2 text-[13px] text-text">{error}</div>}
-      {activeBlock && <ScanResult key={activeBlock.id + activeBlock.text} text={activeBlock.text} n={blocks.length > 1 ? blocks.indexOf(activeBlock) + 1 : 0} />}
+      {/* result / error: a glass sheet floating above the buttons, so it is visible without scrolling */}
+      {(error || (activeBlock && !showFrame)) && (
+        <div className="fixed inset-x-3 bottom-[calc(max(10px,env(safe-area-inset-bottom))+140px)] z-20" data-ml-scan-sheet="">
+          {error ? (
+            <div className="ml-glass animate-ml-in rounded-[22px] px-4 py-3 text-[13.5px] text-text">⚠️ {error}</div>
+          ) : sheet && activeBlock ? (
+            <div className="ml-glass animate-ml-in ml-scroll max-h-[48vh] overflow-y-auto rounded-[24px] pb-3">
+              <div className="sticky top-0 z-10 flex items-center justify-between px-3 pb-1 pt-2">
+                <span className="text-[12px] font-bold uppercase tracking-wider text-muted">{blocks.length > 1 ? `Bong bóng ${blocks.indexOf(activeBlock) + 1}/${blocks.length} · chạm khung khác để đổi` : 'Kết quả'}</span>
+                <button type="button" onClick={() => setSheet(false)} className="ml-press rounded-full bg-text/[0.08] px-2.5 py-0.5 text-[12px] font-semibold text-muted" aria-label="Thu gọn kết quả">
+                  Thu gọn
+                </button>
+              </div>
+              <ScanResult key={activeBlock.id + activeBlock.text} text={activeBlock.text} n={0} />
+            </div>
+          ) : (
+            <button type="button" onClick={() => setSheet(true)} className="ml-glass ml-press w-full rounded-full px-4 py-2 text-[13.5px] font-semibold">
+              Xem kết quả dịch ↑
+            </button>
+          )}
+        </div>
+      )}
 
       <div className="ml-glass fixed inset-x-3 bottom-[calc(max(10px,env(safe-area-inset-bottom))+76px)] z-20 flex gap-2 rounded-[26px] p-2">
         <button type="button" disabled={!!busy || !showFrame} onClick={() => void run('region')} data-ml-magnetic="" className="ml-press ml-btn-primary ml-ripple flex flex-1 items-center justify-center gap-1.5 rounded-[20px] py-2.5 text-[14px] font-bold disabled:opacity-40">
@@ -177,9 +207,33 @@ export function Scan({ src, onBack }: { src: string; onBack: () => void }) {
 /** Result card of one bubble: original text (tap a word), dictionary gloss, every word with IPA / meaning / sound. */
 function ScanResult({ text, n }: { text: string; n: number }) {
   const [gloss, setGloss] = useState<string | null | undefined>(undefined);
+  // natural translation (Apple Translation on iOS 18+); null = not available on this phone
+  const [mt, setMt] = useState<{ state: 'loading' | 'done' | 'error' | 'off'; text?: string; error?: string }>({ state: 'loading' });
   const [rows, setRows] = useState<Record<string, WordLookup | null | undefined>>({});
   const content = ocrWords(text);
   const words = content.length ? content : ocrWords(text, true);
+  // words not in the dictionary are treated as proper names: kept as they are in the translation
+  const isName = (w: string) => words.some((x) => x.toLowerCase() === w && rows[x] !== undefined && !rows[x]?.found);
+  const looked = words.every((w) => rows[w] !== undefined);
+  const [waited, setWaited] = useState(false);
+  useEffect(() => {
+    setWaited(false);
+    const id = setTimeout(() => setWaited(true), 2500); // do not wait forever for the dictionary
+    return () => clearTimeout(id);
+  }, [text]);
+  const ready = looked || waited;
+  useEffect(() => {
+    if (!ready) return;
+    let alive = true;
+    setMt({ state: 'loading' });
+    translateOnDevice(prepareForMt(naturalCase(text, isName)))
+      .then((r) => alive && setMt(r ? { state: 'done', text: r } : { state: 'off' }))
+      .catch((e: Error) => alive && setMt({ state: 'error', error: e.message }));
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [text, ready]);
 
   useEffect(() => {
     let alive = true;
@@ -233,9 +287,24 @@ function ScanResult({ text, n }: { text: string; n: number }) {
         </button>
       </div>
 
+      {mt.state !== 'off' && (
+        <div className="rounded-[20px] border border-accent/30 border-l-[4px] border-l-accent bg-accent/[0.1] p-3" data-ml-scan-mt="">
+          <div className="mb-1 text-[11px] font-bold uppercase tracking-wider text-accent">Bản dịch</div>
+          {mt.state === 'loading' ? (
+            <div className="flex items-center gap-2 text-[13px] text-muted">
+              <Spinner /> Đang dịch… <span className="text-[11.5px] text-subtle">(lần đầu iPhone có thể hỏi tải gói tiếng Việt)</span>
+            </div>
+          ) : mt.state === 'done' ? (
+            <div className="ml-tr text-[16px] font-semibold leading-snug">{mt.text}</div>
+          ) : (
+            <div className="text-[13px] text-muted">Chưa dịch được ({mt.error}). Kiểm tra Cài đặt → Ứng dụng → Dịch thuật → đã tải tiếng Việt.</div>
+          )}
+        </div>
+      )}
+
       {gloss !== null && (
-        <div className="rounded-[20px] border border-accent/25 border-l-[4px] border-l-accent bg-accent/[0.08] p-3">
-          <div className="mb-1 text-[11px] font-bold uppercase tracking-wider text-accent">Nghĩa (từ điển)</div>
+        <div className="ml-glass-card rounded-[20px] border-l-[4px] border-l-subtle p-3">
+          <div className="mb-1 text-[11px] font-bold uppercase tracking-wider text-muted">{mt.state === 'off' ? 'Nghĩa (từ điển)' : 'Ghép nghĩa từng từ (từ điển)'}</div>
           {gloss === undefined ? (
             <div className="flex items-center gap-2 text-[13px] text-muted">
               <Spinner /> Đang tra…
@@ -265,7 +334,10 @@ function ScanResult({ text, n }: { text: string; n: number }) {
                       {r === undefined ? (
                         <span className="text-subtle">…</span>
                       ) : !r?.found ? (
-                        <span className="text-[13px] text-subtle">không có trong từ điển (có thể đọc sai)</span>
+                        <span className="text-[13px] text-muted">
+                          <b className="text-text">{w.length > 1 ? w[0].toUpperCase() + w.slice(1).toLowerCase() : w}</b>{' '}
+                          <span className="ml-1 rounded-full bg-text/[0.07] px-1.5 py-px text-[11px] font-semibold">tên riêng · giữ nguyên</span>
+                        </span>
                       ) : r.hasVietnamese ? (
                         <b>{meaning}</b>
                       ) : (

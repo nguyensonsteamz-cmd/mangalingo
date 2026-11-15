@@ -55,9 +55,16 @@ export function App() {
     setTab(t);
     history.replaceState(null, '', `#${t}`);
   };
+  // "Trang chủ" in the tab bar returns to the scan you were on (it stays alive in the background)
+  const [homeView, setHomeView] = useState<'home' | 'scan'>('home');
+  const goHome = () => go(homeView === 'scan' && scanSrcRef.current ? 'scan' : 'home');
 
   // iPhone: an image from the Shortcuts action (AssistiveTouch → Take Screenshot → LingoLens)
   const [scanSrc, setScanSrc] = useState<string | null>(null);
+  const scanSrcRef = { current: scanSrc };
+  useEffect(() => {
+    if (tab === 'scan') setHomeView('scan');
+  }, [tab]);
   useEffect(() => {
     if (PLATFORM !== 'ios') return;
     const open = (stamp: number) => {
@@ -91,8 +98,20 @@ export function App() {
   return (
     <div className="flex min-h-[100dvh] flex-col text-text" style={{ zoom: SCALE[settings.appearance.uiScale] ?? 1 }} data-ml-app="">
       <main className="min-h-0 flex-1 pb-[100px]">
-        {tab === 'home' && (PLATFORM === 'ios' ? <IosHome onOpen={go} onFile={scanFile} /> : <Home onOpen={go} />)}
-        {tab === 'scan' && (scanSrc ? <Scan src={scanSrc} onBack={() => go('home')} /> : <IosHome onOpen={go} onFile={scanFile} />)}
+        {(tab === 'home' || (tab === 'scan' && !scanSrc)) &&
+          (PLATFORM === 'ios' ? <IosHome onOpen={go} onFile={scanFile} onResumeScan={scanSrc ? () => go('scan') : undefined} /> : <Home onOpen={go} />)}
+        {/* kept mounted while you look words up in other tabs, so the result is still there when you come back */}
+        {scanSrc && (
+          <div hidden={tab !== 'scan'}>
+            <Scan
+              src={scanSrc}
+              onBack={() => {
+                setHomeView('home');
+                go('home');
+              }}
+            />
+          </div>
+        )}
         {tab === 'lookup' && <SidePanel />}
         {tab === 'vocab' && (
           <div className="px-3 py-3">
@@ -108,7 +127,7 @@ export function App() {
           <button
             key={t.id}
             type="button"
-            onClick={() => go(t.id)}
+            onClick={() => (t.id === 'home' ? goHome() : go(t.id))}
             data-ml-active={tab === t.id || (tab === 'scan' && t.id === 'home')}
             className={cx('ml-press relative z-[1] flex flex-col items-center gap-0.5 rounded-[26px] border border-transparent py-1.5 text-[12px] font-semibold', tab === t.id || (tab === 'scan' && t.id === 'home') ? 'ml-sel-text' : 'text-muted')}
             aria-current={tab === t.id ? 'page' : undefined}
@@ -215,7 +234,7 @@ function Home({ onOpen }: { onOpen: (t: Tab) => void }) {
 
 /** iPhone: iOS does not let apps draw over other apps — the system AssistiveTouch button runs a
  *  Shortcut (Take Screenshot → Quét ảnh với LingoLens) instead. */
-function IosHome({ onOpen, onFile }: { onOpen: (t: Tab) => void; onFile: (f: File) => void }) {
+function IosHome({ onOpen, onFile, onResumeScan }: { onOpen: (t: Tab) => void; onFile: (f: File) => void; onResumeScan?: () => void }) {
   useSettings('page'); // applies the theme
   return (
     <div className="mx-auto max-w-lg space-y-4 px-4 pt-6" data-ml-ios-home="">
@@ -226,6 +245,19 @@ function IosHome({ onOpen, onFile }: { onOpen: (t: Tab) => void; onFile: (f: Fil
           <div className="text-[13px] text-muted">Trợ lý đọc tiếng Anh · iPhone</div>
         </div>
       </div>
+
+      {onResumeScan && (
+        <button type="button" onClick={onResumeScan} className="ml-glass ml-press flex w-full items-center gap-3 rounded-[24px] px-4 py-3 text-left" data-ml-resume-scan="">
+          <span className="ml-btn-primary flex h-9 w-9 shrink-0 items-center justify-center rounded-full">
+            <IconScan size={18} />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-[14.5px] font-semibold">Quay lại bản quét vừa rồi</span>
+            <span className="block text-[12px] text-muted">Ảnh và kết quả dịch vẫn còn</span>
+          </span>
+          <span className="text-muted">›</span>
+        </button>
+      )}
 
       <div className="ml-glass space-y-2 rounded-[28px] p-5">
         <div className="text-[17px] font-bold">Quét chữ trong ảnh</div>

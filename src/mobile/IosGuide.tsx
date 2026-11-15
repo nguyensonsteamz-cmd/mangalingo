@@ -160,8 +160,10 @@ export function IosGuide() {
               </span>
               <span className={cx('text-muted transition-transform duration-200', open === i && 'rotate-180')}>⌄</span>
             </button>
-            {open === i && (
-              <div className="ml-xfade-a px-3 pb-3">
+            {/* smooth open / close: the row height animates from 0 to the content height */}
+            <div className={cx('grid transition-[grid-template-rows,opacity] duration-300 ease-[cubic-bezier(.16,1,.3,1)] motion-reduce:transition-none', open === i ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0')} aria-hidden={open !== i}>
+              <div className="min-h-0 overflow-hidden">
+              <div className="px-3 pb-3">
                 <ol className="space-y-2">
                   {s.steps.map((st, k) => (
                     <li key={k} className="flex gap-2 text-[13px] leading-relaxed text-muted">
@@ -177,7 +179,8 @@ export function IosGuide() {
                   </a>
                 )}
               </div>
-            )}
+              </div>
+            </div>
           </div>
         ))}
       </div>
