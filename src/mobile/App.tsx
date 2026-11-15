@@ -219,7 +219,7 @@ function IosHome({ onOpen, onFile }: { onOpen: (t: Tab) => void; onFile: (f: Fil
   const steps = [
     [
       'Tạo Phím tắt',
-      'Mở app Phím tắt → bấm + → Thêm tác vụ → tìm và thêm “Chụp ảnh màn hình”. Bấm thêm tác vụ lần nữa → gõ “LingoLens” → chọn “Quét ảnh với LingoLens”; ô Ảnh phải là “Ảnh chụp màn hình” (thường tự điền). Đặt tên phím tắt “LingoLens: Quét”. Không thấy tác vụ LingoLens? Mở LingoLens một lần rồi tìm lại.',
+      'Mở app Phím tắt → bấm + → Thêm tác vụ → tìm và thêm “Chụp ảnh màn hình”. Bấm thêm tác vụ lần nữa → gõ “LingoLens” → chọn “Quét ảnh với LingoLens”. Bước này tự nối với ảnh vừa chụp và hiện là “Quét [Ảnh chụp màn hình] với LingoLens” – không cần chọn gì thêm (đừng bấm vào ô Ảnh, nó sẽ mở app Tệp). Đặt tên phím tắt “LingoLens: Quét”. Không thấy tác vụ LingoLens? Mở LingoLens một lần rồi tìm lại.',
     ],
     ['Bật nút nổi', 'Cài đặt → Trợ năng → Cảm ứng → AssistiveTouch → bật. Chỉnh “Độ mờ khi không dùng” khoảng 40%.'],
     ['Gán thao tác', 'Vẫn trong AssistiveTouch → mục Tác vụ tùy chỉnh → Chạm hai lần → kéo xuống phần Phím tắt → chọn “LingoLens: Quét”.'],
