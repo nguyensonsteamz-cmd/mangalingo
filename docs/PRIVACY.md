@@ -5,14 +5,14 @@
 - **Local-first**: tra từ, phân tích câu, nhận diện ngôn ngữ và OCR đều chạy trên máy.
 - **Không gửi nội dung truyện, ảnh hay từ đã tra** tới bất kỳ máy chủ nào. Không có tracking, analytics,
   telemetry, quảng cáo, tài khoản hay API key.
-- **Quyền `scripting`**: chỉ dùng để khởi động MangaLingo trong các tab **đã mở sẵn** (trước khi cài/cập nhật
+- **Quyền `scripting`**: chỉ dùng để khởi động LingoLens trong các tab **đã mở sẵn** (trước khi cài/cập nhật
   tiện ích) của những trang bạn bật — để không phải tải lại trang. Không chèn mã nào khác ngoài `content.js` của gói.
 - **Mặc định tắt trên mọi trang**: content script (cần quyền `<all_urls>` để bạn bật được ở bất kỳ trang nào) không
   gắn gì vào trang và không đọc/không phản hồi thao tác trên những trang bạn chưa bật. Danh sách trang đã bật lưu
   cục bộ (`chrome.storage.local`).
 - **Bản dịch máy (mặc định BẬT, theo yêu cầu của người dùng)**: *Cài đặt → Hành vi đọc → Chế độ dịch = Dịch máy*.
-  MangaLingo dùng Translator API có sẵn trong Chrome 138+. Lần đầu, ngay khi bạn click (tra câu, click bong bóng
-  OCR, hoặc nút **Tải mô hình dịch**), **Chrome** (không phải MangaLingo) tải mô hình Anh → Việt từ máy chủ Google
+  LingoLens dùng Translator API có sẵn trong Chrome 138+. Lần đầu, ngay khi bạn click (tra câu, click bong bóng
+  OCR, hoặc nút **Tải mô hình dịch**), **Chrome** (không phải LingoLens) tải mô hình Anh → Việt từ máy chủ Google
   một lần; việc dịch sau đó chạy **trên máy**, văn bản không được gửi đi. Tiện ích không gọi API dịch trực tuyến nào
   và không cần API key. Chọn *Chỉ từ điển* để không dùng dịch máy (API không được gọi để dịch).
 - **Không có mã thực thi từ xa**: mọi JavaScript/WASM nằm trong gói. CSP của trang tiện ích:
@@ -20,7 +20,7 @@
 - Kiểm chứng: bài E2E ghi lại mọi request mạng của service worker và các trang trong suốt phiên kiểm thử và
   khẳng định không có URL nào ngoài `chrome-extension://`, `data:`/`blob:` và máy chủ fixture cục bộ.
   (Bản build có chứa chuỗi URL CDN mặc định bên trong mã nguồn Tesseract.js, nhưng không bao giờ được dùng vì
-  MangaLingo luôn truyền đường dẫn cục bộ.)
+  LingoLens luôn truyền đường dẫn cục bộ.)
 
 ## Quyền (permissions)
 

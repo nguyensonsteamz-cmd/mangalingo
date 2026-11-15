@@ -24,7 +24,7 @@ const BASE = `http://127.0.0.1:${PORT}`;
 const browser = await launch();
 try {
   const { id } = await browser.send('Extensions.loadUnpacked', { path: join(root, 'dist') });
-  // MangaLingo is off by default: switch it on for the local fixture site first.
+  // LingoLens is off by default: switch it on for the local fixture site first.
   {
     const { targetId: optId } = await browser.send('Target.createTarget', { url: `chrome-extension://${id}/options/index.html` });
     const opt = await attach(browser, optId);
@@ -34,7 +34,7 @@ try {
   }
   const open = async (url, w = 1100, h = 760) => {
     const { targetId } = await browser.send('Target.createTarget', { url });
-    const p = await attach(browser, targetId, { world: 'MangaLingo' });
+    const p = await attach(browser, targetId, { world: 'LingoLens' });
     await p.send('Page.enable');
     await p.send('Runtime.enable');
     await p.send('Emulation.setDeviceMetricsOverride', { width: w, height: h, deviceScaleFactor: 1, mobile: false });
@@ -97,7 +97,7 @@ try {
   await shot(page, '7-ocr-popup');
 
   const panel = await open(`chrome-extension://${id}/sidepanel/index.html`, 400, 760);
-  await ready(panel, `document.body.innerText.includes('MangaLingo')`);
+  await ready(panel, `document.body.innerText.includes('LingoLens')`);
   await panel.evaluate(`chrome.runtime.sendMessage({ type: 'sidebar:push', payload: { type: 'lookup', text: "Are you out of your mind?! I gave up on my dream." } })`);
   await ready(panel, `document.body.innerText.includes('bỏ cuộc')`);
   await sleep(300);

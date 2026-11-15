@@ -29,7 +29,7 @@ function mount(): { host: HTMLElement; shadow: ShadowRoot } {
   shadow.appendChild(style);
   const container = document.createElement('div');
   shadow.appendChild(container);
-  // Attached to the page only while MangaLingo is on for this site (see syncAttached in main()).
+  // Attached to the page only while LingoLens is on for this site (see syncAttached in main()).
   // Keep the page from reacting to interactions inside our UI (e.g. readers that turn pages on click).
   for (const type of ['click', 'mousedown', 'mouseup', 'pointerdown', 'pointerup', 'dblclick', 'keydown', 'keyup', 'keypress', 'wheel', 'contextmenu']) {
     host.addEventListener(type, (e) => e.stopPropagation(), type === 'wheel' ? { passive: true } : undefined);
@@ -64,7 +64,7 @@ async function main() {
   });
 
   const { host } = mount();
-  // Pages where MangaLingo is off get no element, no UI and no reaction to clicks.
+  // Pages where LingoLens is off get no element, no UI and no reaction to clicks.
   const syncAttached = () => {
     if (!ignored()) {
       if (!host.isConnected) (document.documentElement || document.body).appendChild(host);
@@ -189,9 +189,9 @@ async function main() {
       mtPreloadChecked = true;
       void mtAvailability().then((a) => {
         if (a !== 'downloadable') return;
-        toast('MangaLingo: đang tải mô hình dịch Anh → Việt (một lần, chạy trên máy)…', 'info');
+        toast('LingoLens: đang tải mô hình dịch Anh → Việt (một lần, chạy trên máy)…', 'info');
         getTranslator().then(
-          () => toast('MangaLingo: mô hình dịch đã sẵn sàng.', 'ok'),
+          () => toast('LingoLens: mô hình dịch đã sẵn sàng.', 'ok'),
           () => (mtPreloadChecked = false), // e.g. gesture expired – retry on the next click
         );
       });
@@ -280,4 +280,4 @@ async function main() {
   });
 }
 
-void main().catch((e) => console.warn('[MangaLingo] content script failed to start', e));
+void main().catch((e) => console.warn('[LingoLens] content script failed to start', e));

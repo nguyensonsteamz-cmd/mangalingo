@@ -6,7 +6,7 @@ Giấy phép đã được kiểm tra **trước khi đóng gói**. Bản sao gi
 |---|---|---|---|---|
 | WordNet 3.1 (Princeton University), gói npm `wordnet-db@3.1.14` | Định nghĩa tiếng Anh, ví dụ, đồng nghĩa, trái nghĩa, nhãn slang/khẩu ngữ/cổ, cụm từ nhiều từ, từ loại | 117.791 synset, ~240.000 lemma | WordNet License (cho phép dùng/sao chép/phân phối, phải giữ thông báo bản quyền) | Dữ liệu đã công bố |
 | CMU Pronouncing Dictionary, gói `cmu-pronouncing-dictionary@3.0.0` | Phát âm → IPA (giọng Mỹ) bằng quy tắc chuyển ARPAbet | 119.690 từ | BSD-2-Clause (dữ liệu), ISC (gói) | Dữ liệu đã công bố |
-| **MangaLingo Starter EN–VI** (`data/starter/`) | Nghĩa tiếng Việt, cụm động từ, thành ngữ, slang, ghi chú cách dùng | 731 từ (761 nghĩa) + 215 cụm | CC0-1.0 | **Biên soạn thủ công, chưa kiểm duyệt chuyên môn** |
+| **LingoLens Starter EN–VI** (`data/starter/`) | Nghĩa tiếng Việt, cụm động từ, thành ngữ, slang, ghi chú cách dùng | 731 từ (761 nghĩa) + 215 cụm | CC0-1.0 | **Biên soạn thủ công, chưa kiểm duyệt chuyên môn** |
 | Từ điển người dùng nhập | Bất kỳ | — | Theo nguồn người dùng | Người dùng |
 
 ## Phạm vi tiếng Việt — đọc kỹ
@@ -15,9 +15,9 @@ Giấy phép đã được kiểm tra **trước khi đóng gói**. Bản sao gi
   phiên bản này **không** có từ điển Anh–Việt đầy đủ.
 - Bộ **Starter** được viết riêng cho dự án (không sao chép từ từ điển thương mại), tập trung vào từ thông dụng
   trong truyện/hội thoại, đại từ, giới từ, trợ động từ, dạng rút gọn, slang và thành ngữ phổ biến. Nó có thể có
-  sai sót; mọi nghĩa từ bộ này đều được ghi nguồn “MangaLingo Starter (biên soạn thủ công)” trong giao diện.
+  sai sót; mọi nghĩa từ bộ này đều được ghi nguồn “LingoLens Starter (biên soạn thủ công)” trong giao diện.
 - Từ nằm ngoài Starter **chỉ có định nghĩa tiếng Anh** từ WordNet. Giao diện hiển thị thông báo
-  “Chưa có nghĩa tiếng Việt” — MangaLingo không tự dịch định nghĩa.
+  “Chưa có nghĩa tiếng Việt” — LingoLens không tự dịch định nghĩa.
 - Nghĩa ghép cho câu ghi rõ tỉ lệ từ/cụm có nghĩa tiếng Việt.
 
 ## Nhập thêm từ điển

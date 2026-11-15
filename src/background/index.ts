@@ -1,8 +1,9 @@
 /**
- * MangaLingo service worker: dictionary + translation engine host, OCR orchestration,
+ * LingoLens service worker: dictionary + translation engine host, OCR orchestration,
  * side panel, context menus and keyboard commands.
  */
 import type { PageEvent, TabEvent } from '@/shared/messages';
+import { drawLogo } from '@/ui/logo-data';
 import { lemmaCandidates } from '@/language/morphology';
 import { isSiteEnabled, type Settings } from '@/shared/settings';
 import { callOffscreen } from './offscreen-client';
@@ -171,7 +172,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
 // ---------- toolbar icon ----------
 // The icon opens the action popup (on/off switch, sidebar, settings). Its badge shows "OFF" while
-// MangaLingo is switched off, and the context-menu entries are hidden.
+// LingoLens is switched off, and the context-menu entries are hidden.
 const tabHost = (url?: string) => {
   try {
     const u = new URL(url ?? '');
@@ -181,19 +182,34 @@ const tabHost = (url?: string) => {
   }
 };
 
-/** Badge "ON" on tabs whose site has MangaLingo switched on; nothing elsewhere. */
+/** Badge "ON" on tabs whose site has LingoLens switched on; nothing elsewhere. */
 async function updateTabState(tab: chrome.tabs.Tab, s?: Settings) {
   if (tab.id === undefined) return;
   s ??= await settings.load();
   const host = tabHost(tab.url);
   const on = host !== null && isSiteEnabled(s, host);
   await chrome.action.setBadgeText({ tabId: tab.id, text: on ? 'ON' : '' }).catch(() => {});
-  await chrome.action.setTitle({ tabId: tab.id, title: on ? `MangaLingo – đang bật trên ${host}` : 'MangaLingo – đang tắt trên trang này (bấm để bật)' }).catch(() => {});
+  await chrome.action.setTitle({ tabId: tab.id, title: on ? `LingoLens – đang bật trên ${host}` : 'LingoLens – đang tắt trên trang này (bấm để bật)' }).catch(() => {});
   if (tab.active) for (const id of MENU_IDS) chrome.contextMenus.update(id, { visible: on }, () => void chrome.runtime.lastError);
+}
+
+/** Toolbar icon = the logo chosen in Settings → Giao diện (drawn in the worker with OffscreenCanvas). */
+function logoImage(id: string, size: number): ImageData {
+  const c = new OffscreenCanvas(size, size);
+  const ctx = c.getContext('2d')!;
+  drawLogo(ctx, id, size);
+  return ctx.getImageData(0, 0, size, size);
+}
+let shownLogo = '';
+async function applyLogo(id: string) {
+  if (id === shownLogo) return;
+  shownLogo = id;
+  await chrome.action.setIcon({ imageData: { 16: logoImage(id, 16), 32: logoImage(id, 32) } }).catch(() => (shownLogo = ''));
 }
 
 async function applyEnabledState() {
   const s = await settings.load();
+  void applyLogo(s.appearance.logo);
   await chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: false }).catch(() => {});
   await chrome.sidePanel.setOptions({ enabled: false }).catch(() => {}); // global default: off (per-tab only)
   await chrome.action.setBadgeText({ text: '' }).catch(() => {});
@@ -220,10 +236,10 @@ chrome.runtime.onConnect.addListener((port) => {
 const MENU_IDS = ['ml-lookup', 'ml-scan-image', 'ml-scan-region', 'ml-sidebar'];
 function createMenus() {
   chrome.contextMenus.removeAll(() => {
-    chrome.contextMenus.create({ id: 'ml-lookup', title: 'MangaLingo: tra “%s”', contexts: ['selection'] });
-    chrome.contextMenus.create({ id: 'ml-scan-image', title: 'MangaLingo: quét chữ trong ảnh (OCR)', contexts: ['image'] });
-    chrome.contextMenus.create({ id: 'ml-scan-region', title: 'MangaLingo: chọn vùng để quét OCR', contexts: ['page', 'image', 'frame'] });
-    chrome.contextMenus.create({ id: 'ml-sidebar', title: 'MangaLingo: mở sidebar', contexts: ['page', 'selection', 'image'] });
+    chrome.contextMenus.create({ id: 'ml-lookup', title: 'LingoLens: tra “%s”', contexts: ['selection'] });
+    chrome.contextMenus.create({ id: 'ml-scan-image', title: 'LingoLens: quét chữ trong ảnh (OCR)', contexts: ['image'] });
+    chrome.contextMenus.create({ id: 'ml-scan-region', title: 'LingoLens: chọn vùng để quét OCR', contexts: ['page', 'image', 'frame'] });
+    chrome.contextMenus.create({ id: 'ml-sidebar', title: 'LingoLens: mở sidebar', contexts: ['page', 'selection', 'image'] });
     void applyEnabledState();
   });
 }
@@ -270,7 +286,7 @@ export async function ensureContentScript(tabId: number): Promise<boolean> {
 chrome.runtime.onInstalled.addListener(() => {
   createMenus();
   void applyEnabledState();
-  // After an install/update/reload: start MangaLingo in already-open tabs of enabled sites (no F5 needed).
+  // After an install/update/reload: start LingoLens in already-open tabs of enabled sites (no F5 needed).
   void (async () => {
     const s = await settings.load();
     if (!s.general.sites.length) return;
@@ -281,7 +297,7 @@ chrome.runtime.onInstalled.addListener(() => {
   })();
 });
 
-// When a site is switched on, start MangaLingo in its open tabs right away (no F5 needed).
+// When a site is switched on, start LingoLens in its open tabs right away (no F5 needed).
 settings.subscribe((s) => {
   void chrome.tabs.query({}).then(async (tabs) => {
     for (const t of tabs) {

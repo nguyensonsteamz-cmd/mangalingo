@@ -11,7 +11,7 @@ android/app/build/
 android/local.properties
 android/app/src/main/assets/web/
 android/.kotlin/
-MangaLingo-android-*.apk
+LingoLens-android-*.apk
 .tmp/
 .cache/
 ios/MangaLingo/web/

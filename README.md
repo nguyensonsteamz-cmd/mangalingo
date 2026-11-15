@@ -1,10 +1,10 @@
-# MangaLingo
+# LingoLens
 
 Trợ lý đọc tiếng Anh cho Chrome, hoạt động **cục bộ (local-first)**: click hoặc bôi đen để tra từ, phân tích câu,
 nhận diện chữ trong ảnh manga bằng OCR chạy ngay trong trình duyệt, và lưu sổ từ vựng — không cần tài khoản,
 không gửi dữ liệu ra ngoài, không dùng API trả phí.
 
-> **Dictionary Mode (mặc định).** Với câu và đoạn văn, MangaLingo ghép nghĩa theo từng cụm từ dựa trên dữ liệu
+> **Dictionary Mode (mặc định).** Với câu và đoạn văn, LingoLens ghép nghĩa theo từng cụm từ dựa trên dữ liệu
 > từ điển, đánh dấu rõ phần nào chưa có dữ liệu, và phân tích ngữ pháp theo quy tắc.
 >
 > **Bản dịch máy (mặc định).** Câu/đoạn/bong bóng OCR có thêm bản dịch tự nhiên Anh → Việt bằng Translator API
@@ -22,14 +22,14 @@ npm install
 npm run build        # tạo dữ liệu từ điển + build vào dist/
 ```
 
-> **Mặc định MangaLingo tắt trên mọi trang.** Sau khi cài, mở trang muốn đọc → bấm biểu tượng MangaLingo →
-> bật **“Bật MangaLingo trên trang này”** (biểu tượng hiện “ON” trên các trang đã bật). Có hiệu lực ngay, **không cần
+> **Mặc định LingoLens tắt trên mọi trang.** Sau khi cài, mở trang muốn đọc → bấm biểu tượng LingoLens →
+> bật **“Bật LingoLens trên trang này”** (biểu tượng hiện “ON” trên các trang đã bật). Có hiệu lực ngay, **không cần
 > tải lại trang** — kể cả tab đã mở từ trước khi cài/cập nhật tiện ích.
 
 1. Mở `chrome://extensions`.
 2. Bật **Developer mode** (góc trên bên phải).
 3. Bấm **Load unpacked** → chọn thư mục `dist/`.
-4. Ghim biểu tượng MangaLingo trên thanh công cụ (biểu tượng mảnh ghép → ghim).
+4. Ghim biểu tượng LingoLens trên thanh công cụ (biểu tượng mảnh ghép → ghim).
 
 Khi cài, Chrome hỏi quyền “đọc và thay đổi dữ liệu trên mọi trang web”. Quyền này cần cho việc tra từ trên
 mọi trang và đọc điểm ảnh của ảnh manga để OCR cục bộ — xem [docs/PRIVACY.md](docs/PRIVACY.md).
@@ -43,13 +43,13 @@ mọi trang và đọc điểm ảnh của ảnh manga để OCR cục bộ — 
 | Đóng popup | `Esc`, click ra ngoài, hoặc nút ✕. |
 | Phát âm | Nút loa (giọng đọc có sẵn của hệ điều hành). |
 | Lưu từ | Nút dấu trang trong popup → lưu kèm câu gốc, nguồn, ngày lưu. |
-| Bật / tắt theo trang | Mặc định tắt. Biểu tượng MangaLingo → **Bật MangaLingo trên trang này** (áp dụng cho tên miền đó, gồm tên miền con; biểu tượng hiện “ON”). Danh sách và nút **Tạm dừng trên mọi trang**: Cài đặt → Hành vi đọc. Menu biểu tượng cũng có **Mở Sidebar**, **Cài đặt**, **Tải mô hình dịch**. |
-| Sidebar | Biểu tượng MangaLingo → **Mở Sidebar**, nút “Mở Sidebar” trong popup, hoặc `Alt+Shift+S`. Sidebar chỉ hiện ở **tab** đã mở nó (tự đóng nếu tab đó chuyển sang trang web khác). |
+| Bật / tắt theo trang | Mặc định tắt. Biểu tượng LingoLens → **Bật LingoLens trên trang này** (áp dụng cho tên miền đó, gồm tên miền con; biểu tượng hiện “ON”). Danh sách và nút **Tạm dừng trên mọi trang**: Cài đặt → Hành vi đọc. Menu biểu tượng cũng có **Mở Sidebar**, **Cài đặt**, **Tải mô hình dịch**. |
+| Sidebar | Biểu tượng LingoLens → **Mở Sidebar**, nút “Mở Sidebar” trong popup, hoặc `Alt+Shift+S`. Sidebar chỉ hiện ở **tab** đã mở nó (tự đóng nếu tab đó chuyển sang trang web khác). |
 | OCR ảnh manga | Rê chuột lên ảnh → **Quét OCR**: Sidebar mở ra với danh sách bong bóng (đánh số giống trên ảnh, kèm bản dịch). Click khung trên ảnh để xem nghĩa từng từ; click ra ngoài để ẩn khung. |
 | Sửa khung OCR | Rê chuột lên khung bong bóng → kéo tay nắm ở góc/cạnh để bao trọn chữ bị sót → thả chuột: vùng đó được quét lại. |
-| OCR một vùng | Nút cắt (✂) cạnh “Quét OCR”, hoặc chuột phải → “MangaLingo: chọn vùng để quét OCR”, rồi kéo chọn. |
+| OCR một vùng | Nút cắt (✂) cạnh “Quét OCR”, hoặc chuột phải → “LingoLens: chọn vùng để quét OCR”, rồi kéo chọn. |
 | Quét bằng phím tắt | `Alt+Shift+O` quét ảnh dưới con trỏ (hoặc ảnh lớn nhất đang hiển thị). |
-| Tra vùng chọn bằng phím tắt | `Alt+Shift+L`, hoặc chuột phải → “MangaLingo: tra …”. |
+| Tra vùng chọn bằng phím tắt | `Alt+Shift+L`, hoặc chuột phải → “LingoLens: tra …”. |
 | Cài đặt | Biểu tượng bánh răng trong popup/sidebar, hoặc chuột phải biểu tượng tiện ích → Options. |
 | Sổ từ vựng | Sidebar → tab **Đã lưu** (tìm kiếm, lọc, Mới/Đang học/Đã thuộc, ghi chú, xuất/nhập JSON/CSV). |
 | Bản dịch máy | Mặc định bật. Lần đầu Chrome tự tải mô hình khi bạn click (hoặc bấm **Tải mô hình dịch**). Bản dịch hiện trên phần nghĩa ghép trong popup câu/đoạn/OCR và sidebar. |
@@ -105,5 +105,5 @@ npm run check       # tất cả các bước trên
 
 ## Giấy phép
 
-Mã nguồn MangaLingo: chưa gắn giấy phép (dự án cá nhân — hãy thêm tệp LICENSE nếu muốn chia sẻ). Dữ liệu đóng gói giữ giấy phép riêng (WordNet License, CMUdict BSD-2-Clause,
-Tesseract/tesseract.js Apache-2.0, MangaLingo Starter CC0) — bản sao giấy phép nằm trong `dist/licenses/`.
+Mã nguồn LingoLens: chưa gắn giấy phép (dự án cá nhân — hãy thêm tệp LICENSE nếu muốn chia sẻ). Dữ liệu đóng gói giữ giấy phép riêng (WordNet License, CMUdict BSD-2-Clause,
+Tesseract/tesseract.js Apache-2.0, LingoLens Starter CC0) — bản sao giấy phép nằm trong `dist/licenses/`.

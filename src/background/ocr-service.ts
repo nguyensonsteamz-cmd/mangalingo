@@ -147,7 +147,7 @@ export class OcrService {
           image = await fetchImage(target.src);
           acquisition = 'image-fetch';
         } catch (e) {
-          console.info('[MangaLingo OCR] fetch failed, falling back to visible capture:', (e as Error).message);
+          console.info('[LingoLens OCR] fetch failed, falling back to visible capture:', (e as Error).message);
         }
       }
       if (!image) {

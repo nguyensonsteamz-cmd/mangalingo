@@ -1,5 +1,5 @@
 /**
- * Toolbar popup (click on the MangaLingo icon): master on/off switch, per-site switch, quick
+ * Toolbar popup (click on the LingoLens icon): master on/off switch, per-site switch, quick
  * actions (sidebar, settings) and the translation-model status with its one-time download button.
  */
 import { useEffect, useState } from 'react';
@@ -76,18 +76,18 @@ export function ActionPopup() {
   return (
     <div className="w-[300px] space-y-3 bg-bg p-3 text-text" data-ml-action="">
       <div className="flex items-center gap-2">
-        <IconLogo size={22} className="text-accent" />
+        <IconLogo size={30} />
         <div className="min-w-0 flex-1">
-          <div className="text-[14px] font-semibold">MangaLingo</div>
+          <div className="text-[14px] font-semibold">LingoLens</div>
           <div className={cx('truncate text-[12px]', on ? 'text-ok' : 'text-muted')} data-ml-action-status="">
             {!host ? 'Không dùng được trên trang này' : on ? `Đang bật trên ${host}` : siteOn ? 'Đang tạm dừng (Cài đặt → Hành vi đọc)' : 'Đang tắt trên trang này'}
           </div>
         </div>
-        <Switch big on={on} onChange={setSite} label="Bật MangaLingo trên trang này" />
+        <Switch big on={on} onChange={setSite} label="Bật LingoLens trên trang này" />
       </div>
 
       <div className="rounded-xl border border-border bg-surface px-3 py-2 text-[12px] text-muted">
-        MangaLingo chỉ hoạt động trên những trang bạn bật.{' '}
+        LingoLens chỉ hoạt động trên những trang bạn bật.{' '}
         {s.general.sites.length ? <>Đang bật trên <b className="text-text">{s.general.sites.length}</b> trang web.</> : 'Chưa bật trên trang nào.'}
       </div>
 

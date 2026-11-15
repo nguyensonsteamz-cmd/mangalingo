@@ -145,11 +145,9 @@ function SidebarPreview({ s }: { s: Settings }) {
         >
           <div className="h-1 bg-gradient-to-r from-accent via-[rgb(var(--ml-box))] to-ok" />
           <div className="flex items-center gap-2 px-3 pb-2 pt-2.5">
-            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-accent/15 ring-1 ring-accent/30">
-              <IconLogo size={18} />
-            </span>
+            <IconLogo size={32} />
             <div className="min-w-0 flex-1">
-              <div className="text-[14px] font-bold leading-tight">MangaLingo</div>
+              <div className="text-[14px] font-bold leading-tight">LingoLens</div>
               <div className="flex items-center gap-1 text-[10.5px] text-muted">
                 <span className="h-1.5 w-1.5 rounded-full bg-ok" /> Dịch máy · chạy trên máy
               </div>

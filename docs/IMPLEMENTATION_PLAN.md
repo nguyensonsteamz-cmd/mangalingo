@@ -1,4 +1,4 @@
-# MangaLingo – Implementation Plan
+# LingoLens – Implementation Plan
 
 Status legend: `TODO` · `DONE` · `PARTIAL` · `BLOCKED`. The final status of every phase is recorded in
 [TESTING.md](TESTING.md) and the delivery report in [README.md](../README.md).

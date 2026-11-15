@@ -154,7 +154,7 @@ const chromeShim = {
   runtime: {
     id: 'mangalingo-android',
     getURL: (path: string) => new URL(path.replace(/^\//, ''), location.href).href,
-    getManifest: () => ({ version: VERSION, name: 'MangaLingo' }),
+    getManifest: () => ({ version: VERSION, name: 'LingoLens' }),
     async sendMessage(msg: unknown) {
       const r = router ?? (await routerReady);
       const res = await r(msg, {});

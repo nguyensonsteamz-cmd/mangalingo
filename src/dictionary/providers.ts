@@ -11,8 +11,8 @@ import { WN_POS, type DataLoader, type DictionaryProvider, type StarterData } fr
 export const SOURCES: Record<string, SourceInfo> = {
   wordnet: { id: 'wordnet', name: 'WordNet 3.1', license: 'WordNet License (Princeton University)', kind: 'established' },
   cmudict: { id: 'cmudict', name: 'CMU Pronouncing Dictionary', license: 'BSD-2-Clause', kind: 'established' },
-  starter: { id: 'starter', name: 'MangaLingo Starter (biên soạn thủ công)', license: 'CC0-1.0', kind: 'curated' },
-  rules: { id: 'rules', name: 'Quy tắc ngôn ngữ MangaLingo', license: 'MangaLingo source code', kind: 'rules' },
+  starter: { id: 'starter', name: 'LingoLens Starter (biên soạn thủ công)', license: 'CC0-1.0', kind: 'curated' },
+  rules: { id: 'rules', name: 'Quy tắc ngôn ngữ LingoLens', license: 'LingoLens source code', kind: 'rules' },
 };
 
 const MWE_TYPE: Record<string, PhraseType> = { p: 'phrasal', i: 'idiom', e: 'expression', c: 'compound', s: 'slang' };

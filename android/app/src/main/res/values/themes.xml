@@ -1,5 +1,5 @@
 <resources>
-    <style name="Theme.MangaLingo" parent="@android:style/Theme.DeviceDefault.NoActionBar">
+    <style name="Theme.LingoLens" parent="@android:style/Theme.DeviceDefault.NoActionBar">
         <item name="android:windowBackground">@color/bg</item>
         <item name="android:statusBarColor">@color/bg</item>
         <item name="android:navigationBarColor">@color/bg</item>

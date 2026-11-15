@@ -212,3 +212,22 @@ describe('sidebar appearance settings', () => {
     expect(sanitizeSettings({ sidebar: { theme: 'neon', background: 'blue' } }).sidebar).toMatchObject({ theme: 'follow', background: '' });
   });
 });
+
+describe('LingoLens logos and app appearance settings', () => {
+  it('ships four logos with valid tile colours and SVG paths; the default is the lens', async () => {
+    const { LOGOS, logoById } = await import('@/ui/logo-data');
+    expect(LOGOS.map((l) => l.id)).toEqual(['lens', 'bubble', 'spark', 'book']);
+    for (const l of LOGOS) {
+      expect(l.bg).toMatch(/^#[0-9A-F]{6}$/i);
+      for (const p of l.paths) expect(p.d).toMatch(/^M[\d.\s,a-zA-Z-]+$/);
+    }
+    expect(logoById('nope').id).toBe('lens');
+    expect(DEFAULT_SETTINGS.appearance.logo).toBe('lens');
+  });
+  it('renders the chosen logo and validates logo / UI scale settings', async () => {
+    const { LogoMark } = await import('@/ui/logos');
+    expect(renderToStaticMarkup(<LogoMark id="book" size={40} />)).toContain('data-ml-logo="book"');
+    expect(sanitizeSettings({ appearance: { logo: 'rocket', uiScale: 'huge' } }).appearance).toMatchObject({ logo: 'lens', uiScale: 'medium' });
+    expect(sanitizeSettings({ appearance: { logo: 'spark', uiScale: 'large' } }).appearance).toMatchObject({ logo: 'spark', uiScale: 'large' });
+  });
+});

@@ -38,7 +38,7 @@ describe('mobile chrome.* shim', () => {
   });
 
   it('provides the small runtime surface the UI touches', async () => {
-    expect(chrome.runtime.getManifest().name).toBe('MangaLingo');
+    expect(chrome.runtime.getManifest().name).toBe('LingoLens');
     expect(await chrome.commands.getAll()).toEqual([]);
     expect((await chrome.windows.getCurrent()).id).toBe(1);
   });

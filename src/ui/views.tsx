@@ -221,7 +221,7 @@ export function WordContextView({ r }: { r: WordLookup }) {
           <div className="mt-1.5 text-[11px] text-subtle">{c.method}</div>
         </div>
       ) : (
-        <Notice>Không có câu ngữ cảnh. Bôi đen cả câu hoặc click vào từ trong một câu để MangaLingo chọn nghĩa phù hợp.</Notice>
+        <Notice>Không có câu ngữ cảnh. Bôi đen cả câu hoặc click vào từ trong một câu để LingoLens chọn nghĩa phù hợp.</Notice>
       )}
       <NotesView notes={r.notes} />
       {r.tags.length > 0 && (

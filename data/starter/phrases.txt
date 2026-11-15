@@ -1,4 +1,4 @@
-# MangaLingo Starter EN–VI – phrases (hand-curated, CC0). Format: phrase|type|nghĩa|giải thích|ví dụ
+# LingoLens Starter EN–VI – phrases (hand-curated, CC0). Format: phrase|type|nghĩa|giải thích|ví dụ
 # ---------- phrasal verbs ----------
 give up|phrasal|bỏ cuộc; từ bỏ|Ngừng cố gắng làm việc gì vì thấy quá khó.|I'll never give up!
 give in|phrasal|chịu thua; nhượng bộ|Đầu hàng trước áp lực hoặc yêu cầu của người khác.|

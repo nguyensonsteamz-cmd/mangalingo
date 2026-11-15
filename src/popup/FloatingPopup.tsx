@@ -45,7 +45,7 @@ export function FloatingPopup({ shadow }: { shadow: ShadowRoot }) {
     <div
       ref={ref}
       role="dialog"
-      aria-label="MangaLingo"
+      aria-label="LingoLens"
       data-ml-popup=""
       data-theme={surface.theme}
       data-placement={pos.placement}
@@ -164,7 +164,7 @@ function LookupView({ view, s, canBack, tab }: { view: Extract<PopupView, { kind
           <Header canBack={canBack} title={<span className="text-[15px] font-semibold text-text">Ngôn ngữ: {r.language.name}</span>} badges={<Badge tone="warn">{MODE_LABEL.unsupported}</Badge>} />
           <Body>
             <Notice tone="warn" title="Chưa hỗ trợ ngôn ngữ này">
-              MangaLingo nhận diện văn bản là <b>{r.language.name}</b> (độ tin cậy {Math.round(r.language.confidence * 100)}%, phương pháp: {r.language.method}). Dữ liệu từ điển hiện chỉ có tiếng Anh nên không hiển thị bản dịch để tránh sai.
+              LingoLens nhận diện văn bản là <b>{r.language.name}</b> (độ tin cậy {Math.round(r.language.confidence * 100)}%, phương pháp: {r.language.method}). Dữ liệu từ điển hiện chỉ có tiếng Anh nên không hiển thị bản dịch để tránh sai.
             </Notice>
             <div className="mt-2">
               <Button size="sm" onClick={() => A.drillDown(r.text)} onMouseDown={() => undefined}>

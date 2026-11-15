@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// MangaLingo for iPhone: the same web UI as the Android app (lookup, vocabulary notebook,
+/// LingoLens for iPhone: the same web UI as the Android app (lookup, vocabulary notebook,
 /// settings) running from the app bundle, fully offline.
 @main
 struct MangaLingoApp: App {

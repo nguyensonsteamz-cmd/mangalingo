@@ -34,7 +34,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 
 /**
- * The floating MangaLingo button (like iOS AssistiveTouch), shown over other apps while the switch
+ * The floating LingoLens button (like iOS AssistiveTouch), shown over other apps while the switch
  * on the home screen is on. Drag it anywhere; on release it sticks to the nearer side edge; when it
  * is not used for a moment it fades. Tap → menu with the app's features.
  */
@@ -105,13 +105,13 @@ class BubbleService : Service() {
     private fun startInForeground() {
         val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
         if (Build.VERSION.SDK_INT >= 26) {
-            nm.createNotificationChannel(NotificationChannel(CHANNEL, "Nút nổi MangaLingo", NotificationManager.IMPORTANCE_MIN))
+            nm.createNotificationChannel(NotificationChannel(CHANNEL, "Nút nổi LingoLens", NotificationManager.IMPORTANCE_MIN))
         }
         val stop = PendingIntent.getService(this, 1, Intent(this, BubbleService::class.java).setAction(ACTION_STOP), PendingIntent.FLAG_IMMUTABLE)
         val open = PendingIntent.getActivity(this, 2, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
         val n = (if (Build.VERSION.SDK_INT >= 26) Notification.Builder(this, CHANNEL) else Notification.Builder(this))
             .setSmallIcon(R.drawable.ic_notify)
-            .setContentTitle("MangaLingo đang bật")
+            .setContentTitle("LingoLens đang bật")
             .setContentText("Chạm nút nổi trên màn hình để dùng.")
             .setContentIntent(open)
             .addAction(Notification.Action.Builder(null, "Tắt", stop).build())
@@ -148,7 +148,7 @@ class BubbleService : Service() {
             y = BubbleMath.clampY(Prefs.bubbleY(this@BubbleService, sh / 3), size, sh, dp(24f), dp(48f))
         }
         val v = AssistiveButton(this)
-        v.contentDescription = "MangaLingo"
+        v.contentDescription = "LingoLens"
         val slop = ViewConfiguration.get(this).scaledTouchSlop
         var downX = 0f
         var downY = 0f

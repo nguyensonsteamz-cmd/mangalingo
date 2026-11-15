@@ -1,6 +1,6 @@
 /**
  * Builds the phone apps' web UI (Android: android/app/src/main/assets/web/, iPhone: --out
- * ios/MangaLingo/web) and copies the dictionary data next to it.
+ * ios/LingoLens/web) and copies the dictionary data next to it.
  *   node scripts/build-mobile.mjs [--out <dir>]
  */
 import { build } from 'vite';
@@ -9,7 +9,7 @@ import { existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { sharedConfig, root } from './vite-shared.mjs';
 
-// --out <dir>: e.g. ios/MangaLingo/web for the iPhone app (default: the Android app's assets)
+// --out <dir>: e.g. ios/LingoLens/web for the iPhone app (default: the Android app's assets)
 const outArg = process.argv.indexOf('--out');
 const out = resolve(root, outArg > 0 ? process.argv[outArg + 1] : 'android/app/src/main/assets/web');
 const data = resolve(root, 'build-data/data');

@@ -99,7 +99,7 @@ try {
     return `id ${extId}`;
   });
 
-  await step('Off by default: nothing is attached to a page until MangaLingo is switched on for its site', async () => {
+  await step('Off by default: nothing is attached to a page until LingoLens is switched on for its site', async () => {
     const { targetId: probeId } = await browser.send('Target.createTarget', { url: `${BASE}/reader.html` });
     const probe = await attach(browser, probeId);
     await probe.send('Runtime.enable');
@@ -107,7 +107,7 @@ try {
     const attached = await probe.evaluateMain(`!!document.querySelector('mangalingo-root')`);
     const sites = await sw.evaluate(`chrome.storage.local.get('settings:v1').then(r => r['settings:v1']?.general?.sites ?? 'default []')`);
     await browser.send('Target.closeTarget', { targetId: probeId });
-    assert(!attached, 'MangaLingo must not attach anything to a site the user has not switched it on for');
+    assert(!attached, 'LingoLens must not attach anything to a site the user has not switched it on for');
     // Switch it on for the local fixture site (what the toolbar popup does).
     await sw.evaluate(`chrome.storage.local.get('settings:v1').then(r => { const s = r['settings:v1'] ?? {}; s.general = { enabled: true, sites: ['127.0.0.1'] }; return chrome.storage.local.set({ 'settings:v1': s }); })`);
     return `default sites: ${JSON.stringify(sites)}; nothing attached; switched on for 127.0.0.1`;
@@ -115,7 +115,7 @@ try {
 
   // ------------------------------------------------------------ reader page
   const { targetId: readerId } = await browser.send('Target.createTarget', { url: `${BASE}/reader.html` });
-  const page = await attach(browser, readerId, { world: 'MangaLingo' });
+  const page = await attach(browser, readerId, { world: 'LingoLens' });
   await page.send('Page.enable');
   await page.send('Runtime.enable');
   await page.send('Page.bringToFront');
@@ -330,7 +330,7 @@ try {
     const { targetId: actId } = await browser.send('Target.createTarget', { url: `chrome-extension://${extId}/action/index.html` });
     const act = await attach(browser, actId);
     await act.send('Runtime.enable');
-    await waitFor(() => act.evaluate(`!!document.querySelector('[role=switch][aria-label="Bật MangaLingo trên trang này"]')`), { label: 'per-site switch in the toolbar popup' });
+    await waitFor(() => act.evaluate(`!!document.querySelector('[role=switch][aria-label="Bật LingoLens trên trang này"]')`), { label: 'per-site switch in the toolbar popup' });
     await browser.send('Target.closeTarget', { targetId: actId });
     await browser.send('Target.activateTarget', { targetId: readerId });
     const tabId = (await sw.evaluate(`chrome.tabs.query({ url: '${BASE}/reader.html' }).then(t => t[0].id)`));
@@ -342,7 +342,7 @@ try {
     const p = await wordPos('p1', 'village');
     await click(p.x, p.y);
     await sleep(700);
-    assert((await popupText()) === null, 'popup opened although MangaLingo is off for this site');
+    assert((await popupText()) === null, 'popup opened although LingoLens is off for this site');
     // switch it on again → works immediately, no reload
     await sw.evaluate(`chrome.storage.local.get('settings:v1').then(r => { const s = r['settings:v1']; s.general.sites = ['127.0.0.1']; return chrome.storage.local.set({ 'settings:v1': s }); })`);
     await waitFor(() => sw.evaluate(`chrome.action.getBadgeText({ tabId: ${tabId} }).then(t => t === 'ON')`), { label: 'ON badge again' });
@@ -584,7 +584,7 @@ try {
   const panel = await attach(browser, panelId);
   await panel.send('Runtime.enable');
   await step('Sidebar page renders and receives pushed content from the background', async () => {
-    await waitFor(() => panel.evaluate(`document.body.innerText.includes('MangaLingo')`), { label: 'panel render' });
+    await waitFor(() => panel.evaluate(`document.body.innerText.includes('LingoLens')`), { label: 'panel render' });
     // Deliver the same payload the in-page "Open Sidebar" button sends (sidebar:push → background → panel).
     await panel.evaluate(`chrome.runtime.sendMessage({ type: 'sidebar:push', payload: { type: 'lookup', text: 'I gave up on my dream.' } })`);
     const t = await waitFor(async () => {
@@ -635,10 +635,10 @@ try {
     await opt.evaluate(`[...document.querySelectorAll('button')].find(b => b.textContent === 'Reset to Default').click()`);
     await waitFor(() => sw.evaluate(`chrome.storage.local.get('settings:v1').then(r => r['settings:v1']?.appearance?.theme === 'dark')`), { label: 'reset' });
     const stats = await waitFor(() => opt.evaluate(`document.body.innerText.includes('WordNet') && document.body.innerText`), { label: 'dict stats' });
-    // Reset to Default also clears the list of enabled sites (MangaLingo is off by default) – switch the
+    // Reset to Default also clears the list of enabled sites (LingoLens is off by default) – switch the
     // fixture site back on for the remaining steps.
     const sitesAfterReset = await sw.evaluate(`chrome.storage.local.get('settings:v1').then(r => r['settings:v1'].general.sites)`);
-    assert(Array.isArray(sitesAfterReset) && sitesAfterReset.length === 0, 'reset should switch MangaLingo off everywhere');
+    assert(Array.isArray(sitesAfterReset) && sitesAfterReset.length === 0, 'reset should switch LingoLens off everywhere');
     await sw.evaluate(`chrome.storage.local.get('settings:v1').then(r => { const s = r['settings:v1']; s.general.sites = ['127.0.0.1']; return chrome.storage.local.set({ 'settings:v1': s }); })`);
     return 'theme light → persisted → reset to dark (sites cleared)';
   });
@@ -739,7 +739,7 @@ try {
       const sw2 = await attach(b2, swT.targetId);
       await sw2.send('Runtime.enable');
       await sleep(500);
-      const tab = await attach(b2, oldTabId, { world: 'MangaLingo' });
+      const tab = await attach(b2, oldTabId, { world: 'LingoLens' });
       await tab.send('Runtime.enable');
       const before = await tab.evaluateMain(`!!document.querySelector('mangalingo-root')`);
       // switch the site on (what the toolbar popup does) – the tab itself is NOT reloaded

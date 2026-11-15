@@ -3,6 +3,7 @@ package app.mangalingo
 import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Activity
+import android.content.ComponentName
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -19,7 +20,7 @@ import android.widget.FrameLayout
 import androidx.webkit.WebViewAssetLoader
 
 /**
- * The app screen: the MangaLingo web UI (home switch, lookup, vocabulary, settings – the same React
+ * The app screen: the LingoLens web UI (home switch, lookup, vocabulary, settings – the same React
  * code as the browser extension) in a WebView, served from the APK's assets. The JS bridge
  * `MangaLingoNative` controls the floating button and the permissions it needs.
  */
@@ -131,6 +132,20 @@ class MainActivity : Activity() {
 
         @JavascriptInterface
         fun isEnabled(): Boolean = Prefs.enabled(this@MainActivity) && Settings.canDrawOverlays(this@MainActivity)
+
+        /** Logo chosen in Settings → Giao diện: enables that launcher entry (icon), disables the others. */
+        @JavascriptInterface
+        fun setLogo(id: String): Boolean {
+            val ids = listOf("lens", "bubble", "spark", "book")
+            if (id !in ids) return false
+            val pm = packageManager
+            for (other in ids) {
+                val component = ComponentName(packageName, "$packageName.Launcher${other.replaceFirstChar { it.uppercase() }}")
+                val state = if (other == id) PackageManager.COMPONENT_ENABLED_STATE_ENABLED else PackageManager.COMPONENT_ENABLED_STATE_DISABLED
+                if (pm.getComponentEnabledSetting(component) != state) pm.setComponentEnabledSetting(component, state, PackageManager.DONT_KILL_APP)
+            }
+            return true
+        }
 
         @JavascriptInterface
         fun notificationsAllowed(): Boolean =

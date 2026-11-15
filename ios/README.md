@@ -1,4 +1,4 @@
-# MangaLingo cho iPhone
+# LingoLens cho iPhone
 
 Cùng giao diện với ứng dụng Android (Tra cứu, Sổ từ, Cài đặt), chạy hoàn toàn trên máy, không cần mạng.
 iOS không cho ứng dụng vẽ nút nổi đè lên ứng dụng khác, nên bản iPhone không có nút nổi.
@@ -6,15 +6,15 @@ iOS không cho ứng dụng vẽ nút nổi đè lên ứng dụng khác, nên b
 ## Cách có app: build trên GitHub, cài bằng Sideloadly (không cần máy Mac)
 
 Apple chỉ cho biên dịch app iOS trên macOS. Workflow `.github/workflows/ios.yml` dùng máy Mac của GitHub Actions để
-build ra `MangaLingo.ipa` **chưa ký**. Sideloadly (Windows) ký app bằng Apple ID miễn phí của bạn khi cài.
+build ra `LingoLens.ipa` **chưa ký**. Sideloadly (Windows) ký app bằng Apple ID miễn phí của bạn khi cài.
 
-### 1. Lấy tệp MangaLingo.ipa
+### 1. Lấy tệp LingoLens.ipa
 GitHub → repository → **Actions** → “iOS app (.ipa)” → lần chạy mới nhất → mục **Artifacts** → tải
-`MangaLingo-ipa` (tệp zip chứa `MangaLingo.ipa`). Hoặc trên máy này:
+`LingoLens-ipa` (tệp zip chứa `LingoLens.ipa`). Hoặc trên máy này:
 
 ```powershell
 $env:GH_CONFIG_DIR = 'D:\devtools\gh-config'
-D:\devtools\gh\bin\gh.exe run download --name MangaLingo-ipa --dir D:\extension\ios-build
+D:\devtools\gh\bin\gh.exe run download --name LingoLens-ipa --dir D:\extension\ios-build
 ```
 
 ### 2. Chuẩn bị trên Windows
@@ -24,7 +24,7 @@ D:\devtools\gh\bin\gh.exe run download --name MangaLingo-ipa --dir D:\extension\
 
 ### 3. Cài app
 1. Mở Sideloadly, chọn iPhone của bạn ở ô thiết bị.
-2. Kéo `MangaLingo.ipa` vào cửa sổ Sideloadly.
+2. Kéo `LingoLens.ipa` vào cửa sổ Sideloadly.
 3. Nhập **Apple ID** (nên dùng Apple ID phụ nếu ngại), bấm **Start**. Nhập mã xác minh 2 bước nếu được hỏi.
 4. Trên iPhone: **Cài đặt → Cài đặt chung → Quản lý VPN & thiết bị** → chọn Apple ID của bạn → **Tin cậy**.
 5. iOS 16 trở lên: **Cài đặt → Quyền riêng tư & Bảo mật → Chế độ nhà phát triển → Bật**, khởi động lại máy,
@@ -36,7 +36,7 @@ App ký bằng Apple ID miễn phí chạy được 7 ngày. Trước khi hết 
 cùng mạng Wi-Fi với iPhone). Tài khoản miễn phí cài được tối đa 3 app tự ký cùng lúc.
 
 ## Kiến trúc
-- `MangaLingo/MangaLingoApp.swift`, `WebContainer.swift` – SwiftUI + WKWebView; giao diện web và dữ liệu từ điển
+- `MangaLingo/MangaLingoApp.swift`, `WebContainer.swift` (thư mục mã nguồn giữ tên cũ) – SwiftUI + WKWebView; giao diện web và dữ liệu từ điển
   nằm trong app, phục vụ qua scheme `app://` (không truy cập mạng). Liên kết ngoài mở bằng Safari.
 - `project.yml` – XcodeGen tạo dự án Xcode trên máy build.
 - Giao diện web: `src/mobile/` (dùng chung với Android), build bằng `npm run build:ios-web`.

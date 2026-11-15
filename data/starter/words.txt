@@ -1,4 +1,4 @@
-# MangaLingo Starter EN–VI – words (hand-curated, CC0). Format: word|pos|nghĩa; nghĩa|tags|ghi chú
+# LingoLens Starter EN–VI – words (hand-curated, CC0). Format: word|pos|nghĩa; nghĩa|tags|ghi chú
 # ---------- pronouns ----------
 i|pron|tôi; mình; tao (tùy ngữ cảnh)
 me|pron|tôi; mình (tân ngữ)

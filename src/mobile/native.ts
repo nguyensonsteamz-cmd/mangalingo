@@ -12,6 +12,8 @@ export interface NativeApi {
   isEnabled(): boolean;
   /** Notifications permission (Android 13+), needed for the "running" notification. */
   notificationsAllowed(): boolean;
+  /** Switches the launcher icon to a logo (lens | bubble | spark | book). */
+  setLogo?(id: string): boolean;
   requestNotifications(): void;
 }
 

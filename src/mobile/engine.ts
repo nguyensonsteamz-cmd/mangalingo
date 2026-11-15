@@ -36,7 +36,7 @@ const route = createRouter({
     return dict.service.lookup(req);
   },
   scan: async () => {
-    throw new MessageError('Trên Android, hãy quét bằng nút nổi MangaLingo.', 'unsupported');
+    throw new MessageError('Trên Android, hãy quét bằng nút nổi LingoLens.', 'unsupported');
   },
   cancelScan: async () => false,
   warmOcr: async () => true,

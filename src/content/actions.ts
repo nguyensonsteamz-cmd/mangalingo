@@ -117,7 +117,7 @@ export async function openSidebar(payload?: SidebarPayload) {
     await send({ type: 'sidebar:open', payload });
   } catch (e) {
     const msg = (e as Error).message;
-    toast(/user gesture/i.test(msg) ? 'Hãy bấm biểu tượng MangaLingo trên thanh công cụ để mở sidebar.' : msg, 'error');
+    toast(/user gesture/i.test(msg) ? 'Hãy bấm biểu tượng LingoLens trên thanh công cụ để mở sidebar.' : msg, 'error');
   }
 }
 

@@ -1,4 +1,4 @@
-# Builds an UNSIGNED MangaLingo.ipa on a macOS runner. Install it on an iPhone from Windows with
+# Builds an UNSIGNED LingoLens.ipa on a macOS runner. Install it on an iPhone from Windows with
 # Sideloadly (it signs the app with your free Apple ID; the app then works for 7 days).
 name: iOS app (.ipa)
 
@@ -52,16 +52,16 @@ jobs:
           xcodebuild -project ios/MangaLingo.xcodeproj -target MangaLingo -configuration Release -sdk iphoneos \
             SYMROOT="$PWD/ios/build" CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build | tail -n 40
 
-      - name: Package MangaLingo.ipa
+      - name: Package LingoLens.ipa
         run: |
           APP="ios/build/Release-iphoneos/MangaLingo.app"
           test -d "$APP"
           rm -rf Payload && mkdir Payload && cp -R "$APP" Payload/
-          zip -qry MangaLingo.ipa Payload
-          ls -lh MangaLingo.ipa
+          zip -qry LingoLens.ipa Payload
+          ls -lh LingoLens.ipa
 
       - uses: actions/upload-artifact@v4
         with:
-          name: MangaLingo-ipa
-          path: MangaLingo.ipa
+          name: LingoLens-ipa
+          path: LingoLens.ipa
           retention-days: 30

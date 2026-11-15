@@ -4,7 +4,7 @@
 
 1. **Mở rộng dữ liệu Anh–Việt có giấy phép rõ ràng**
    - Viết bộ chuyển đổi cho dữ liệu Wiktionary (trích xuất wiktextract/kaikki, CC BY-SA) → định dạng nhập
-     của MangaLingo; dùng bảng dịch tiếng Việt của English Wiktionary.
+     của LingoLens; dùng bảng dịch tiếng Việt của English Wiktionary.
    - Mở rộng bộ Starter theo danh sách tần suất từ trong truyện; quy trình rà soát nghĩa.
 2. **OCR trong `iframe`** (`all_frames` + định tuyến tin nhắn theo frame) cho các trình đọc nhúng ảnh trong khung.
 3. **Kiểm thử thủ công có ghi chép** cho phím tắt toàn cục và menu chuột phải (CDP không mô phỏng được), và

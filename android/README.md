@@ -1,4 +1,4 @@
-# MangaLingo cho Android
+# LingoLens cho Android
 
 Ứng dụng Android dùng chung “bộ não” với tiện ích Chrome (từ điển, phân tích ngữ pháp, sổ từ vựng, Cài đặt) và
 thêm **nút nổi kiểu AssistiveTouch** hiện trên mọi ứng dụng.
@@ -19,10 +19,10 @@ Menu nút nổi chỉ hiện những tính năng đã hoạt động; các mục
 
 ## Cài lên điện thoại
 
-1. Chép `MangaLingo-android-0.1.0.apk` (ở thư mục gốc dự án) sang điện thoại, mở tệp → cho phép “Cài ứng dụng
+1. Chép `LingoLens-android-0.1.0.apk` (ở thư mục gốc dự án) sang điện thoại, mở tệp → cho phép “Cài ứng dụng
    không rõ nguồn gốc” khi được hỏi → Cài đặt. (Bản debug, ký bằng khóa debug của Android SDK.)
-2. Mở MangaLingo → bật công tắc → cấp quyền **Hiển thị trên ứng dụng khác** → quay lại: nút nổi xuất hiện.
-3. Android 13+ hỏi quyền thông báo: cho phép để thấy thông báo “MangaLingo đang bật” (có nút Tắt nhanh). Không cho
+2. Mở LingoLens → bật công tắc → cấp quyền **Hiển thị trên ứng dụng khác** → quay lại: nút nổi xuất hiện.
+3. Android 13+ hỏi quyền thông báo: cho phép để thấy thông báo “LingoLens đang bật” (có nút Tắt nhanh). Không cho
    phép thì nút nổi vẫn chạy.
 
 Yêu cầu: Android 8.0 (API 26) trở lên.

@@ -1,5 +1,5 @@
 /**
- * Converts raw Tesseract output into MangaLingo OCR blocks: confidence filtering, noise cleanup,
+ * Converts raw Tesseract output into LingoLens OCR blocks: confidence filtering, noise cleanup,
  * coordinate normalisation (0..1 of the scanned target) and grouping of nearby lines into
  * speech-bubble-like blocks.
  */
@@ -131,9 +131,10 @@ const intersects = (a: Box, b: Box) => a.x < b.x + b.w && b.x < a.x + a.w && a.y
  * effects stay apart from dialogue). Groups whose boxes overlap are then merged, because one bubble
  * is never drawn on top of another. Reading order inside a bubble: top-to-bottom.
  */
-export function groupLines(input: OcrLine[]): OcrBlock[] {
-  const hRef = medianWordHeight(input.flatMap((l) => l.words));
-  const lines = relineWords(input, hRef);
+export function groupLines(input: OcrLine[], opts: { reline?: boolean } = {}): OcrBlock[] {
+  const hRef = medianWordHeight(input.flatMap((l) => l.words)) || medianWordHeight(input.map((l) => ({ text: l.text, confidence: l.confidence, box: l.box })));
+  // reline: false keeps the engine's own lines (Apple Vision lines are reliable and keep punctuation)
+  const lines = opts.reline === false ? input : relineWords(input, hRef);
   const textH = (l: OcrLine) => medianWordHeight(l.words);
   const sorted = [...lines].sort((a, b) => a.box.y - b.box.y || a.box.x - b.box.x);
   let groups: OcrLine[][] = [];

@@ -82,7 +82,7 @@ bằng sự kiện chuột/bàn phím thật của CDP.
 | 30 | Popup bong bóng OCR: nằm cạnh bong bóng, không che chữ, nền sáng, danh sách từ có IPA + nghĩa, khung màu cam | PASS |
 | 31 | Bản dịch máy (mặc định): quét vùng bong bóng → tải mô hình (từ thao tác click hoặc nút “Tải mô hình dịch”) → bản dịch tiếng Việt tự nhiên; nghĩa từ điển vẫn hiện. **Cần mạng** để Chrome tải mô hình lần đầu | PASS |
 | 32 | Dịch máy cho từ đơn: click “weather” (không có trong dữ liệu Anh–Việt) → “thời tiết” + định nghĩa được dịch | PASS |
-| 33 | Mặc định tắt: trang chưa bật không có phần tử nào của MangaLingo; bật cho 127.0.0.1 → hoạt động | PASS |
+| 33 | Mặc định tắt: trang chưa bật không có phần tử nào của LingoLens; bật cho 127.0.0.1 → hoạt động | PASS |
 | 34 | Biểu tượng: huy hiệu “ON” chỉ trên trang đã bật; tắt trang → gỡ UI khỏi trang, click không mở popup; bật lại → hoạt động ngay | PASS |
 | 35 | Quét cả trang → danh sách bong bóng trong Sidebar; Side Panel chỉ bật cho tab đó (mặc định tắt cho tab khác) | PASS |
 | 36 | Cài đặt: khối Xem trước đổi ngay khi đổi màu khung OCR / độ rộng popup | PASS |

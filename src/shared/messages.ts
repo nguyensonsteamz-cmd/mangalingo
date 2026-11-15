@@ -102,7 +102,7 @@ export async function send<R extends Request>(req: R): Promise<ResponseMap[R['ty
   } catch (e) {
     const msg = String((e as Error)?.message ?? e);
     if (/Extension context invalidated/i.test(msg)) {
-      throw new MessageError('MangaLingo đã được cập nhật hoặc tải lại. Hãy tải lại trang này.', 'invalidated');
+      throw new MessageError('LingoLens đã được cập nhật hoặc tải lại. Hãy tải lại trang này.', 'invalidated');
     }
     throw new MessageError(msg, 'transport');
   }

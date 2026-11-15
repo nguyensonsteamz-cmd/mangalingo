@@ -1,5 +1,6 @@
 /** Settings Center: every option is validated, saved to chrome.storage.local and applied live. */
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { LOGOS, LogoMark } from '@/ui/logos';
 import { send, type DictStats } from '@/shared/messages';
 import { DEFAULT_SETTINGS, normalizeHost, type DeepPartial, type Settings } from '@/shared/settings';
 import { OCR_LANGUAGES } from '@/ocr/languages';
@@ -52,7 +53,7 @@ export function SettingsCenter({ hidden = [] }: { hidden?: string[] } = {}) {
         <div className="mb-4 flex items-center gap-2">
           <IconLogo size={26} />
           <div>
-            <div className="text-[15px] font-semibold text-text">MangaLingo</div>
+            <div className="text-[15px] font-semibold text-text">LingoLens</div>
             <div className="text-[11.5px] text-subtle">Settings Center</div>
           </div>
         </div>
@@ -191,6 +192,25 @@ function Appearance({ s, update }: { s: Settings; update: Update }) {
   const valid = /^#[0-9a-fA-F]{6}$/.test(custom);
   return (
     <Page title="Giao diện" onReset={() => update({ appearance: DEFAULT_SETTINGS.appearance })}>
+      <Field stacked label="Logo" description="Dùng trong ứng dụng, làm biểu tượng app trên điện thoại và biểu tượng tiện ích trên Chrome.">
+        <div className="grid grid-cols-4 gap-2" data-ml-logo-picker="">
+          {LOGOS.map((l) => (
+            <button
+              key={l.id}
+              type="button"
+              aria-pressed={s.appearance.logo === l.id}
+              onClick={() => update({ appearance: { logo: l.id } })}
+              className={cx('ml-focus flex flex-col items-center gap-1.5 rounded-2xl border-2 p-2.5 transition-colors', s.appearance.logo === l.id ? 'border-accent bg-accent/10' : 'border-border hover:border-accent/50')}
+            >
+              <LogoMark id={l.id} size={48} />
+              <span className="text-[12px] font-medium text-text">{l.name}</span>
+            </button>
+          ))}
+        </div>
+      </Field>
+      <Field label="Cỡ giao diện ứng dụng" description="Cỡ chữ và nút trong ứng dụng trên điện thoại.">
+        <Segmented value={s.appearance.uiScale} onChange={(v) => update({ appearance: { uiScale: v } })} options={[{ value: 'small', label: 'Nhỏ' }, { value: 'medium', label: 'Vừa' }, { value: 'large', label: 'Lớn' }]} />
+      </Field>
       <Field label="Chủ đề" description="System sẽ theo cài đặt sáng/tối của hệ điều hành.">
         <Segmented value={s.appearance.theme} onChange={(v) => update({ appearance: { theme: v } })} options={[{ value: 'dark', label: 'Tối' }, { value: 'light', label: 'Sáng' }, { value: 'system', label: 'System' }]} />
       </Field>
@@ -284,7 +304,7 @@ function PopupSettings({ s, update }: { s: Settings; update: Update }) {
 function SidebarSettings({ s, update }: { s: Settings; update: Update }) {
   const b = s.sidebar;
   return (
-    <Page title="Sidebar" desc="Chrome Side Panel. Bấm biểu tượng MangaLingo trên thanh công cụ để mở." onReset={() => update({ sidebar: DEFAULT_SETTINGS.sidebar })}>
+    <Page title="Sidebar" desc="Chrome Side Panel. Bấm biểu tượng LingoLens trên thanh công cụ để mở." onReset={() => update({ sidebar: DEFAULT_SETTINGS.sidebar })}>
       <Toggle label="Bật Sidebar" description="Khi tắt, bấm biểu tượng tiện ích sẽ mở trang Cài đặt." checked={b.enabled} onChange={(v) => update({ sidebar: { enabled: v } })} />
       <Field label="Màu Sidebar" description="“Theo giao diện” dùng chủ đề trong mục Giao diện.">
         <Segmented value={b.theme} onChange={(v) => update({ sidebar: { theme: v } })} options={[{ value: 'follow', label: 'Theo giao diện' }, { value: 'light', label: 'Sáng' }, { value: 'dark', label: 'Tối' }]} />
@@ -392,7 +412,7 @@ function Reading({ s, update }: { s: Settings; update: Update }) {
     <Page title="Hành vi đọc" onReset={() => update({ reading: DEFAULT_SETTINGS.reading })}>
       <Toggle
         label="Tạm dừng trên mọi trang"
-        description="Tắt tạm thời MangaLingo trên tất cả các trang đã bật (danh sách bên dưới được giữ nguyên)."
+        description="Tắt tạm thời LingoLens trên tất cả các trang đã bật (danh sách bên dưới được giữ nguyên)."
         checked={!s.general.enabled}
         onChange={(v) => update({ general: { enabled: !v } })}
       />
@@ -414,8 +434,8 @@ function Reading({ s, update }: { s: Settings; update: Update }) {
         <Segmented value={r.targetLanguage} onChange={(v) => update({ reading: { targetLanguage: v } })} options={[{ value: 'vi', label: 'Tiếng Việt' }, { value: 'en', label: 'English (định nghĩa)' }]} />
       </Field>
       <div className="py-2.5">
-        <div className="text-[13px] font-medium text-text">Website đang bật MangaLingo</div>
-        <div className="mt-0.5 text-[12px] text-muted">MangaLingo mặc định tắt và chỉ hoạt động trên các tên miền này (gồm tên miền con). Bật nhanh: biểu tượng MangaLingo → “Bật trên trang này”.</div>
+        <div className="text-[13px] font-medium text-text">Website đang bật LingoLens</div>
+        <div className="mt-0.5 text-[12px] text-muted">LingoLens mặc định tắt và chỉ hoạt động trên các tên miền này (gồm tên miền con). Bật nhanh: biểu tượng LingoLens → “Bật trên trang này”.</div>
         <div className="mt-2 flex gap-1.5">
           <input
             value={host}
@@ -472,7 +492,7 @@ function OcrSettings({ s, update }: { s: Settings; update: Update }) {
       <Toggle label="Tự động lưu cache kết quả" description="Không quét lại ảnh đã quét (cache theo URL ảnh hoặc dấu vân tay điểm ảnh)." checked={o.autoCache} onChange={(v) => update({ ocr: { autoCache: v } })} />
       <div className="py-3">
         <Notice title="Giới hạn">
-          OCR không chính xác tuyệt đối: chữ viết tay, chữ nghiêng/cong, hiệu ứng âm thanh và chữ dọc thường nhận sai. Với ảnh tải chéo nguồn bị chặn, MangaLingo chụp phần đang hiển thị nên chỉ quét được phần ảnh trên màn hình.
+          OCR không chính xác tuyệt đối: chữ viết tay, chữ nghiêng/cong, hiệu ứng âm thanh và chữ dọc thường nhận sai. Với ảnh tải chéo nguồn bị chặn, LingoLens chụp phần đang hiển thị nên chỉ quét được phần ảnh trên màn hình.
         </Notice>
       </div>
     </Page>
@@ -549,7 +569,7 @@ function DataSettings({ reset }: { reset: () => Promise<void> }) {
         )) ?? <div className="py-3 text-[13px] text-muted">Đang tải…</div>}
         <div className="py-3">
           <Notice tone="warn" title="Phạm vi dữ liệu tiếng Việt">
-            Bộ “MangaLingo Starter” chỉ có {stats?.sources.find((x) => x.id === 'starter')?.entries?.toLocaleString() ?? 'khoảng 950'} mục (từ và cụm từ thông dụng trong truyện), biên soạn thủ công và chưa được kiểm duyệt chuyên môn. Nó <b>không</b> phải từ điển Anh–Việt đầy đủ: các từ khác chỉ có định nghĩa tiếng Anh (WordNet). Hãy nhập thêm bộ dữ liệu mà bạn có quyền sử dụng.
+            Bộ “LingoLens Starter” chỉ có {stats?.sources.find((x) => x.id === 'starter')?.entries?.toLocaleString() ?? 'khoảng 950'} mục (từ và cụm từ thông dụng trong truyện), biên soạn thủ công và chưa được kiểm duyệt chuyên môn. Nó <b>không</b> phải từ điển Anh–Việt đầy đủ: các từ khác chỉ có định nghĩa tiếng Anh (WordNet). Hãy nhập thêm bộ dữ liệu mà bạn có quyền sử dụng.
           </Notice>
         </div>
       </Page>
@@ -635,7 +655,7 @@ function About() {
     <Page title="Giới thiệu & quyền riêng tư">
       <div className="space-y-3 py-4 text-[13px] text-muted">
         <p>
-          <b className="text-text">MangaLingo {chrome.runtime.getManifest().version}</b> – trợ lý đọc tiếng Anh hoạt động cục bộ (local-first), Dictionary Mode, không dùng AI hay API trả phí.
+          <b className="text-text">LingoLens {chrome.runtime.getManifest().version}</b> – trợ lý đọc tiếng Anh hoạt động cục bộ (local-first), Dictionary Mode, không dùng AI hay API trả phí.
         </p>
         <ul className="list-disc space-y-1 pl-5">
           <li>Không gửi nội dung truyện, ảnh hay từ bạn tra tới bất kỳ máy chủ nào.</li>
@@ -648,7 +668,7 @@ function About() {
           <li><a className="text-accent hover:underline" href={lic('WordNet-LICENSE.txt')} target="_blank" rel="noreferrer">WordNet 3.1 – Princeton University</a></li>
           <li><a className="text-accent hover:underline" href={lic('cmu-pronouncing-dictionary-LICENSE.txt')} target="_blank" rel="noreferrer">CMU Pronouncing Dictionary</a></li>
           <li><a className="text-accent hover:underline" href={lic('tesseract.js-LICENSE.md')} target="_blank" rel="noreferrer">Tesseract.js</a> · <a className="text-accent hover:underline" href={lic('tesseract.js-core-LICENSE.txt')} target="_blank" rel="noreferrer">tesseract.js-core</a> (Apache-2.0)</li>
-          <li><a className="text-accent hover:underline" href={lic('MangaLingo-Starter-LICENSE.md')} target="_blank" rel="noreferrer">MangaLingo Starter EN–VI (CC0)</a></li>
+          <li><a className="text-accent hover:underline" href={lic('LingoLens-Starter-LICENSE.md')} target="_blank" rel="noreferrer">LingoLens Starter EN–VI (CC0)</a></li>
         </ul>
       </div>
     </Page>

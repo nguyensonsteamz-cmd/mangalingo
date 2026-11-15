@@ -1,6 +1,6 @@
 # OCR cho manga
 
-MangaLingo dùng **Tesseract.js 6.0.1** với mô hình **`eng` LSTM (4.0.0_best_int)**, chạy hoàn toàn trong trình
+LingoLens dùng **Tesseract.js 6.0.1** với mô hình **`eng` LSTM (4.0.0_best_int)**, chạy hoàn toàn trong trình
 duyệt. Worker, lõi WASM (bản SIMD và không SIMD) và dữ liệu ngôn ngữ đều nằm trong gói tiện ích
 (`dist/vendor/tesseract/`); không tải gì từ Internet, ảnh không rời khỏi máy.
 
@@ -9,7 +9,7 @@ duyệt. Worker, lõi WASM (bản SIMD và không SIMD) và dữ liệu ngôn ng
 1. **Quét một ảnh** (cả trang): rê chuột lên ảnh manga (≥ 220 px) → bấm **Quét OCR** ở góc phải trên của ảnh.
    Sidebar của tab mở ngay (“Đang quét…”), rồi hiện danh sách bong bóng đánh số (số giống trên ảnh), mỗi bong bóng
    kèm bản dịch máy, nút phát âm và **Phân tích**. Quét cả trang mất khoảng 10–20 giây vì đọc từng bong bóng.
-2. **Quét một vùng**: bấm nút ✂ cạnh “Quét OCR”, hoặc chuột phải → *MangaLingo: chọn vùng để quét OCR*, rồi kéo
+2. **Quét một vùng**: bấm nút ✂ cạnh “Quét OCR”, hoặc chuột phải → *LingoLens: chọn vùng để quét OCR*, rồi kéo
    chuột quanh bong bóng thoại. Có nút **Quét toàn màn hình** để quét cả vùng đang hiển thị.
    Quét xong, popup nghĩa của bong bóng **tự mở** bên cạnh vùng chọn; không có thanh kết quả che chữ.
 3. **Phím tắt** `Alt+Shift+O`: quét ảnh dưới con trỏ, hoặc ảnh lớn nhất đang hiển thị.
@@ -47,8 +47,8 @@ duyệt. Worker, lõi WASM (bản SIMD và không SIMD) và dữ liệu ngôn ng
    trên trang chữ IN HOA, bỏ token chữ thường ngắn và mẩu chữ lẫn hoa–thường ở đầu/cuối câu (nét tranh); gộp bong
    bóng trùng.
 5. **Bong bóng dính liền / chữ trên một hàng**: dòng đã thuộc khối phía trên được bỏ khỏi khối phía dưới (không chồng khung, không lặp chữ); các cụm chữ không viền cùng một hàng và sát nhau (tiêu đề) được gộp.
-6. **Không lệch khung**: khi quét cả trang, Sidebar mở trước; MangaLingo đợi trang dàn lại (Sidebar làm trang hẹp
-   đi) rồi mới đo vị trí ảnh và chụp. Chụp màn hình bị Chrome giới hạn 2 lần/giây — nếu quét liên tiếp, MangaLingo
+6. **Không lệch khung**: khi quét cả trang, Sidebar mở trước; LingoLens đợi trang dàn lại (Sidebar làm trang hẹp
+   đi) rồi mới đo vị trí ảnh và chụp. Chụp màn hình bị Chrome giới hạn 2 lần/giây — nếu quét liên tiếp, LingoLens
    tự đợi và chụp lại.
 
 ## Quy trình xử lý
@@ -57,7 +57,7 @@ duyệt. Worker, lõi WASM (bản SIMD và không SIMD) và dữ liệu ngôn ng
    - ảnh cùng origin / `blob:` / `data:` / canvas không bị “taint” → content script đọc điểm ảnh gốc;
    - tải ảnh gốc từ service worker (**không gửi cookie**) → độ phân giải đầy đủ, quét được cả phần ngoài màn hình;
    - nếu bị chặn (hotlink protection, cần cookie…) → `chrome.tabs.captureVisibleTab` rồi cắt đúng vùng ảnh đang
-     hiển thị (UI của MangaLingo tự ẩn trong lúc chụp). Khi đó chỉ quét được **phần đang hiển thị** (ghi “một phần”).
+     hiển thị (UI của LingoLens tự ẩn trong lúc chụp). Khi đó chỉ quét được **phần đang hiển thị** (ghi “một phần”).
 2. **Tiền xử lý** (offscreen): cắt vùng, phóng to để chữ đạt ~20–30 px (tối đa ×3, tối đa 12 MP), chuyển xám,
    kéo giãn tương phản theo phân vị 1%–99%.
 3. **Nhận diện**: PSM 11 (chữ thưa – hợp với trang manga), PSM 3 (tự động) hoặc PSM 6 (một khối – mặc định cho
@@ -75,7 +75,7 @@ Worker được giữ ấm giữa các lần quét và tự giải phóng (~100 
 
 ## Giới hạn (không tuyên bố OCR chính xác tuyệt đối)
 
-- Trang chặn tải ảnh gốc (ví dụ CDN có hotlink protection) → MangaLingo chụp **phần đang hiển thị**; bong bóng nằm
+- Trang chặn tải ảnh gốc (ví dụ CDN có hotlink protection) → LingoLens chụp **phần đang hiển thị**; bong bóng nằm
   ngoài màn hình hoặc bị cắt ở mép sẽ không đọc đủ. Thu nhỏ trang (Ctrl −) để cả trang manga vừa màn hình rồi quét.
 - Chữ hiệu ứng âm thanh, tiêu đề kiểu chữ trang trí, chữ viết tay vẫn hay sai; bong bóng không có viền trên nền tranh
   có thể bị tách hoặc bỏ sót.

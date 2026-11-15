@@ -248,7 +248,7 @@ const meta = {
   sources: [
     { id: 'wordnet', name: 'WordNet 3.1 (Princeton University)', license: 'WordNet License (see licenses/WordNet-LICENSE.txt)', kind: 'established' },
     { id: 'cmudict', name: 'CMU Pronouncing Dictionary → IPA (rule conversion)', license: 'BSD-2-Clause (cmudict) / ISC (package)', kind: 'established' },
-    { id: 'starter', name: 'MangaLingo Starter EN–VI (hand-curated)', license: 'CC0-1.0 (see licenses/MangaLingo-Starter-LICENSE.md)', kind: 'curated' },
+    { id: 'starter', name: 'LingoLens Starter EN–VI (hand-curated)', license: 'CC0-1.0 (see licenses/LingoLens-Starter-LICENSE.md)', kind: 'curated' },
   ],
 };
 await writeFile(join(out, 'meta.json'), JSON.stringify(meta, null, 2));

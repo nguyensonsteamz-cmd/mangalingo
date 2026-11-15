@@ -10,7 +10,7 @@ thay bằng mặc định, tên miền được chuẩn hóa. Thay đổi áp d�
 |---|---|---|---|
 | Giao diện | Chủ đề | Tối | Tối / Sáng / System |
 | | Màu nhấn | `#7c9cff` | 8 màu gợi ý hoặc mã hex `#rrggbb` |
-| Chung | Website đang bật | (trống) | **Mặc định tắt mọi trang.** Thêm bằng menu biểu tượng → “Bật MangaLingo trên trang này”, hoặc Cài đặt → Hành vi đọc; áp dụng tên miền con và `www.` |
+| Chung | Website đang bật | (trống) | **Mặc định tắt mọi trang.** Thêm bằng menu biểu tượng → “Bật LingoLens trên trang này”, hoặc Cài đặt → Hành vi đọc; áp dụng tên miền con và `www.` |
 | | Tạm dừng trên mọi trang | Tắt | Giữ danh sách nhưng tạm ngừng ở mọi trang |
 | Floating Popup | Bật | Có | |
 | | Chiều rộng | 380 px | 300–600 |

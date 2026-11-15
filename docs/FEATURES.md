@@ -35,7 +35,7 @@ cache theo URL ảnh hoặc dấu vân tay điểm ảnh.
 ## 4. Dictionary Engine
 
 - Nguồn: WordNet 3.1 (định nghĩa EN, ví dụ, đồng/trái nghĩa, nhãn slang/khẩu ngữ, ~60k cụm từ),
-  CMUdict → IPA, MangaLingo Starter (nghĩa VI), từ điển người dùng nhập (JSON/CSV).
+  CMUdict → IPA, LingoLens Starter (nghĩa VI), từ điển người dùng nhập (JSON/CSV).
 - Chuẩn hóa: chữ hoa/thường, dấu nháy cong, sở hữu cách, nói lắp (`W-what`), dạng rút gọn.
 - Lemma: quy tắc morphy của WordNet + bảng động từ/danh từ/tính từ bất quy tắc + bỏ phụ âm kép.
 - Nhiều nghĩa, phân biệt từ loại, xếp hạng theo ngữ cảnh, gợi ý chính tả khi không tìm thấy, cache LRU.
@@ -70,7 +70,7 @@ cache theo URL ảnh hoặc dấu vân tay điểm ảnh.
   một từ đứng riêng không có ngữ cảnh rất dễ lệch với từ thông dụng — “you” → “mày”, “run” → “bay màu”, “escape” →
   “vượt ngục”. Từ được gửi đi dịch ở dạng chữ thường.
 - Chế độ **Chỉ từ điển**: không dịch máy; từ thiếu dữ liệu tiếng Việt hiện thông báo rõ ràng.
-- **Tải trước**: ở lần click thật đầu tiên trên một trang web, MangaLingo nhờ Chrome tải mô hình ngầm (có thông báo
+- **Tải trước**: ở lần click thật đầu tiên trên một trang web, LingoLens nhờ Chrome tải mô hình ngầm (có thông báo
   ngắn), nên bong bóng đầu tiên không phải chờ. Hoặc bấm **Tải mô hình dịch** trong menu biểu tượng / Cài đặt.
 - Chrome không hỗ trợ / chưa có cặp en → vi → báo rõ và chỉ dùng Dictionary Mode.
 - Chữ OCR in hoa vẫn dịch tốt; từ bị ngắt bằng gạch nối được nối lại trước khi dịch. Chữ OCR nhận sai sẽ dịch sai.
@@ -79,14 +79,14 @@ cache theo URL ảnh hoặc dấu vân tay điểm ảnh.
 
 - **Mặc định tắt trên mọi trang.** Content script vẫn được Chrome nạp, nhưng trên trang chưa bật nó không gắn
   phần tử nào vào trang và không phản hồi thao tác nào.
-- Bật: biểu tượng MangaLingo → **Bật MangaLingo trên trang này** (lưu tên miền vào `general.sites`, áp dụng cả tên
+- Bật: biểu tượng LingoLens → **Bật LingoLens trên trang này** (lưu tên miền vào `general.sites`, áp dụng cả tên
   miền con và `www.`). Có hiệu lực ngay, không cần tải lại trang. Biểu tượng hiện **ON** trên tab của trang đã bật;
-  menu chuột phải của MangaLingo chỉ hiện ở các trang đó.
+  menu chuột phải của LingoLens chỉ hiện ở các trang đó.
 - Quản lý danh sách + **Tạm dừng trên mọi trang**: Cài đặt → Hành vi đọc.
 
 ## 5b. Menu biểu tượng thanh công cụ
 
-- Công tắc **Bật MangaLingo trên trang này**, số trang đang bật, **Mở Sidebar** (chỉ cho tab hiện tại), **Cài đặt**,
+- Công tắc **Bật LingoLens trên trang này**, số trang đang bật, **Mở Sidebar** (chỉ cho tab hiện tại), **Cài đặt**,
   và trạng thái mô hình dịch kèm nút **Tải mô hình dịch**.
 
 ## 5c. Cài đặt có xem trước

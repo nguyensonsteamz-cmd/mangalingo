@@ -34,7 +34,7 @@ function SelectionTrigger() {
       onClick={() => A.lookup(t.text, t.rect, t.context)}
       className="ml-focus pointer-events-auto fixed inline-flex h-[30px] w-[34px] items-center justify-center rounded-lg border border-border bg-surface text-accent shadow-pop animate-ml-in hover:border-accent"
       style={{ left: Math.min(t.rect.left + t.rect.width - 17, window.innerWidth - 42), top: p.top }}
-      title="Tra cứu với MangaLingo"
+      title="Tra cứu với LingoLens"
     >
       <IconSearch />
     </button>

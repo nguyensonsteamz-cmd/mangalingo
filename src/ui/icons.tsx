@@ -1,5 +1,6 @@
-/** Single-weight stroke icon set (24×24 grid, 1.75 stroke) drawn for MangaLingo. */
+/** Single-weight stroke icon set (24×24 grid, 1.75 stroke) drawn for LingoLens. */
 import type { SVGProps } from 'react';
+import { AppLogo } from './logos';
 
 type P = SVGProps<SVGSVGElement> & { size?: number };
 const base = ({ size = 16, ...p }: P) => ({
@@ -90,10 +91,5 @@ export const IconExpand = (p: P) => (
 export const IconEraser = (p: P) => (
   <svg {...base(p)}><path d="m7 21-4-4L14 6l6 6-9 9H7Z" /><path d="M11 21h10" /></svg>
 );
-export const IconLogo = (p: P) => (
-  <svg {...base(p)} strokeWidth={0}>
-    <rect x="1" y="1" width="22" height="22" rx="6" fill="rgb(var(--ml-elevated))" />
-    <path d="M12 5.5c-4 0-7 2.4-7 5.5 0 1.8 1 3.3 2.6 4.3L7 19l3.6-2.2c.5.1.9.1 1.4.1 4 0 7-2.4 7-5.5s-3-5.4-7-5.4Z" fill="rgb(var(--ml-accent))" />
-    <path d="M8.8 9.8h6.4M8.8 12.2h4.2" stroke="rgb(var(--ml-elevated))" strokeWidth={1.6} strokeLinecap="round" />
-  </svg>
-);
+/** The app logo chosen in Settings → Giao diện (LingoLens). */
+export const IconLogo = ({ size = 20, className }: P) => <AppLogo size={size} className={className as string | undefined} />;

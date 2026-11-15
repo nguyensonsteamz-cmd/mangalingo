@@ -16,11 +16,18 @@ export type ContentWidth = 'full' | 'comfortable' | 'narrow';
 
 export interface Settings {
   /**
-   * MangaLingo is OFF by default and only works on the sites the user switched it on for
+   * LingoLens is OFF by default and only works on the sites the user switched it on for
    * (toolbar popup → "Bật trên trang này"). `enabled` is a global pause for all of them.
    */
   general: { enabled: boolean; sites: string[] };
-  appearance: { theme: ThemeMode; accent: string };
+  appearance: {
+    theme: ThemeMode;
+    accent: string;
+    /** App logo (in the UI, the app icon on phones, the Chrome toolbar icon). */
+    logo: 'lens' | 'bubble' | 'spark' | 'book';
+    /** Size of the phone app's interface (text, buttons). */
+    uiScale: 'small' | 'medium' | 'large';
+  };
   popup: {
     enabled: boolean;
     width: number;
@@ -93,7 +100,7 @@ export interface Settings {
 
 export const DEFAULT_SETTINGS: Settings = {
   general: { enabled: true, sites: [] },
-  appearance: { theme: 'dark', accent: '#7c9cff' },
+  appearance: { theme: 'dark', accent: '#7c9cff', logo: 'lens', uiScale: 'medium' },
   popup: {
     enabled: true,
     width: 380,
@@ -154,6 +161,8 @@ type Rule =
 export const RULES: Record<string, Rule> = {
   'appearance.theme': { t: 'enum', values: ['dark', 'light', 'system'] },
   'appearance.accent': { t: 'color' },
+  'appearance.logo': { t: 'enum', values: ['lens', 'bubble', 'spark', 'book'] },
+  'appearance.uiScale': { t: 'enum', values: ['small', 'medium', 'large'] },
   'popup.width': { t: 'num', min: 300, max: 600, int: true },
   'popup.background': { t: 'color', optional: true },
   'ocr.boxColor': { t: 'color' },
@@ -272,12 +281,12 @@ export function hostListed(list: string[], hostname: string): boolean {
   });
 }
 
-/** True when MangaLingo is switched on for this site (allow-list) and not paused. */
+/** True when LingoLens is switched on for this site (allow-list) and not paused. */
 export function isSiteEnabled(settings: Settings, hostname: string): boolean {
   return settings.general.enabled && hostListed(settings.general.sites, hostname) && !isSiteIgnored(settings, hostname);
 }
 
-/** True when MangaLingo must stay inactive on this page (not switched on for this site, or paused). */
+/** True when LingoLens must stay inactive on this page (not switched on for this site, or paused). */
 export function isInactive(settings: Settings, hostname: string): boolean {
   return !isSiteEnabled(settings, hostname);
 }

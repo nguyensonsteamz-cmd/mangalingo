@@ -51,7 +51,7 @@ export class TesseractEngine {
       gzip: true,
       cacheMethod: 'none',
       logger: (m: { status: string; progress: number }) => this.onProgress?.({ status: m.status, progress: m.progress ?? 0 }),
-      errorHandler: (e: unknown) => console.warn('[MangaLingo OCR] worker error', e),
+      errorHandler: (e: unknown) => console.warn('[LingoLens OCR] worker error', e),
     }).then((w) => {
       this.worker = w;
       this.starting = null;

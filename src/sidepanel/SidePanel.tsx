@@ -20,6 +20,8 @@ type Entry = { text: string; context?: string; result?: LookupResult; error?: st
 
 /** Chrome's on-device Translator API (absent e.g. in the Android app's WebView). */
 const hasTranslator = typeof (globalThis as { Translator?: unknown }).Translator !== 'undefined';
+/** Running inside the phone app (iPhone / Android) rather than the Chrome side panel. */
+const IN_APP = !!(globalThis as { MangaLingoPlatform?: string; MangaLingoNative?: unknown }).MangaLingoPlatform || !!(globalThis as { MangaLingoNative?: unknown }).MangaLingoNative;
 
 export function SidePanel() {
   const { settings: s, loaded } = useSettings('sidebar');
@@ -100,11 +102,9 @@ export function SidePanel() {
       <header className="sticky top-0 z-10 border-b border-border bg-bg/95 backdrop-blur" data-ml-sidebar-header="">
         <div className="h-1 bg-gradient-to-r from-accent via-[rgb(var(--ml-box))] to-ok" />
         <div className="flex items-center gap-2.5 px-3 pb-2.5 pt-3">
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-accent/15 ring-1 ring-accent/30">
-            <IconLogo size={22} />
-          </span>
+          <IconLogo size={38} />
           <div className="min-w-0 flex-1">
-            <div className="text-[15px] font-bold leading-tight tracking-tight text-text">MangaLingo</div>
+            <div className="text-[15px] font-bold leading-tight tracking-tight text-text">LingoLens</div>
             <div className="mt-0.5 flex items-center gap-1.5 text-[11.5px] leading-tight text-muted">
               <span className={cx('h-1.5 w-1.5 rounded-full', s.reading.translationMode === 'machine' && hasTranslator ? 'bg-ok' : 'bg-accent')} />
               {s.reading.translationMode === 'machine' && hasTranslator ? 'Dịch máy · chạy trên máy' : 'Từ điển · chạy trên máy'}
@@ -128,22 +128,35 @@ export function SidePanel() {
             void runLookup(input);
           }}
         >
-          <div className="relative">
-            <IconSearch size={16} className="pointer-events-none absolute left-3 top-[11px] text-accent" />
-            <textarea
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  setOcr(null);
-                  void runLookup(input);
-                }
-              }}
-              rows={input.length > 60 ? 3 : 1}
-              placeholder="Nhập từ, câu tiếng Anh… (Enter)"
-              className="ml-focus w-full resize-none rounded-xl border border-border bg-surface py-2.5 pl-9 pr-3 text-[13.5px] text-text shadow-sm placeholder:text-subtle hover:border-accent/50 focus:border-accent"
-            />
+          {/* Large, high-contrast search box (16 px text: iPhone does not zoom the page on focus). */}
+          <div className="flex items-stretch gap-2" data-ml-search="">
+            <div className="relative min-w-0 flex-1">
+              <IconSearch size={20} className="pointer-events-none absolute left-3.5 top-[15px] text-accent" />
+              <textarea
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    setOcr(null);
+                    void runLookup(input);
+                  }
+                }}
+                rows={input.length > 40 ? 3 : 1}
+                enterKeyHint="search"
+                placeholder="Nhập từ hoặc câu tiếng Anh…"
+                aria-label="Từ hoặc câu cần tra"
+                className="ml-focus block min-h-[52px] w-full resize-none rounded-2xl border-2 border-border bg-surface py-3 pl-11 pr-10 text-[16px] font-medium leading-snug text-text shadow-sm placeholder:font-normal placeholder:text-subtle hover:border-accent/50 focus:border-accent"
+              />
+              {input && (
+                <button type="button" onClick={() => setInput('')} className="absolute right-2.5 top-[13px] flex h-7 w-7 items-center justify-center rounded-full bg-elevated text-muted hover:text-text" aria-label="Xóa">
+                  ×
+                </button>
+              )}
+            </div>
+            <button type="submit" disabled={!input.trim()} className="shrink-0 rounded-2xl bg-accent px-4 text-[15px] font-bold text-accent-fg shadow-sm disabled:opacity-40">
+              Tra
+            </button>
           </div>
         </form>
         <SidebarTabs value={tab} onChange={setTab} />
@@ -156,8 +169,10 @@ export function SidePanel() {
         ) : entry ? (
           <EntryView s={s} entry={entry} tab={tab} compact={compact} onLookup={(t, c) => void runLookup(t, c, entry.source)} onBackToOcr={ocr ? () => setEntry(null) : undefined} />
         ) : (
-          <Empty title="Chưa có nội dung" icon={<IconLogo size={30} />}>
-            Click hoặc bôi đen văn bản trên trang rồi bấm “Mở Sidebar” trong popup, hoặc nhập văn bản vào ô phía trên. Với manga, rê chuột lên ảnh và bấm “Quét OCR”.
+          <Empty title={IN_APP ? 'Tra từ hoặc câu tiếng Anh' : 'Chưa có nội dung'} icon={<IconLogo size={44} />}>
+            {IN_APP
+              ? 'Nhập hoặc dán từ, câu, đoạn văn vào ô phía trên rồi bấm Tra: nghĩa tiếng Việt, phát âm, ngữ pháp và ngữ cảnh.'
+              : 'Click hoặc bôi đen văn bản trên trang rồi bấm “Mở Sidebar” trong popup, hoặc nhập văn bản vào ô phía trên. Với manga, rê chuột lên ảnh và bấm “Quét OCR”.'}
           </Empty>
         )}
       </main>
@@ -247,7 +262,7 @@ function EntryView({ s, entry, tab, compact, onLookup, onBackToOcr }: { s: Setti
         {back}
         <Original />
         <Notice tone="warn" title={`Ngôn ngữ phát hiện: ${r.language.name}`}>
-          Dữ liệu từ điển hiện chỉ hỗ trợ tiếng Anh, nên MangaLingo không hiển thị bản dịch.
+          Dữ liệu từ điển hiện chỉ hỗ trợ tiếng Anh, nên LingoLens không hiển thị bản dịch.
         </Notice>
       </>
     );
