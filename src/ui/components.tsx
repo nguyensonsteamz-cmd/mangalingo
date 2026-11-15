@@ -74,14 +74,14 @@ export function GlassIndicator({ activeKey, className }: { activeKey: string; cl
       const right = to.x + to.w > from.x + from.w || (to.x + to.w === from.x + from.w && to.x > from.x);
       const easeOut = (t: number) => 1 - (1 - t) ** 3;
       const easeInOut = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2);
+      // Quick and calm: ~0.2–0.26 s, the trailing edge lags only slightly (a small stretch, no wobble).
       const lead = (t: number) => easeOut(t);
-      const lag = (t: number) => easeInOut(Math.min(1, Math.max(0, (t - 0.1) / 0.9)));
+      const lag = (t: number) => easeOut(Math.min(1, Math.max(0, (t - 0.06) / 0.94)) ** 1.15);
       const mix = (a0: number, b0: number, k: number) => a0 + (b0 - a0) * k;
       const distance = Math.abs(to.x - from.x) + Math.abs(to.y - from.y);
-      const duration = Math.round(Math.min(480, 320 + distance * 0.3));
-      const STEPS = 32;
+      const duration = Math.round(Math.min(260, 200 + distance * 0.12));
+      const STEPS = 20;
       const frames: Keyframe[] = [];
-      let thinnest = 1;
       for (let k = 0; k <= STEPS; k++) {
         const t = k / STEPS;
         const L = mix(from.x, to.x, right ? lag(t) : lead(t));
@@ -93,18 +93,11 @@ export function GlassIndicator({ activeKey, className }: { activeKey: string; cl
         const sx = Math.max(4, R - L) / Math.max(1, to.w);
         const sy = h / Math.max(1, to.h);
         frames.push({ transform: `translate(${L.toFixed(2)}px, ${y.toFixed(2)}px) scale(${sx.toFixed(4)}, ${sy.toFixed(4)})` });
-        // how stretched the drop is (1 = normal) → thins it a little
-        thinnest = Math.min(thinnest, Math.min(from.w, to.w) / Math.max(1, R - L));
       }
       anim?.cancel();
       anim = el.animate(frames, { duration, easing: 'linear' });
-      // a stretched drop gets slightly thinner, then settles
-      const squeeze = 1 - Math.min(0.1, (1 - thinnest) * 0.18);
-      innerAnim?.cancel();
-      innerAnim = inner.current?.animate(
-        [{ transform: 'scaleY(1)' }, { transform: `scaleY(${squeeze.toFixed(3)})`, offset: 0.4 }, { transform: 'scaleY(1.015)', offset: 0.78 }, { transform: 'scaleY(1)' }],
-        { duration, easing: 'ease-in-out' },
-      ) ?? null;
+      innerAnim?.cancel(); // no squash any more: a single quick glide
+      innerAnim = null;
       lastSquash.current = performance.now();
     };
     const squash = () => {
