@@ -36,8 +36,8 @@ jobs:
       - name: Install dependencies
         run: npm ci --no-audit --no-fund
 
-      - name: Unit tests
-        run: npx vitest run
+      - name: Unit tests (generates the dictionary data first)
+        run: npm test
 
       - name: Build the web UI + dictionary data into the app
         run: npm run build:ios-web
