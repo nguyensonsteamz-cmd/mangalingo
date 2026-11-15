@@ -14,6 +14,7 @@ import { IconBookmark, IconGear, IconLogo, IconScan, IconSearch } from '@/ui/ico
 import { native, onResume } from './native';
 import { latestScanUrl, pendingScanStamp, setAppIcon } from './ios';
 import { Scan } from './Scan';
+import { IosGuide } from './IosGuide';
 
 type Tab = 'home' | 'lookup' | 'vocab' | 'settings' | 'scan';
 const TABS: { id: Tab; label: string; icon: ReactNode }[] = [
@@ -216,16 +217,6 @@ function Home({ onOpen }: { onOpen: (t: Tab) => void }) {
  *  Shortcut (Take Screenshot → Quét ảnh với LingoLens) instead. */
 function IosHome({ onOpen, onFile }: { onOpen: (t: Tab) => void; onFile: (f: File) => void }) {
   useSettings('page'); // applies the theme
-  const steps = [
-    [
-      'Tạo Phím tắt',
-      'Mở app Phím tắt → bấm + → Thêm tác vụ → tìm và thêm “Chụp ảnh màn hình”. Bấm thêm tác vụ lần nữa → gõ “LingoLens” → chọn “Quét ảnh với LingoLens”. Bước này tự nối với ảnh vừa chụp và hiện là “Quét [Ảnh chụp màn hình] với LingoLens” – không cần chọn gì thêm (đừng bấm vào ô Ảnh, nó sẽ mở app Tệp). Đặt tên phím tắt “LingoLens: Quét”. Không thấy tác vụ LingoLens? Mở LingoLens một lần rồi tìm lại.',
-    ],
-    ['Bật nút nổi', 'Cài đặt → Trợ năng → Cảm ứng → AssistiveTouch → bật. Chỉnh “Độ mờ khi không dùng” khoảng 40%.'],
-    ['Gán thao tác', 'Vẫn trong AssistiveTouch → mục Tác vụ tùy chỉnh → Chạm hai lần → kéo xuống phần Phím tắt → chọn “LingoLens: Quét”.'],
-    ['Chạy thử lần đầu', 'Chạm hai lần vào nút nổi. Nếu iPhone hỏi có cho phép phím tắt gửi ảnh tới LingoLens, chọn “Luôn cho phép” để lần sau không hỏi lại.'],
-    ['Dùng', 'Đang đọc truyện, chạm hai lần vào nút nổi → LingoLens mở ảnh vừa chụp → kéo khung vào bong bóng, câu hoặc từ → bấm “Quét vùng này” (hoặc “Quét toàn màn hình”) → chạm từng từ để xem nghĩa.'],
-  ];
   return (
     <div className="mx-auto max-w-lg space-y-4 px-4 pt-6" data-ml-ios-home="">
       <div className="flex items-center gap-3">
@@ -254,24 +245,7 @@ function IosHome({ onOpen, onFile }: { onOpen: (t: Tab) => void; onFile: (f: Fil
         </label>
       </div>
 
-      <div className="ml-glass-card rounded-[28px] p-4" data-ml-ios-setup="">
-        <div className="text-[15px] font-bold">Nút nổi (AssistiveTouch)</div>
-        <div className="mt-0.5 text-[12.5px] text-muted">iOS không cho ứng dụng tự hiện nút nổi trên ứng dụng khác, nên LingoLens dùng nút AssistiveTouch của iPhone. Thiết lập một lần:</div>
-        <ol className="mt-3 space-y-2.5">
-          {steps.map(([title, body], i) => (
-            <li key={title} className="flex gap-2.5">
-              <span className="ml-btn-primary flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[12px] font-bold">{i + 1}</span>
-              <div className="min-w-0">
-                <div className="text-[13.5px] font-semibold">{title}</div>
-                <div className="text-[12.5px] leading-snug text-muted">{body}</div>
-              </div>
-            </li>
-          ))}
-        </ol>
-        <a href="shortcuts://" className="ml-press ml-glass-select mt-3 inline-block rounded-full border px-4 py-1.5 text-[13px] font-semibold">
-          Mở app Phím tắt
-        </a>
-      </div>
+      <IosGuide />
 
       <div className="grid grid-cols-3 gap-2">
         {(['lookup', 'vocab', 'settings'] as Tab[]).map((t) => {
