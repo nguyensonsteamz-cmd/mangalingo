@@ -18,9 +18,9 @@ import { primaryMeaning } from '@/ui/views';
 import { Spinner, cx } from '@/ui/components';
 import { IconBack, IconScan, IconVolume } from '@/ui/icons';
 import { canSpeak, speak } from '@/ui/speech';
-import { vocabStore } from '@/ui/VocabManager';
 import { useSettings } from '@/ui/hooks';
 import { copyText, recognize, translateBatch } from './ios';
+import { Assist, type AssistItem } from './Assist';
 import { IconCopy } from '@/ui/icons';
 import { prepareForMt } from '@/translation/chrome-mt';
 import { isMostlyUpper, naturalCase } from '@/translation/casing';
@@ -96,7 +96,35 @@ function useBatchTranslation(blocks: OcrBlock[]): Record<string, Mt> {
   return Object.fromEntries(blocks.map((b) => [b.id, cache.current.get(b.text) ?? { state: 'loading' }]));
 }
 
-export function Scan({ src, onBack, onNewFile }: { src: string; onBack: () => void; onNewFile?: (f: File) => void }) {
+export type HlBox = { x: number; y: number; w: number; h: number };
+
+export function Scan({
+  src,
+  onBack,
+  onNewFile,
+  extraItems = [],
+  highlightMode = false,
+  highlights = [],
+  onHighlights,
+  onActiveText,
+  pager,
+  title = 'Quét chữ',
+}: {
+  src: string;
+  onBack: () => void;
+  onNewFile?: (f: File) => void;
+  /** Items the app adds to the floating button (notes, highlight…). */
+  extraItems?: AssistItem[];
+  highlightMode?: boolean;
+  highlights?: HlBox[];
+  onHighlights?: (h: HlBox[]) => void;
+  /** Text of the selected bubble (context for notes). */
+  onActiveText?: (t: string | undefined) => void;
+  /** PDF: current page / page count / go to a page. */
+  pager?: { page: number; total: number; go: (p: number) => void };
+  /** Title in the top bar (file name, …). */
+  title?: string;
+}) {
   const viewport = useRef<HTMLDivElement>(null);
   const wrap = useRef<HTMLDivElement>(null);
   const [frame, setFrame] = useState<Box>({ x: 0.15, y: 0.38, w: 0.7, h: 0.18 });
@@ -110,7 +138,10 @@ export function Scan({ src, onBack, onNewFile }: { src: string; onBack: () => vo
   const [edit, setEdit] = useState<{ id: string; box: Box } | null>(null); // bubble being re-framed
   const [rescanning, setRescanning] = useState<string | null>(null);
   const [sheetKey, setSheetKey] = useState(0); // bumps → the result sheet rises to its middle height
-  const [notesOpen, setNotesOpen] = useState(false);
+  const fileInput = useRef<HTMLInputElement>(null);
+  const [hlDraft, setHlDraft] = useState<HlBox | null>(null); // highlight being drawn
+  const hlStart = useRef<{ x: number; y: number } | null>(null);
+  const [hlMenu, setHlMenu] = useState<number | null>(null); // tapped highlight
   const b64 = useRef<Promise<string> | null>(null);
   const drag = useRef<{ kind: 'move' | Handle; target: 'frame' | string; x: number; y: number; start: Rect; moved: boolean } | null>(null);
   const translations = useBatchTranslation(blocks);
@@ -169,13 +200,29 @@ export function Scan({ src, onBack, onNewFile }: { src: string; onBack: () => vo
       gesture.current = { kind: 'pan', x: pts[0].x, y: pts[0].y, dist: 0, view, onBubble };
     } else gesture.current = null;
   };
+  /** Pointer position as a fraction of the image (0..1). */
+  const onImage = (e: React.PointerEvent) => {
+    const r = wrap.current!.getBoundingClientRect();
+    return { x: Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)), y: Math.min(1, Math.max(0, (e.clientY - r.top) / r.height)) };
+  };
   const onViewDown = (e: React.PointerEvent) => {
     viewport.current?.setPointerCapture(e.pointerId);
+    if (highlightMode && pointers.current.size === 0 && !(e.target instanceof Element && e.target.closest('[data-ml-hl-box]'))) {
+      hlStart.current = onImage(e);
+      setHlDraft({ ...hlStart.current, w: 0, h: 0 });
+      return;
+    }
     pointers.current.set(e.pointerId, local(e));
     startGesture(e.target instanceof Element && !!e.target.closest('[data-ml-bubble-box]'));
   };
   const onViewMove = (e: React.PointerEvent) => {
     if (drag.current) return onMove(e); // dragging the scan frame / a bubble's corners
+    if (hlStart.current) {
+      const p = onImage(e);
+      const s = hlStart.current;
+      setHlDraft({ x: Math.min(s.x, p.x), y: Math.min(s.y, p.y), w: Math.abs(p.x - s.x), h: Math.abs(p.y - s.y) });
+      return;
+    }
     if (!pointers.current.has(e.pointerId)) return;
     pointers.current.set(e.pointerId, local(e));
     const g = gesture.current;
@@ -194,6 +241,12 @@ export function Scan({ src, onBack, onNewFile }: { src: string; onBack: () => vo
   };
   const onViewUp = (e: React.PointerEvent) => {
     if (drag.current) return onUp();
+    if (hlStart.current) {
+      hlStart.current = null;
+      if (hlDraft && hlDraft.w > 0.015 && hlDraft.h > 0.008) onHighlights?.([...highlights, hlDraft]);
+      setHlDraft(null);
+      return;
+    }
     const p = pointers.current.get(e.pointerId);
     const g = gesture.current;
     pointers.current.delete(e.pointerId);
@@ -292,13 +345,13 @@ export function Scan({ src, onBack, onNewFile }: { src: string; onBack: () => vo
     runId.current++;
     setBusy(false);
   };
-  const run = async (scanMode: 'region' | 'full') => {
+  const run = async (scanMode: 'region' | 'full', box?: HlBox) => {
     const id = ++runId.current;
     setBusy(scanMode);
     setError('');
     try {
       const image = await (b64.current ?? toBase64(src));
-      const lines = await recognize(image, scanMode === 'region' ? frame : undefined);
+      const lines = await recognize(image, scanMode === 'region' ? (box ?? frame) : undefined);
       if (id !== runId.current) return; // cancelled
       let found: OcrBlock[];
       if (scanMode === 'region') {
@@ -324,6 +377,8 @@ export function Scan({ src, onBack, onNewFile }: { src: string; onBack: () => vo
   };
 
   const inv = 1 / view.s; // keeps dots, labels and borders the same size while zoomed
+  // the selected bubble's text is the context of new notes
+  useEffect(() => onActiveText?.(blocks.find((b) => b.id === active)?.text), [active, blocks]); // eslint-disable-line react-hooks/exhaustive-deps
   const selectBubble = (id: string) => {
     setActive(id);
     setFocus((f) => ({ id, n: (f?.n ?? 0) + 1 }));
@@ -331,47 +386,53 @@ export function Scan({ src, onBack, onNewFile }: { src: string; onBack: () => vo
 
   return (
     <div className="mx-auto max-w-2xl" data-ml-scan="">
-      <div className="ml-glass-bar sticky top-0 z-10 flex items-center gap-1.5 border-b px-3 py-2">
-        <button type="button" onClick={onBack} className="rounded-lg p-1.5 text-muted" aria-label="Quay lại">
-          <IconBack size={20} />
+      {/* minimal top bar: back button + page title (+ the page switcher of a PDF); tools are in the floating button */}
+      <div className="ml-glass-bar sticky top-0 z-10 flex h-11 items-center gap-1 border-b px-2" data-ml-scan-bar="">
+        <button type="button" onClick={onBack} className="ml-press flex h-9 w-9 items-center justify-center rounded-full text-muted" aria-label="Quay lại" data-ml-scan-back="">
+          <IconBack size={22} />
         </button>
-        <div className="flex-1 text-[15px] font-bold">Quét chữ</div>
-        {onNewFile && (
-          <label className="ml-press cursor-pointer rounded-full px-2.5 py-1 text-[13px] font-semibold text-accent" data-ml-scan-upload="">
-            📎 Ảnh khác
-            <input
-              type="file"
-              accept="image/*,.heic,.heif,.txt,text/plain"
-              hidden
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) onNewFile(f);
-                e.target.value = '';
-              }}
-            />
-          </label>
-        )}
-        {view.s > 1.05 && (
-          <button type="button" onClick={() => setView(clampView(1, 0, 0))} className="rounded-lg px-2 py-1 text-[13px] font-semibold text-muted">
-            Vừa màn hình
-          </button>
-        )}
-        {!showFrame && blocks.length > 0 && (
-          <button type="button" onClick={clearBubbles} className="ml-press rounded-full bg-danger/10 px-3 py-1 text-[13px] font-semibold text-danger" data-ml-clear-bubbles="">
-            Xoá bong bóng
-          </button>
-        )}
-        {!showFrame && !blocks.length && (
-          <button type="button" onClick={() => setShowFrame(true)} className="rounded-lg px-2 py-1 text-[13px] font-semibold text-accent">
-            Khung mới
-          </button>
-        )}
+        <div className="min-w-0 flex-1 truncate text-[15.5px] font-bold">{title}</div>
       </div>
+      {pager && pager.total > 1 && (
+        <div className="fixed right-2 top-[calc(env(safe-area-inset-top)+4px)] z-[11] flex items-center gap-0.5 text-[13px] font-semibold" data-ml-pager="">
+          <button type="button" disabled={pager.page <= 0} onClick={() => pager.go(pager.page - 1)} className="ml-press h-8 w-8 rounded-full disabled:opacity-30" aria-label="Trang trước">
+            ‹
+          </button>
+          <span className="min-w-[64px] text-center tabular-nums">
+            {pager.page + 1} / {pager.total}
+          </span>
+          <button type="button" disabled={pager.page >= pager.total - 1} onClick={() => pager.go(pager.page + 1)} className="ml-press h-8 w-8 rounded-full disabled:opacity-30" aria-label="Trang sau">
+            ›
+          </button>
+        </div>
+      )}
+      {onNewFile && (
+        <input
+          ref={fileInput}
+          type="file"
+          accept="image/*,.heic,.heif,.pdf,application/pdf,.txt,.srt,.vtt,text/plain"
+          hidden
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) onNewFile(file);
+            e.target.value = '';
+          }}
+        />
+      )}
+      <Assist
+        items={[
+          ...extraItems,
+          ...(onNewFile ? [{ id: 'file', label: 'Ảnh / tệp khác', icon: '📎', onClick: () => fileInput.current?.click() }] : []),
+          ...(!showFrame && blocks.length ? [{ id: 'clear', label: 'Xoá bong bóng', icon: '🧹', onClick: clearBubbles }] : []),
+          ...(!showFrame && !blocks.length ? [{ id: 'frame', label: 'Khung mới', icon: '⬚', onClick: () => setShowFrame(true) }] : []),
+          ...(view.s > 1.05 ? [{ id: 'fit', label: 'Vừa màn hình', icon: '⤢', onClick: () => setView(clampView(1, 0, 0)) }] : []),
+        ]}
+      />
 
       {/* the screenshot fits the screen; pinch to zoom, drag to move, double tap to zoom in / out */}
       <div
         ref={viewport}
-        className="relative h-[calc(100dvh-env(safe-area-inset-top)-49px-170px-env(safe-area-inset-bottom))] select-none touch-none overflow-hidden"
+        className="relative h-[calc(100dvh-env(safe-area-inset-top)-44px-170px-env(safe-area-inset-bottom))] select-none touch-none overflow-hidden"
         onPointerDown={onViewDown}
         onPointerMove={onViewMove}
         onPointerUp={onViewUp}
@@ -436,7 +497,20 @@ export function Scan({ src, onBack, onNewFile }: { src: string; onBack: () => vo
                 </div>
               );
             })}
-          {showFrame && (
+          {/* highlights (yellow marker); tap one to translate it or remove it */}
+          {[...highlights, ...(hlDraft ? [hlDraft] : [])].map((h, i) => (
+            <div
+              key={i}
+              role="button"
+              tabIndex={0}
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={() => i < highlights.length && setHlMenu(i)}
+              className={cx('absolute rounded-[3px] bg-[#ffd43b]/45 mix-blend-multiply', hlMenu === i && 'ring-2 ring-[#f59f00]')}
+              style={{ left: `${h.x * 100}%`, top: `${h.y * 100}%`, width: `${h.w * 100}%`, height: `${h.h * 100}%` }}
+              data-ml-hl-box=""
+            />
+          ))}
+          {showFrame && !highlightMode && (
             <div
               className="absolute rounded-lg border-accent bg-accent/10 shadow-[0_0_0_9999px_rgba(0,0,0,0.35)]"
               style={{ left: `${frame.x * 100}%`, top: `${frame.y * 100}%`, width: `${frame.w * 100}%`, height: `${frame.h * 100}%`, borderWidth: 2 * inv, borderStyle: 'solid' }}
@@ -456,25 +530,38 @@ export function Scan({ src, onBack, onNewFile }: { src: string; onBack: () => vo
         </div>
       </div>
 
-      {/* "Ghi chú": always in the same place (top right of the screenshot), usable at any moment */}
-      <button
-        type="button"
-        onClick={() => setNotesOpen(true)}
-        className="ml-glass ml-press fixed right-3 top-[calc(env(safe-area-inset-top)+58px)] z-[22] flex items-center gap-1.5 rounded-full px-3.5 py-2 text-[13.5px] font-semibold"
-        data-ml-notes-open=""
-      >
-        ✏️ Ghi chú
-      </button>
-      {notesOpen && (
-        <div className="fixed inset-0 z-[40] flex items-start justify-center bg-black/35 px-3 pt-[calc(env(safe-area-inset-top)+56px)]" onClick={() => setNotesOpen(false)} data-ml-notes-panel="">
-          <div className="ml-glass animate-ml-in ml-scroll max-h-[72vh] w-full max-w-lg overflow-y-auto rounded-[26px] p-3" onClick={(e) => e.stopPropagation()}>
-            {(() => {
-              const b = blocks.find((x) => x.id === active);
-              const tr = b ? translations[b.id] : undefined;
-              return <Notes sentence={b?.text} translation={tr?.state === 'done' ? tr.text : undefined} onClose={() => setNotesOpen(false)} />;
-            })()}
-          </div>
+      {highlightMode && (
+        <div className="ml-glass-select fixed left-1/2 top-[calc(env(safe-area-inset-top)+56px)] z-20 -translate-x-1/2 whitespace-nowrap rounded-full border px-3.5 py-1.5 text-[13px] font-semibold" data-ml-hl-hint="">
+          🖍 Kéo trên ảnh để tô sáng
         </div>
+      )}
+      {hlMenu !== null && highlights[hlMenu] && (
+        <>
+          <div className="fixed inset-0 z-[26]" onClick={() => setHlMenu(null)} />
+          <div className="ml-glass animate-ml-in fixed left-1/2 top-[calc(env(safe-area-inset-top)+56px)] z-[27] flex -translate-x-1/2 gap-1 rounded-full p-1" data-ml-hl-menu="">
+            <button
+              type="button"
+              className="ml-press rounded-full px-3 py-1.5 text-[13px] font-semibold"
+              onClick={() => {
+                const box = highlights[hlMenu];
+                setHlMenu(null);
+                void run('region', box);
+              }}
+            >
+              Dịch vùng tô
+            </button>
+            <button
+              type="button"
+              className="ml-press rounded-full px-3 py-1.5 text-[13px] font-semibold text-danger"
+              onClick={() => {
+                onHighlights?.(highlights.filter((_, j) => j !== hlMenu));
+                setHlMenu(null);
+              }}
+            >
+              Bỏ tô
+            </button>
+          </div>
+        </>
       )}
 
       {error && (
@@ -815,82 +902,6 @@ function ScanResult({ text, n, mt }: { text: string; n: number; mt?: Mt }) {
           <div className="ml-tr font-semibold">{gloss}</div>
         </div>
       )}
-    </div>
-  );
-}
-
-const NOTE_COLORS = ['border-l-accent', 'border-l-warn', 'border-l-ok', 'border-l-[rgb(var(--ml-box))]'];
-
-/**
- * "Ghi chú": the reader writes phrase ↔ meaning pairs. Each pair is one card (numbered, its own
- * colour stripe) with two differently tinted fields – phrase (blue) and meaning (green) – so pairs
- * are easy to tell apart. Saved to the vocabulary notebook.
- */
-function Notes({ sentence, translation, onClose }: { sentence?: string; translation?: string; onClose: () => void }) {
-  const [pairs, setPairs] = useState([{ phrase: '', meaning: '' }]);
-  const [done, setDone] = useState(0);
-  const set = (i: number, k: 'phrase' | 'meaning', v: string) => setPairs((p) => p.map((x, j) => (j === i ? { ...x, [k]: v } : x)));
-  const save = async () => {
-    const good = pairs.filter((p) => p.phrase.trim());
-    for (const p of good) {
-      const r = await vocabStore.add({ word: p.phrase.trim(), lemma: p.phrase.trim().toLowerCase(), meaning: p.meaning.trim(), sentence, translation, notes: 'Ghi chú từ bản quét' });
-      // already in the notebook (e.g. saved as a word): keep your own meaning in its notes
-      if (!r.created && p.meaning.trim()) {
-        const mine = 'Ghi chú: ' + p.meaning.trim();
-        const notes = r.entry.notes && !r.entry.notes.includes(mine) ? `${r.entry.notes}\n${mine}` : mine;
-        await vocabStore.update(r.entry.id, { notes });
-      }
-    }
-    setDone(good.length);
-    setPairs([{ phrase: '', meaning: '' }]);
-  };
-  return (
-    <div className="space-y-2" data-ml-notes="">
-      <div className="flex items-center justify-between">
-        <div>
-          <div className="text-[15px] font-bold">✏️ Ghi chú của bạn</div>
-          {sentence && <div className="line-clamp-1 text-[12px] text-subtle">Kèm câu: {sentence}</div>}
-        </div>
-        <button type="button" onClick={onClose} className="ml-press rounded-full bg-text/[0.08] px-3 py-1 text-[12.5px] font-semibold text-muted">
-          Đóng
-        </button>
-      </div>
-      {pairs.map((p, i) => (
-        <div key={i} className={cx('rounded-2xl border border-border/60 border-l-[4px] bg-surface/40 p-2', NOTE_COLORS[i % NOTE_COLORS.length])} data-ml-note-pair="">
-          <div className="mb-1 flex items-center justify-between">
-            <span className="text-[11px] font-bold text-muted">Cụm {i + 1}</span>
-            {pairs.length > 1 && (
-              <button type="button" onClick={() => setPairs((x) => x.filter((_, j) => j !== i))} className="px-1 text-[13px] text-muted" aria-label={`Xoá cụm ${i + 1}`}>
-                ✕
-              </button>
-            )}
-          </div>
-          <input
-            value={p.phrase}
-            onChange={(e) => set(i, 'phrase', e.target.value)}
-            placeholder="Câu / cụm từ tiếng Anh"
-            className="ml-focus mb-1.5 block w-full rounded-xl border border-accent/35 bg-accent/10 px-2.5 py-2 text-[15px] font-semibold text-text placeholder:font-normal placeholder:text-subtle"
-            data-ml-note-phrase=""
-          />
-          <textarea
-            value={p.meaning}
-            onChange={(e) => set(i, 'meaning', e.target.value)}
-            rows={2}
-            placeholder="Nghĩa tiếng Việt (bạn tự ghi)"
-            className="ml-focus block w-full resize-none rounded-xl border border-ok/35 bg-ok/10 px-2.5 py-2 text-[15px] text-text placeholder:text-subtle"
-            data-ml-note-meaning=""
-          />
-        </div>
-      ))}
-      <div className="flex gap-2">
-        <button type="button" onClick={() => setPairs((x) => [...x, { phrase: '', meaning: '' }])} className="ml-press ml-glass-card flex-1 rounded-full py-2 text-[13px] font-semibold">
-          + Thêm cụm
-        </button>
-        <button type="button" disabled={!pairs.some((p) => p.phrase.trim())} onClick={() => void save()} className="ml-press ml-btn-primary flex-1 rounded-full py-2 text-[13px] font-semibold disabled:opacity-40" data-ml-notes-save="">
-          Lưu vào Sổ từ
-        </button>
-      </div>
-      {done > 0 && <div className="text-center text-[12px] text-ok">Đã lưu {done} cụm vào Sổ từ ✓</div>}
     </div>
   );
 }

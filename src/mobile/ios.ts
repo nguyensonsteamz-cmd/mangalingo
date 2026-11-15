@@ -89,6 +89,13 @@ export async function copyText(text: string): Promise<boolean> {
   }
 }
 
+/** The English voice the phone will use (to suggest downloading a better one). */
+export async function voiceInfo(): Promise<{ name: string; quality: 'premium' | 'enhanced' | 'compact' | 'none' } | null> {
+  const h = handler();
+  if (!h) return null;
+  return (await h.postMessage({ cmd: 'voiceInfo' }).catch(() => null)) as { name: string; quality: 'premium' | 'enhanced' | 'compact' | 'none' } | null;
+}
+
 /** Is the Vietnamese translation pack on the phone? ('unavailable' = older iOS / not the iPhone app) */
 export async function translationPackStatus(): Promise<'installed' | 'download' | 'unsupported' | 'unavailable'> {
   const h = handler();

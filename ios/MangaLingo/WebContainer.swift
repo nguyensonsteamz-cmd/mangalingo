@@ -76,6 +76,8 @@ struct WebContainer: UIViewRepresentable {
             switch cmd {
             case "pendingScan":
                 replyHandler(["stamp": PendingScan.stamp], nil)
+            case "voiceInfo":
+                replyHandler(Speaker.shared.voiceInfo(), nil)
             case "speak":
                 Speaker.shared.speak(body["text"] as? String ?? "", rate: body["rate"] as? Double ?? 1)
                 replyHandler(true, nil)

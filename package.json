@@ -20,6 +20,7 @@
     "build:ios-web": "node scripts/build-data.mjs --if-missing && node scripts/build-mobile.mjs --out ios/MangaLingo/web"
   },
   "dependencies": {
+    "pdfjs-dist": "4.10.38",
     "react": "19.1.1",
     "react-dom": "19.1.1",
     "tesseract.js": "6.0.1"

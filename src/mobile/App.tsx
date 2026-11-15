@@ -13,7 +13,11 @@ import { cx, fastTap, GlassIndicator, Notice } from '@/ui/components';
 import { IconBookmark, IconGear, IconLogo, IconScan, IconSearch } from '@/ui/icons';
 import { native, onResume } from './native';
 import { latestScanUrl, pendingScanStamp, prepareTranslationPack, setAppIcon, translationPackStatus } from './ios';
-import { Scan, openLookup } from './Scan';
+import { Scan, type HlBox } from './Scan';
+import { Assist, type AssistItem } from './Assist';
+import { NotesDrawer } from './NotesDrawer';
+import { TextReader, type TextRange } from './TextReader';
+import { renderPdf } from './pdf';
 import { IosGuide } from './IosGuide';
 
 type Tab = 'home' | 'lookup' | 'vocab' | 'settings' | 'scan';
@@ -140,7 +144,21 @@ export function App() {
   };
 
   // iPhone: an image from the Shortcuts action (AssistiveTouch → Take Screenshot → LingoLens)
-  const [scanSrc, setScanSrc] = useState<string | null>(null);
+  // the open document on the scan page: page images (screenshot, photo, PDF pages) or a text file
+  type Doc = { kind: 'pages'; pages: string[]; page: number; name: string } | { kind: 'text'; text: string; name: string };
+  const [doc, setDoc] = useState<Doc | null>(null);
+  const [opening, setOpening] = useState(''); // "Đang mở PDF… 3/12"
+  const [highlightMode, setHighlightMode] = useState(false);
+  const [hlBoxes, setHlBoxes] = useState<Record<string, HlBox[]>>({}); // per page image
+  const [hlText, setHlText] = useState<TextRange[]>([]);
+  const [notesOpen, setNotesOpen] = useState(false);
+  const [noteContext, setNoteContext] = useState<string | undefined>(undefined);
+  const openDoc = (d: Doc | null) => {
+    setDoc(d);
+    setHighlightMode(false);
+    setHlBoxes({});
+    setHlText([]);
+  };
   useEffect(() => {
     if (PLATFORM !== 'ios') return;
     const open = (stamp: number) => {
@@ -150,7 +168,7 @@ export function App() {
       } catch {
         /* storage unavailable */
       }
-      setScanSrc(latestScanUrl(stamp));
+      openDoc({ kind: 'pages', pages: [latestScanUrl(stamp)], page: 0, name: 'Ảnh chụp màn hình' });
       setTab('scan');
       history.replaceState(null, '', '#scan');
     };
@@ -166,38 +184,77 @@ export function App() {
       if (stamp > seen) open(stamp);
     });
   }, []);
-  /** Uploaded file: an image opens the scan screen, a text file (.txt, subtitles…) is analysed in Tra cứu. */
+  /** Uploaded file: images and PDF pages open the scan screen, text files (.txt, subtitles…) the reader. */
   const [uploadError, setUploadError] = useState('');
   const scanFile = (file: File) => {
     setUploadError('');
+    go('scan');
     if (/^text\//.test(file.type) || /\.(txt|md|srt|vtt|csv)$/i.test(file.name)) {
       void file.text().then((t) => {
-        const text = t.replace(/^\uFEFF/, '').trim().slice(0, 6000);
-        if (text) openLookup(text);
+        const text = t.replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n').trim().slice(0, 200000);
+        if (text) openDoc({ kind: 'text', text, name: file.name });
         else setUploadError('Tệp không có chữ.');
       });
       return;
     }
-    if (!file.type.startsWith('image/') && !/\.(png|jpe?g|heic|heif|webp|gif|bmp)$/i.test(file.name)) {
-      setUploadError(`Chưa hỗ trợ loại tệp này (${file.name}). Hãy chọn ảnh (PNG, JPG, HEIC…) hoặc tệp chữ (.txt).`);
+    if (file.type === 'application/pdf' || /\.pdf$/i.test(file.name)) {
+      setOpening('Đang mở PDF…');
+      void renderPdf(file, (done, total) => setOpening(`Đang mở PDF… ${done}/${total}`))
+        .then((pages) => {
+          if (pages.length) openDoc({ kind: 'pages', pages, page: 0, name: file.name });
+          else setUploadError('PDF không có trang nào.');
+        })
+        .catch(() => setUploadError(`Không mở được PDF này (${file.name}). Tệp có thể bị khoá mật khẩu hoặc hỏng.`))
+        .finally(() => setOpening(''));
       return;
     }
-    setScanSrc(URL.createObjectURL(file));
-    go('scan');
+    if (!file.type.startsWith('image/') && !/\.(png|jpe?g|heic|heif|webp|gif|bmp)$/i.test(file.name)) {
+      setUploadError(`Chưa hỗ trợ loại tệp này (${file.name}). Hãy chọn ảnh, PDF hoặc tệp chữ (.txt).`);
+      return;
+    }
+    openDoc({ kind: 'pages', pages: [URL.createObjectURL(file)], page: 0, name: file.name });
   };
+  // tools in the floating button of the scan page
+  const notesItem: AssistItem = { id: 'notes', label: 'Ghi chú', icon: '✏️', onClick: () => setNotesOpen(true) };
+  const hlItem: AssistItem = { id: 'highlight', label: highlightMode ? 'Tắt tô sáng' : 'Tô sáng', icon: '🖍', active: highlightMode, onClick: () => setHighlightMode((v) => !v) };
 
   return (
     <div className="flex min-h-[calc(100dvh-env(safe-area-inset-top))] flex-col text-text" style={{ zoom: SCALE[settings.appearance.uiScale] ?? 1 }} data-ml-app="">
       <main className="min-h-0 flex-1 pb-[calc(120px+env(safe-area-inset-bottom))]">
         {tab === 'home' && (PLATFORM === 'ios' ? <IosHome onOpen={go} pack={pack} /> : <Home onOpen={go} />)}
         {/* the scan page: pick an image (or come from the Shortcut) → the scan screen */}
-        {tab === 'scan' && !scanSrc && <ScanStart onFile={scanFile} uploadError={uploadError} />}
+        {tab === 'scan' && !doc && (
+          <>
+            <ScanStart onFile={scanFile} uploadError={uploadError} opening={opening} />
+            <Assist items={[notesItem]} />
+          </>
+        )}
         {/* kept mounted while you look words up in other tabs, so the result is still there when you come back */}
-        {scanSrc && (
+        {doc && (
           <div hidden={tab !== 'scan'}>
-            <Scan src={scanSrc} onNewFile={scanFile} onBack={() => setScanSrc(null)} />
+            {doc.kind === 'pages' ? (
+              <Scan
+                key={doc.pages[0]}
+                src={doc.pages[doc.page]}
+                title={doc.pages.length > 1 ? `${doc.name} · trang ${doc.page + 1}` : doc.name}
+                onNewFile={scanFile}
+                onBack={() => openDoc(null)}
+                extraItems={[notesItem, hlItem]}
+                highlightMode={highlightMode}
+                highlights={hlBoxes[doc.pages[doc.page]] ?? []}
+                onHighlights={(h) => setHlBoxes((x) => ({ ...x, [doc.pages[doc.page]]: h }))}
+                onActiveText={setNoteContext}
+                pager={{ page: doc.page, total: doc.pages.length, go: (p) => setDoc({ ...doc, page: Math.max(0, Math.min(doc.pages.length - 1, p)) }) }}
+              />
+            ) : (
+              <>
+                <TextReader name={doc.name} text={doc.text} highlightMode={highlightMode} highlights={hlText} onHighlights={setHlText} onBack={() => openDoc(null)} />
+                <Assist items={[notesItem, hlItem]} />
+              </>
+            )}
           </div>
         )}
+        {tab === 'scan' && <NotesDrawer open={notesOpen} onClose={() => setNotesOpen(false)} context={noteContext} />}
         {tab === 'lookup' && <SidePanel />}
         {tab === 'vocab' && (
           <div className="px-3 py-3">
@@ -390,7 +447,7 @@ function IosHome({ onOpen, pack }: { onOpen: (t: Tab) => void; pack: ReturnType<
  * Scan page (middle button of the tab bar), before an image is chosen: pick a photo or any file
  * (images → scan screen, text files → Tra cứu); the AssistiveTouch shortcut opens it directly.
  */
-function ScanStart({ onFile, uploadError }: { onFile: (f: File) => void; uploadError?: string }) {
+function ScanStart({ onFile, uploadError, opening }: { onFile: (f: File) => void; uploadError?: string; opening?: string }) {
   useSettings('page'); // applies the theme
   const pick = (accept: string, label: ReactNode, className: string, attr: Record<string, string>) => (
     <label className={cx('ml-press ml-ripple flex cursor-pointer items-center justify-center gap-2 rounded-[22px] py-4 text-[15.5px] font-bold', className)} {...attr}>
@@ -425,8 +482,9 @@ function ScanStart({ onFile, uploadError }: { onFile: (f: File) => void; uploadE
         </div>
         {pick('image/*', <><IconScan size={20} /> Chọn ảnh để quét</>, 'ml-btn-primary ml-sheen', { 'data-ml-magnetic': '' })}
         {/* any file from the Files app / iCloud / other apps: images → scan, text files → Tra cứu */}
-        {pick('image/*,.heic,.heif,.txt,.md,.srt,.vtt,text/plain', <>📎 Tải tệp lên</>, 'ml-glass-card', { 'data-ml-upload': '' })}
-        <div className="text-[11.5px] text-subtle">Tải tệp lên: ảnh (PNG, JPG, HEIC…) để quét, hoặc tệp chữ (.txt, phụ đề .srt) để dịch.</div>
+        {pick('image/*,.heic,.heif,.pdf,application/pdf,.txt,.md,.srt,.vtt,text/plain', <>📎 Tải tệp lên</>, 'ml-glass-card', { 'data-ml-upload': '' })}
+        <div className="text-[11.5px] text-subtle">Tải tệp lên: ảnh (PNG, JPG, HEIC…), PDF, hoặc tệp chữ (.txt, phụ đề .srt). Có thể tô sáng và ghi chú khi đọc.</div>
+        {opening && <div className="ml-glass-select rounded-xl border px-3 py-2 text-[13px] font-semibold">⏳ {opening}</div>}
         {uploadError && <div className="rounded-xl border border-warn/35 bg-warn/10 px-3 py-2 text-[12.5px] text-text">⚠️ {uploadError}</div>}
       </div>
 
