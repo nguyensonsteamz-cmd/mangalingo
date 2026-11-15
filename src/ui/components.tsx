@@ -63,77 +63,29 @@ export function GlassIndicator({ activeKey, className }: { activeKey: string; cl
     let placed = false;
     let revert: ReturnType<typeof setTimeout> | undefined;
     const activeItem = () => parent.querySelector<HTMLElement>('[data-ml-active="true"]');
-    let current: { x: number; y: number; w: number; h: number } | null = null;
-    let anim: Animation | null = null;
-    let innerAnim: Animation | null = null;
-    const reduced = () => {
-      try {
-        return matchMedia('(prefers-reduced-motion: reduce)').matches;
-      } catch {
-        return false;
-      }
-    };
-    /** Where the pill is right now (mid-animation too), so an interrupted move continues smoothly. */
-    const now = () => {
-      if (!anim || anim.playState !== 'running') return current;
-      const cs = getComputedStyle(el);
-      const m = new DOMMatrixReadOnly(cs.transform === 'none' ? undefined : cs.transform);
-      // the pill is animated with translate + scale (width / height stay the target size)
-      const bw = parseFloat(cs.width) || current?.w || 0;
-      const bh = parseFloat(cs.height) || current?.h || 0;
-      return { x: m.m41, y: m.m42, w: bw * m.a, h: bh * m.d };
-    };
     const place = (a: HTMLElement | null, animate: boolean) => {
       if (!a) {
         el.style.opacity = '0';
         return;
       }
-      const to = { x: a.offsetLeft, y: a.offsetTop, w: a.offsetWidth, h: a.offsetHeight };
-      const from = now();
+      if (animate && placed) el.removeAttribute('data-still');
+      else el.setAttribute('data-still', '');
       el.style.opacity = '';
-      el.style.width = `${to.w}px`;
-      el.style.height = `${to.h}px`;
-      el.style.transform = `translate(${to.x}px, ${to.y}px)`;
-      current = to;
-      if (!animate || !placed || !from || reduced() || (from.x === to.x && from.y === to.y && from.w === to.w)) {
+      el.style.width = `${a.offsetWidth}px`;
+      el.style.height = `${a.offsetHeight}px`;
+      el.style.transform = `translate(${a.offsetLeft}px, ${a.offsetTop}px)`;
+      if (!placed) {
         placed = true;
-        return;
+        requestAnimationFrame(() => requestAnimationFrame(() => el.removeAttribute('data-still')));
       }
-      // Liquid move (iOS 26 style). Each edge follows its own continuous curve over the whole move:
-      // the leading edge shoots towards the new item and eases in, the trailing edge starts a beat
-      // later and catches up – so the pill stretches into a drop and contracts onto the target with
-      // no stop-and-go. Sampled into dense keyframes (linear between them) for an exact path.
-      const right = to.x + to.w > from.x + from.w || (to.x + to.w === from.x + from.w && to.x > from.x);
-      const easeOut = (t: number) => 1 - (1 - t) ** 3;
-      const easeInOut = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2);
-      // Quick and calm: ~0.2–0.26 s, the trailing edge lags only slightly (a small stretch, no wobble).
-      const lead = (t: number) => easeOut(t);
-      const lag = (t: number) => easeOut(Math.min(1, Math.max(0, (t - 0.06) / 0.94)) ** 1.15);
-      const mix = (a0: number, b0: number, k: number) => a0 + (b0 - a0) * k;
-      const distance = Math.abs(to.x - from.x) + Math.abs(to.y - from.y);
-      const duration = Math.round(Math.min(260, 200 + distance * 0.12));
-      const STEPS = 20;
-      const frames: Keyframe[] = [];
-      for (let k = 0; k <= STEPS; k++) {
-        const t = k / STEPS;
-        const L = mix(from.x, to.x, right ? lag(t) : lead(t));
-        const R = mix(from.x + from.w, to.x + to.w, right ? lead(t) : lag(t));
-        const y = mix(from.y, to.y, easeInOut(t));
-        const h = mix(from.h, to.h, easeInOut(t));
-        // transform only (translate + scale from the top-left corner): runs on the GPU compositor,
-        // so it stays smooth even while the app is busy rendering the newly selected tab
-        const sx = Math.max(4, R - L) / Math.max(1, to.w);
-        const sy = h / Math.max(1, to.h);
-        frames.push({ transform: `translate(${L.toFixed(2)}px, ${y.toFixed(2)}px) scale(${sx.toFixed(4)}, ${sy.toFixed(4)})` });
-      }
-      anim?.cancel();
-      anim = el.animate(frames, { duration, easing: 'linear' });
-      innerAnim?.cancel(); // no squash any more: a single quick glide
-      innerAnim = null;
-      lastSquash.current = performance.now();
     };
     const squash = () => {
-      /* the liquid shape is part of the move itself (place) */
+      const s = inner.current;
+      if (!s) return;
+      lastSquash.current = performance.now();
+      s.classList.remove('ml-liquid');
+      void s.offsetWidth; // restart the animation
+      s.classList.add('ml-liquid');
     };
     const sync = (animate: boolean) => place(activeItem(), animate);
     const onDown = (e: PointerEvent) => {
@@ -177,7 +129,7 @@ export function GlassIndicator({ activeKey, className }: { activeKey: string; cl
   }, [activeKey]);
 
   return (
-    <span ref={ref} aria-hidden="true" data-ml-indicator="" className={cx('ml-glass-indicator', className)} style={{ opacity: 0 }}>
+    <span ref={ref} aria-hidden="true" data-ml-indicator="" data-still="" className={cx('ml-glass-indicator', className)} style={{ opacity: 0 }}>
       <span ref={inner} className="ml-glass-select absolute inset-0 rounded-[inherit] border" />
     </span>
   );
