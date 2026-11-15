@@ -9,6 +9,7 @@ import WebKit
 ///   {cmd: "ocr", image: base64, region?} → Apple Vision lines for that image
 ///   {cmd: "setIcon", name?}             → switches the app icon (alternate icons)
 ///   {cmd: "translate", text}            → {text} Vietnamese translation (Apple Translation, iOS 18+)
+///   {cmd: "translateBatch", texts}      → {texts} several at once (see Translator.swift)
 struct WebContainer: UIViewRepresentable {
     static let background = UIColor(red: 16 / 255, green: 18 / 255, blue: 24 / 255, alpha: 1)
 
@@ -85,7 +86,19 @@ struct WebContainer: UIViewRepresentable {
                     replyHandler(nil, "unavailable")
                     return
                 }
-                TranslationQueue.shared.enqueue(text) { result, error in replyHandler(result.map { ["text": $0] }, error) }
+                TranslationQueue.shared.enqueue(.translate([text]) { result, error in
+                    let first = (result as? [String])?.first
+                    replyHandler(first.map { ["text": $0] }, error)
+                })
+            case "translateBatch":
+                // every bubble of a page in one request (one session, one model load)
+                guard TranslationQueue.isAvailable, let texts = body["texts"] as? [String], !texts.isEmpty else {
+                    replyHandler(nil, "unavailable")
+                    return
+                }
+                TranslationQueue.shared.enqueue(.translate(texts) { result, error in
+                    replyHandler((result as? [String]).map { ["texts": $0] }, error)
+                })
             case "mtStatus":
                 TranslationQueue.status { replyHandler(["status": $0], nil) }
             case "mtPrepare":

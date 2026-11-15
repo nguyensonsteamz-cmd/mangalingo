@@ -1,8 +1,11 @@
 /**
- * iPhone scan screen: the screenshot (from the Shortcuts action or the photo library) with a frame
- * in the middle — drag it onto a bubble / sentence / single word and resize it by its corners —
- * then “Quét vùng này”, or “Quét toàn màn hình” for every bubble (numbered). Text recognition is
- * Apple Vision on the device; meanings come from the in-app dictionary.
+ * iPhone scan screen: the screenshot (from the Shortcuts action or the photo library) fitted to the
+ * screen – pinch to zoom, drag to pan, double tap to zoom – with a frame to drag onto a bubble /
+ * sentence / word: “Quét vùng này”, or “Quét toàn màn hình” for every bubble (numbered).
+ * Results live in a bottom sheet: every bubble with its natural translation (Apple Translation,
+ * all bubbles in one request), dictionary gloss and words (save each word, add your own notes).
+ * Bubbles can be re-framed (drag the corners of the selected bubble → only that area is read
+ * again). Text recognition is Apple Vision on the device.
  */
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { LookupResult, OcrBlock, WordLookup } from '@/shared/types';
@@ -13,13 +16,15 @@ import { ocrWords } from '@/ocr/words';
 import { resizeRect, type Handle, type Rect } from '@/popup/position';
 import { primaryMeaning } from '@/ui/views';
 import { Spinner, cx } from '@/ui/components';
-import { IconBack, IconScan, IconVolume } from '@/ui/icons';
+import { IconBack, IconBookmark, IconCheck, IconScan, IconVolume } from '@/ui/icons';
 import { canSpeak, speak } from '@/ui/speech';
-import { recognize, translateOnDevice } from './ios';
+import { useVocab, vocabStore } from '@/ui/VocabManager';
+import { recognize, translateBatch } from './ios';
 import { prepareForMt } from '@/translation/chrome-mt';
-import { naturalCase } from '@/translation/casing';
+import { isMostlyUpper, naturalCase } from '@/translation/casing';
 
 type Box = { x: number; y: number; w: number; h: number }; // normalised 0..1 of the image
+type Mt = { state: 'loading' | 'done' | 'error' | 'off'; text?: string; error?: string };
 
 async function toBase64(src: string): Promise<string> {
   const blob = await (await fetch(src)).blob();
@@ -42,6 +47,52 @@ const CORNERS: Handle[] = ['nw', 'ne', 'sw', 'se'];
 // 36 px touch area (easy to grab) around a small 12 px dot (does not hide the text)
 const CORNER_POS: Record<string, string> = { nw: '-left-[18px] -top-[18px]', ne: '-right-[18px] -top-[18px]', sw: '-left-[18px] -bottom-[18px]', se: '-right-[18px] -bottom-[18px]' };
 
+const wordLookup = (w: string, context?: string) =>
+  send({ type: 'lookup', req: { text: w, context, mode: 'word', assumeEnglish: true } }).then((r: LookupResult) => (r.kind === 'word' ? r : null));
+
+/**
+ * Proper names of the given texts (lower case): words of ALL CAPS bubbles that are not in the
+ * dictionary. Lookups run in parallel and are capped at 700 ms so translation never waits long.
+ */
+async function findNames(texts: string[]): Promise<Set<string>> {
+  const words = [...new Set(texts.filter(isMostlyUpper).flatMap((t) => ocrWords(t)))];
+  if (!words.length) return new Set();
+  const results = await Promise.race([
+    Promise.all(words.map((w) => wordLookup(w).catch(() => null))),
+    new Promise<null>((r) => setTimeout(() => r(null), 700)),
+  ]);
+  if (!results) return new Set();
+  return new Set(words.filter((_, i) => !results[i]?.found).map((w) => w.toLowerCase()));
+}
+
+/**
+ * Natural translations of the bubbles: all new texts go to the phone in ONE request; results are
+ * cached by text (re-framing a bubble only translates that bubble again).
+ */
+function useBatchTranslation(blocks: OcrBlock[]): Record<string, Mt> {
+  const cache = useRef(new Map<string, Mt>());
+  const [, bump] = useState(0);
+  const key = blocks.map((b) => b.text).join('\u0001');
+  useEffect(() => {
+    const todo = [...new Set(blocks.map((b) => b.text))].filter((t) => !cache.current.has(t));
+    if (!todo.length) return;
+    for (const t of todo) cache.current.set(t, { state: 'loading' });
+    bump((n) => n + 1);
+    void (async () => {
+      const names = await findNames(todo);
+      try {
+        const out = await translateBatch(todo.map((t) => prepareForMt(naturalCase(t, (w) => names.has(w)))));
+        todo.forEach((t, i) => cache.current.set(t, out ? { state: 'done', text: out[i] } : { state: 'off' }));
+      } catch (e) {
+        todo.forEach((t) => cache.current.set(t, { state: 'error', error: (e as Error).message }));
+      }
+      bump((n) => n + 1);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+  return Object.fromEntries(blocks.map((b) => [b.id, cache.current.get(b.text) ?? { state: 'loading' }]));
+}
+
 export function Scan({ src, onBack }: { src: string; onBack: () => void }) {
   const viewport = useRef<HTMLDivElement>(null);
   const wrap = useRef<HTMLDivElement>(null);
@@ -50,10 +101,15 @@ export function Scan({ src, onBack }: { src: string; onBack: () => void }) {
   const [busy, setBusy] = useState<false | 'region' | 'full'>(false);
   const [error, setError] = useState('');
   const [blocks, setBlocks] = useState<OcrBlock[]>([]);
+  const [mode, setMode] = useState<'region' | 'full'>('region'); // how the current bubbles were scanned
   const [active, setActive] = useState<string | null>(null);
+  const [focus, setFocus] = useState<{ id: string; n: number } | null>(null); // jump + flash in the sheet
+  const [edit, setEdit] = useState<{ id: string; box: Box } | null>(null); // bubble being re-framed
+  const [rescanning, setRescanning] = useState<string | null>(null);
   const [sheetKey, setSheetKey] = useState(0); // bumps → the result sheet rises to its middle height
   const b64 = useRef<Promise<string> | null>(null);
-  const drag = useRef<{ kind: 'move' | Handle; x: number; y: number; start: Rect } | null>(null);
+  const drag = useRef<{ kind: 'move' | Handle; target: 'frame' | string; x: number; y: number; start: Rect; moved: boolean } | null>(null);
+  const translations = useBatchTranslation(blocks);
 
   // ---------------------------------------------------------------- zoom / pan of the screenshot
   const [aspect, setAspect] = useState(9 / 19.5);
@@ -81,32 +137,41 @@ export function Scan({ src, onBack }: { src: string; onBack: () => void }) {
     setVp({ w: el.clientWidth, h: el.clientHeight });
     return () => ro.disconnect();
   }, []);
-  // fit the whole screenshot whenever the image or the viewport changes
   useEffect(() => setView(clampView(1, 0, 0)), [vp.w, vp.h, aspect]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const clearBubbles = () => {
+    setBlocks([]);
+    setActive(null);
+    setFocus(null);
+    setEdit(null);
+    setError('');
+    setShowFrame(true);
+  };
+
   const pointers = useRef(new Map<number, { x: number; y: number }>());
-  const gesture = useRef<{ kind: 'pan' | 'pinch'; x: number; y: number; dist: number; view: typeof view } | null>(null);
+  const gesture = useRef<{ kind: 'pan' | 'pinch'; x: number; y: number; dist: number; view: typeof view; onBubble: boolean } | null>(null);
   const lastTap = useRef({ t: 0, x: 0, y: 0 });
+  const tapTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const local = (e: React.PointerEvent) => {
     const r = viewport.current!.getBoundingClientRect();
     return { x: e.clientX - r.left, y: e.clientY - r.top };
   };
-  const startGesture = () => {
+  const startGesture = (onBubble = false) => {
     const pts = [...pointers.current.values()];
     if (pts.length >= 2) {
       const [a, b] = pts;
-      gesture.current = { kind: 'pinch', x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, dist: Math.hypot(a.x - b.x, a.y - b.y) || 1, view };
+      gesture.current = { kind: 'pinch', x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, dist: Math.hypot(a.x - b.x, a.y - b.y) || 1, view, onBubble: false };
     } else if (pts.length === 1) {
-      gesture.current = { kind: 'pan', x: pts[0].x, y: pts[0].y, dist: 0, view };
+      gesture.current = { kind: 'pan', x: pts[0].x, y: pts[0].y, dist: 0, view, onBubble };
     } else gesture.current = null;
   };
   const onViewDown = (e: React.PointerEvent) => {
     viewport.current?.setPointerCapture(e.pointerId);
     pointers.current.set(e.pointerId, local(e));
-    startGesture();
+    startGesture(e.target instanceof Element && !!e.target.closest('[data-ml-bubble-box]'));
   };
   const onViewMove = (e: React.PointerEvent) => {
-    if (drag.current) return onMove(e); // dragging the scan frame
+    if (drag.current) return onMove(e); // dragging the scan frame / a bubble's corners
     if (!pointers.current.has(e.pointerId)) return;
     pointers.current.set(e.pointerId, local(e));
     const g = gesture.current;
@@ -116,7 +181,6 @@ export function Scan({ src, onBack }: { src: string; onBack: () => void }) {
       const [a, b] = pts;
       const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
       const s = Math.min(5, Math.max(1, (g.view.s * Math.hypot(a.x - b.x, a.y - b.y)) / g.dist));
-      // the point that was under the fingers stays under them
       const cx = (g.x - g.view.x) / g.view.s;
       const cy = (g.y - g.view.y) / g.view.s;
       setView(clampView(s, mid.x - cx * s, mid.y - cy * s));
@@ -129,10 +193,11 @@ export function Scan({ src, onBack }: { src: string; onBack: () => void }) {
     const p = pointers.current.get(e.pointerId);
     const g = gesture.current;
     pointers.current.delete(e.pointerId);
-    // double tap: zoom in at the finger / back to fit
     if (p && g?.kind === 'pan' && Math.hypot(p.x - g.x, p.y - g.y) < 8) {
       const now = performance.now();
       if (now - lastTap.current.t < 300 && Math.hypot(p.x - lastTap.current.x, p.y - lastTap.current.y) < 30) {
+        // double tap: zoom in at the finger / back to fit
+        clearTimeout(tapTimer.current);
         if (view.s > 1.05) setView(clampView(1, 0, 0));
         else {
           const s = 2.5;
@@ -141,7 +206,14 @@ export function Scan({ src, onBack }: { src: string; onBack: () => void }) {
           setView(clampView(s, p.x - cx * s, p.y - cy * s));
         }
         lastTap.current = { t: 0, x: 0, y: 0 };
-      } else lastTap.current = { t: now, x: p.x, y: p.y };
+      } else {
+        lastTap.current = { t: now, x: p.x, y: p.y };
+        // single tap outside the bubble of a one-sentence scan: close it (after the double-tap window)
+        if (!g.onBubble && mode === 'region' && blocks.length && !showFrame) {
+          clearTimeout(tapTimer.current);
+          tapTimer.current = setTimeout(clearBubbles, 300);
+        }
+      }
     }
     startGesture();
   };
@@ -150,22 +222,23 @@ export function Scan({ src, onBack }: { src: string; onBack: () => void }) {
   useEffect(() => {
     b64.current = toBase64(src);
     b64.current.catch(() => setError('Không đọc được ảnh.'));
-    setBlocks([]);
-    setActive(null);
-    setShowFrame(true);
+    clearBubbles();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [src]);
 
-  // ---------------------------------------------------------------- scan frame (drag / resize)
+  // ---------------------------------------------------------------- scan frame / bubble corners (drag / resize)
   const size = () => {
     const r = wrap.current?.getBoundingClientRect();
     return { w: r?.width ?? 1, h: r?.height ?? 1 };
   };
-  const onDown = (kind: 'move' | Handle) => (e: React.PointerEvent) => {
+  const onDown = (kind: 'move' | Handle, target: 'frame' | string) => (e: React.PointerEvent) => {
     e.preventDefault();
     e.stopPropagation();
     viewport.current?.setPointerCapture(e.pointerId);
     const { w, h } = size();
-    drag.current = { kind, x: e.clientX, y: e.clientY, start: { left: frame.x * w, top: frame.y * h, width: frame.w * w, height: frame.h * h } };
+    const b = target === 'frame' ? frame : (edit?.id === target ? edit.box : blocks.find((x) => x.id === target)?.box);
+    if (!b) return;
+    drag.current = { kind, target, x: e.clientX, y: e.clientY, start: { left: b.x * w, top: b.y * h, width: b.w * w, height: b.h * h }, moved: false };
   };
   const onMove = (e: React.PointerEvent) => {
     const d = drag.current;
@@ -173,15 +246,40 @@ export function Scan({ src, onBack }: { src: string; onBack: () => void }) {
     const { w, h } = size();
     const dx = e.clientX - d.x;
     const dy = e.clientY - d.y;
+    if (Math.abs(dx) + Math.abs(dy) > 3) d.moved = true;
     let r = d.kind === 'move' ? { ...d.start, left: d.start.left + dx, top: d.start.top + dy } : resizeRect(d.start, d.kind, dx, dy);
-    // keep the frame on the image
     r = { ...r, width: Math.min(r.width, w), height: Math.min(r.height, h) };
     r.left = Math.min(Math.max(0, r.left), w - r.width);
     r.top = Math.min(Math.max(0, r.top), h - r.height);
-    setFrame({ x: r.left / w, y: r.top / h, w: r.width / w, h: r.height / h });
+    const box = { x: r.left / w, y: r.top / h, w: r.width / w, h: r.height / h };
+    if (d.target === 'frame') setFrame(box);
+    else setEdit({ id: d.target, box });
   };
   const onUp = () => {
+    const d = drag.current;
     drag.current = null;
+    if (d && d.target !== 'frame' && d.moved && edit) void rescanBubble(edit.id, edit.box);
+  };
+
+  /** The user re-framed a bubble: read only that area again and replace its text. */
+  const rescanBubble = async (id: string, box: Box) => {
+    setRescanning(id);
+    try {
+      const image = await (b64.current ?? toBase64(src));
+      const lines = await recognize(image, box);
+      const one = lines.length ? bubbleBlock(lines, id, true) : null;
+      if (!one) {
+        setError('Không thấy chữ trong vùng vừa chỉnh. Kéo góc để khung trùng lên chữ.');
+        return;
+      }
+      setBlocks((list) => list.map((b) => (b.id === id ? { ...one, id, box } : b)));
+      setFocus((f) => ({ id, n: (f?.n ?? 0) + 1 }));
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setEdit(null);
+      setRescanning(null);
+    }
   };
 
   const runId = useRef(0);
@@ -190,27 +288,30 @@ export function Scan({ src, onBack }: { src: string; onBack: () => void }) {
     runId.current++;
     setBusy(false);
   };
-  const run = async (mode: 'region' | 'full') => {
+  const run = async (scanMode: 'region' | 'full') => {
     const id = ++runId.current;
-    setBusy(mode);
+    setBusy(scanMode);
     setError('');
     try {
       const image = await (b64.current ?? toBase64(src));
-      const lines = await recognize(image, mode === 'region' ? frame : undefined);
+      const lines = await recognize(image, scanMode === 'region' ? frame : undefined);
       if (id !== runId.current) return; // cancelled
       let found: OcrBlock[];
-      if (mode === 'region') {
+      if (scanMode === 'region') {
         // the user framed one bubble / sentence / word: everything inside is one text
         const one = lines.length ? bubbleBlock(lines, 'b0', true) : null;
         found = one ? [one] : [];
       } else {
         found = groupLines(lines, { reline: false }).filter((b) => plausibleText(b.text, b.confidence, true));
       }
+      setMode(scanMode);
       setBlocks(found);
       setActive(found[0]?.id ?? null);
+      setFocus(null);
+      setEdit(null);
       setShowFrame(false);
       setSheetKey((k) => k + 1);
-      if (!found.length) setError(mode === 'region' ? 'Không thấy chữ trong khung. Kéo khung trùng lên chữ rồi quét lại.' : 'Không nhận ra chữ nào trong ảnh.');
+      if (!found.length) setError(scanMode === 'region' ? 'Không thấy chữ trong khung. Kéo khung trùng lên chữ rồi quét lại.' : 'Không nhận ra chữ nào trong ảnh.');
     } catch (e) {
       if (id === runId.current) setError((e as Error).message);
     } finally {
@@ -218,11 +319,15 @@ export function Scan({ src, onBack }: { src: string; onBack: () => void }) {
     }
   };
 
-  const inv = 1 / view.s; // keeps the frame's dots and label the same size while zoomed
+  const inv = 1 / view.s; // keeps dots, labels and borders the same size while zoomed
+  const selectBubble = (id: string) => {
+    setActive(id);
+    setFocus((f) => ({ id, n: (f?.n ?? 0) + 1 }));
+  };
 
   return (
     <div className="mx-auto max-w-2xl" data-ml-scan="">
-      <div className="ml-glass-bar sticky top-0 z-10 flex items-center gap-2 border-b px-3 py-2">
+      <div className="ml-glass-bar sticky top-0 z-10 flex items-center gap-1.5 border-b px-3 py-2">
         <button type="button" onClick={onBack} className="rounded-lg p-1.5 text-muted" aria-label="Quay lại">
           <IconBack size={20} />
         </button>
@@ -232,7 +337,12 @@ export function Scan({ src, onBack }: { src: string; onBack: () => void }) {
             Vừa màn hình
           </button>
         )}
-        {!showFrame && (
+        {!showFrame && blocks.length > 0 && (
+          <button type="button" onClick={clearBubbles} className="ml-press rounded-full bg-danger/10 px-3 py-1 text-[13px] font-semibold text-danger" data-ml-clear-bubbles="">
+            Xoá bong bóng
+          </button>
+        )}
+        {!showFrame && !blocks.length && (
           <button type="button" onClick={() => setShowFrame(true)} className="rounded-lg px-2 py-1 text-[13px] font-semibold text-accent">
             Khung mới
           </button>
@@ -267,34 +377,58 @@ export function Scan({ src, onBack }: { src: string; onBack: () => void }) {
             onError={() => setError('Không mở được ảnh.')}
           />
           {!showFrame &&
-            blocks.map((b, i) => (
-              <button
-                key={b.id}
-                type="button"
-                onClick={() => setActive(b.id)}
-                className={cx('absolute rounded-md border-2', b.id === active ? 'border-accent bg-accent/20' : 'border-[rgb(var(--ml-box))] bg-[rgb(var(--ml-box)/0.12)]')}
-                style={{ left: `${b.box.x * 100}%`, top: `${b.box.y * 100}%`, width: `${b.box.w * 100}%`, height: `${b.box.h * 100}%`, borderWidth: 2 * inv }}
-                aria-label={`Bong bóng ${i + 1}`}
-              >
-                {blocks.length > 1 && (
-                  <span className="absolute -left-2 -top-2 flex h-5 min-w-5 origin-top-left items-center justify-center rounded-full bg-[rgb(var(--ml-box))] px-1 text-[11px] font-bold text-white" style={{ scale: String(inv) }}>
-                    {i + 1}
-                  </span>
-                )}
-              </button>
-            ))}
+            blocks.map((b, i) => {
+              const box = edit?.id === b.id ? edit.box : b.box;
+              const on = b.id === active;
+              return (
+                <div
+                  key={b.id}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => selectBubble(b.id)}
+                  onPointerDown={on ? onDown('move', b.id) : undefined}
+                  className={cx(
+                    'absolute rounded-md',
+                    on ? 'border-accent bg-accent/15' : 'border-[rgb(var(--ml-box))] bg-[rgb(var(--ml-box)/0.12)]',
+                    on && focus?.id === b.id && (focus.n % 2 ? 'ml-box-pulse-a' : 'ml-box-pulse-b'),
+                  )}
+                  style={{ left: `${box.x * 100}%`, top: `${box.y * 100}%`, width: `${box.w * 100}%`, height: `${box.h * 100}%`, borderWidth: 2 * inv, borderStyle: 'solid' }}
+                  aria-label={`Bong bóng ${i + 1}`}
+                  data-ml-bubble-box=""
+                >
+                  {blocks.length > 1 && (
+                    <span className="absolute -left-2 -top-2 flex h-5 min-w-5 origin-top-left items-center justify-center rounded-full bg-[rgb(var(--ml-box))] px-1 text-[11px] font-bold text-white" style={{ scale: String(inv) }}>
+                      {i + 1}
+                    </span>
+                  )}
+                  {rescanning === b.id && (
+                    <span className="absolute inset-0 flex items-center justify-center bg-black/20">
+                      <Spinner />
+                    </span>
+                  )}
+                  {/* the selected bubble can be re-framed: drag its corners (or the bubble) */}
+                  {on &&
+                    !rescanning &&
+                    CORNERS.map((h) => (
+                      <span key={h} onPointerDown={onDown(h, b.id)} className={cx('absolute flex h-9 w-9 items-center justify-center', CORNER_POS[h])} style={{ scale: String(inv) }} data-ml-bubble-corner="">
+                        <span className="pointer-events-none h-3 w-3 rounded-full border-2 border-white bg-accent shadow-[0_1px_3px_rgb(0_0_0/0.4)]" />
+                      </span>
+                    ))}
+                </div>
+              );
+            })}
           {showFrame && (
             <div
               className="absolute rounded-lg border-accent bg-accent/10 shadow-[0_0_0_9999px_rgba(0,0,0,0.35)]"
-              style={{ left: `${frame.x * 100}%`, top: `${frame.y * 100}%`, width: `${frame.w * 100}%`, height: `${frame.h * 100}%`, borderWidth: 2 * inv }}
-              onPointerDown={onDown('move')}
+              style={{ left: `${frame.x * 100}%`, top: `${frame.y * 100}%`, width: `${frame.w * 100}%`, height: `${frame.h * 100}%`, borderWidth: 2 * inv, borderStyle: 'solid' }}
+              onPointerDown={onDown('move', 'frame')}
               data-ml-scan-frame=""
             >
               <span className="pointer-events-none absolute bottom-full left-0 mb-1 origin-bottom-left whitespace-nowrap rounded bg-accent px-1.5 py-0.5 text-[11px] font-semibold text-accent-fg" style={{ scale: String(inv) }}>
                 Kéo khung vào chữ cần đọc
               </span>
               {CORNERS.map((h) => (
-                <span key={h} onPointerDown={onDown(h)} className={cx('absolute flex h-9 w-9 items-center justify-center', CORNER_POS[h])} style={{ scale: String(inv) }} data-ml-scan-corner="">
+                <span key={h} onPointerDown={onDown(h, 'frame')} className={cx('absolute flex h-9 w-9 items-center justify-center', CORNER_POS[h])} style={{ scale: String(inv) }} data-ml-scan-corner="">
                   <span className="pointer-events-none h-3 w-3 rounded-full border-2 border-white bg-accent shadow-[0_1px_3px_rgb(0_0_0/0.4)]" />
                 </span>
               ))}
@@ -304,17 +438,31 @@ export function Scan({ src, onBack }: { src: string; onBack: () => void }) {
       </div>
 
       {error && (
-        <div className="ml-glass animate-ml-in fixed inset-x-3 bottom-[calc(max(10px,env(safe-area-inset-bottom))+140px)] z-[25] rounded-[22px] px-4 py-3 text-[13.5px] text-text" data-ml-scan-error="">
-          ⚠️ {error}
-        </div>
+        <button type="button" onClick={() => setError('')} className="ml-glass animate-ml-in fixed inset-x-3 bottom-[calc(max(10px,env(safe-area-inset-bottom))+140px)] z-[25] rounded-[22px] px-4 py-3 text-left text-[13.5px] text-text" data-ml-scan-error="">
+          ⚠️ {error} <span className="text-subtle">(chạm để ẩn)</span>
+        </button>
       )}
 
-      <ResultSheet open={!!blocks.length && !showFrame && !error} riseKey={sheetKey} scrollTo={active} title={blocks.length > 1 ? `${blocks.length} bong bóng · chạm khung trên ảnh để tới` : 'Kết quả dịch'}>
+      <ResultSheet
+        open={!!blocks.length && !showFrame}
+        riseKey={sheetKey}
+        focus={focus ? `${focus.id}:${focus.n}` : null}
+        title={blocks.length > 1 ? `${blocks.length} bong bóng · chạm khung trên ảnh để tới` : 'Kết quả dịch · chạm ra ngoài để đóng'}
+      >
         {blocks.map((b, i) => (
-          <div key={b.id + b.text} data-ml-block={b.id} className={cx(blocks.length > 1 && i > 0 && 'mt-2 border-t border-border/60 pt-1')}>
-            <ScanResult text={b.text} n={blocks.length > 1 ? i + 1 : 0} />
+          <div
+            key={b.id}
+            data-ml-block={b.id}
+            className={cx('rounded-[22px]', blocks.length > 1 && i > 0 && 'mt-2 border-t border-border/60 pt-1', focus?.id === b.id && (focus.n % 2 ? 'ml-flash-a' : 'ml-flash-b'))}
+          >
+            <ScanResult text={b.text} n={blocks.length > 1 ? i + 1 : 0} mt={translations[b.id]} />
           </div>
         ))}
+        {blocks.length > 0 && (
+          <div className="mx-3 mt-3 text-center text-[11.5px] leading-snug text-subtle">
+            Chọn một bong bóng rồi kéo 4 chấm ở góc để chỉnh lại vùng – chỉ vùng đó được đọc lại.
+          </div>
+        )}
       </ResultSheet>
 
       <div className="ml-glass fixed inset-x-3 bottom-[calc(max(10px,env(safe-area-inset-bottom))+76px)] z-20 flex gap-2 rounded-[26px] p-2">
@@ -329,12 +477,12 @@ export function Scan({ src, onBack }: { src: string; onBack: () => void }) {
           </>
         ) : (
           <>
-        <button type="button" disabled={!!busy || !showFrame} onClick={() => void run('region')} data-ml-magnetic="" className="ml-press ml-btn-primary ml-ripple flex flex-1 items-center justify-center gap-1.5 rounded-[20px] py-2.5 text-[14px] font-bold disabled:opacity-40">
-          <IconScan size={16} /> Quét vùng này
-        </button>
-        <button type="button" disabled={!!busy} onClick={() => void run('full')} className="ml-press ml-glass-card ml-ripple flex flex-1 items-center justify-center gap-1.5 rounded-[20px] py-2.5 text-[14px] font-semibold text-text disabled:opacity-40">
-          Quét toàn màn hình
-        </button>
+            <button type="button" disabled={!showFrame} onClick={() => void run('region')} data-ml-magnetic="" className="ml-press ml-btn-primary ml-ripple flex flex-1 items-center justify-center gap-1.5 rounded-[20px] py-2.5 text-[14px] font-bold disabled:opacity-40">
+              <IconScan size={16} /> Quét vùng này
+            </button>
+            <button type="button" onClick={() => void run('full')} className="ml-press ml-glass-card ml-ripple flex flex-1 items-center justify-center gap-1.5 rounded-[20px] py-2.5 text-[14px] font-semibold text-text">
+              Quét toàn màn hình
+            </button>
           </>
         )}
       </div>
@@ -348,11 +496,11 @@ export function Scan({ src, onBack }: { src: string; onBack: () => void }) {
  * (peek · half · tall) following the swipe direction; tapping the handle toggles half ↔ peek.
  * Performance: the sheet always has its tall height and is moved with transform (GPU only) – a
  * drag never re-renders React or re-lays-out the content; the scroll area is resized once, when
- * the sheet settles.
+ * the sheet settles. `focus` ("id:n") scrolls to a bubble's card (raising the sheet if needed).
  */
 const BARS = 'calc(150px + env(safe-area-inset-bottom))'; // height of the button bar + tab bar area
 
-function ResultSheet({ open, riseKey, title, children, scrollTo }: { open: boolean; riseKey: number; title: string; children: ReactNode; scrollTo?: string | null }) {
+function ResultSheet({ open, riseKey, title, children, focus }: { open: boolean; riseKey: number; title: string; children: ReactNode; focus?: string | null }) {
   const snaps = () => {
     const H = window.innerHeight;
     return [56, Math.round(H * 0.42), Math.round(H * 0.7)];
@@ -362,9 +510,8 @@ function ResultSheet({ open, riseKey, title, children, scrollTo }: { open: boole
   const [h, setH] = useState(() => snaps()[1]); // settled visible height (above the bars)
   const [mounted, setMounted] = useState(open);
   const [leaving, setLeaving] = useState(false);
-  const drag = useRef<{ y: number; h: number; t: number; lastY: number; lastT: number; v: number; moved: boolean; cur: number } | null>(null);
+  const drag = useRef<{ y: number; h: number; lastY: number; lastT: number; v: number; moved: boolean; cur: number } | null>(null);
 
-  // open / close with the slide animation
   useEffect(() => {
     if (open) {
       setMounted(true);
@@ -379,14 +526,20 @@ function ResultSheet({ open, riseKey, title, children, scrollTo }: { open: boole
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
-  // a new result: rise to the middle height
   useEffect(() => setH(snaps()[1]), [riseKey]);
-  // tapping a bubble on the image scrolls its card into view
+  // jump to a bubble's card: raise the sheet from its peek height, then scroll there
   useEffect(() => {
-    if (!scrollTo || !body.current) return;
-    const card = body.current.querySelector<HTMLElement>(`[data-ml-block="${scrollTo}"]`);
-    if (card) body.current.scrollTo({ top: card.offsetTop - 8, behavior: 'smooth' });
-  }, [scrollTo]);
+    if (!focus || !body.current) return;
+    const id = focus.slice(0, focus.lastIndexOf(':'));
+    const s = snaps();
+    if (h < s[1] - 10) setH(s[1]);
+    const t = setTimeout(() => {
+      const card = body.current?.querySelector<HTMLElement>(`[data-ml-block="${id}"]`);
+      if (card && body.current) body.current.scrollTo({ top: card.offsetTop - 8, behavior: 'smooth' });
+    }, 60);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focus]);
 
   if (!mounted) return null;
   const max = snaps()[2];
@@ -399,8 +552,7 @@ function ResultSheet({ open, riseKey, title, children, scrollTo }: { open: boole
   };
   const onDown = (e: React.PointerEvent) => {
     (e.currentTarget as Element).setPointerCapture(e.pointerId);
-    const t = performance.now();
-    drag.current = { y: e.clientY, h, t, lastY: e.clientY, lastT: t, v: 0, moved: false, cur: h };
+    drag.current = { y: e.clientY, h, lastY: e.clientY, lastT: performance.now(), v: 0, moved: false, cur: h };
   };
   const onMove = (e: React.PointerEvent) => {
     const d = drag.current;
@@ -408,12 +560,11 @@ function ResultSheet({ open, riseKey, title, children, scrollTo }: { open: boole
     const [lo, , hi] = snaps();
     const dy = e.clientY - d.y;
     if (Math.abs(dy) > 4) d.moved = true;
-    // rubber band beyond the ends
     let next = d.h - dy;
     if (next > hi) next = hi + (next - hi) * 0.25;
     if (next < lo) next = lo - (lo - next) * 0.25;
     const t = performance.now();
-    if (t > d.lastT) d.v = 0.7 * ((e.clientY - d.lastY) / (t - d.lastT)) + 0.3 * d.v; // smoothed px/ms, + = down
+    if (t > d.lastT) d.v = 0.7 * ((e.clientY - d.lastY) / (t - d.lastT)) + 0.3 * d.v; // px/ms, + = down
     d.lastY = e.clientY;
     d.lastT = t;
     d.cur = next;
@@ -425,7 +576,7 @@ function ResultSheet({ open, riseKey, title, children, scrollTo }: { open: boole
     if (!d) return;
     const s = snaps();
     let target: number;
-    if (!d.moved) target = h > s[0] + 10 ? s[0] : s[1]; // tap: toggle peek ↔ half
+    if (!d.moved) target = h > s[0] + 10 ? s[0] : s[1];
     else if (d.v > 0.4) target = [...s].reverse().find((x) => x < d.cur - 8) ?? s[0];
     else if (d.v < -0.4) target = s.find((x) => x > d.cur + 8) ?? s[2];
     else target = s.reduce((a, b) => (Math.abs(b - d.cur) < Math.abs(a - d.cur) ? b : a));
@@ -434,15 +585,11 @@ function ResultSheet({ open, riseKey, title, children, scrollTo }: { open: boole
   };
 
   return (
-    <div
-      key={riseKey}
-      className={cx('fixed inset-x-0 bottom-0 z-[15]', leaving ? 'ml-sheet-out' : 'ml-sheet-in')}
-      data-ml-scan-sheet=""
-      style={{ height: `calc(${max}px + ${BARS})` }}
-    >
+    <div key={riseKey} className={cx('pointer-events-none fixed inset-x-0 bottom-0 z-[15]', leaving ? 'ml-sheet-out' : 'ml-sheet-in')} data-ml-scan-sheet="" style={{ height: `calc(${max}px + ${BARS})` }}>
       <div
         ref={sheet}
-        className="ml-glass flex h-full flex-col rounded-t-[28px] border-b-0 will-change-transform"
+        // the wrapper is as tall as the fully raised sheet: only the sheet itself takes touches
+        className="ml-glass pointer-events-auto flex h-full flex-col rounded-t-[28px] border-b-0 will-change-transform"
         style={{ transform: `translate3d(0, ${max - h}px, 0)`, transition: 'transform 420ms cubic-bezier(.22,1.1,.36,1)', paddingBottom: BARS }}
       >
         <div className="shrink-0 cursor-grab touch-none select-none px-4 pb-1 pt-2" onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp} data-ml-sheet-handle="">
@@ -452,8 +599,7 @@ function ResultSheet({ open, riseKey, title, children, scrollTo }: { open: boole
             <span className="shrink-0 pl-2 text-[11px] font-semibold normal-case tracking-normal text-subtle">kéo lên / xuống</span>
           </div>
         </div>
-        {/* only the visible part scrolls: the hidden part below is padding (updated once per settle) */}
-        <div ref={body} className="ml-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain" style={{ marginBottom: max - h }}>
+        <div ref={body} className="ml-scroll relative min-h-0 flex-1 overflow-y-auto overscroll-contain" style={{ marginBottom: max - h }}>
           <div className="pb-3">{children}</div>
         </div>
       </div>
@@ -461,36 +607,15 @@ function ResultSheet({ open, riseKey, title, children, scrollTo }: { open: boole
   );
 }
 
-/** Result card of one bubble: original text (tap a word), dictionary gloss, every word with IPA / meaning / sound. */
-function ScanResult({ text, n }: { text: string; n: number }) {
+/** Result card of one bubble: original text (tap a word), translation, dictionary gloss, words (save each), notes. */
+function ScanResult({ text, n, mt }: { text: string; n: number; mt?: Mt }) {
   const [gloss, setGloss] = useState<string | null | undefined>(undefined);
-  // natural translation (Apple Translation on iOS 18+); null = not available on this phone
-  const [mt, setMt] = useState<{ state: 'loading' | 'done' | 'error' | 'off'; text?: string; error?: string }>({ state: 'loading' });
   const [rows, setRows] = useState<Record<string, WordLookup | null | undefined>>({});
+  const { list } = useVocab();
+  const saved = new Set(list.map((e) => e.lemma));
   const content = ocrWords(text);
   const words = content.length ? content : ocrWords(text, true);
-  // words not in the dictionary are treated as proper names: kept as they are in the translation
-  const isName = (w: string) => words.some((x) => x.toLowerCase() === w && rows[x] !== undefined && !rows[x]?.found);
-  const looked = words.every((w) => rows[w] !== undefined);
-  const [waited, setWaited] = useState(false);
-  useEffect(() => {
-    setWaited(false);
-    const id = setTimeout(() => setWaited(true), 2500); // do not wait forever for the dictionary
-    return () => clearTimeout(id);
-  }, [text]);
-  const ready = looked || waited;
-  useEffect(() => {
-    if (!ready) return;
-    let alive = true;
-    setMt({ state: 'loading' });
-    translateOnDevice(prepareForMt(naturalCase(text, isName)))
-      .then((r) => alive && setMt(r ? { state: 'done', text: r } : { state: 'off' }))
-      .catch((e: Error) => alive && setMt({ state: 'error', error: e.message }));
-    return () => {
-      alive = false;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [text, ready]);
+  const m = mt ?? { state: 'loading' };
 
   useEffect(() => {
     let alive = true;
@@ -506,8 +631,8 @@ function ScanResult({ text, n }: { text: string; n: number }) {
         .catch(() => alive && setGloss(null));
     } else setGloss(null);
     for (const w of words) {
-      void send({ type: 'lookup', req: { text: w, context: text, mode: 'word', assumeEnglish: true } })
-        .then((r) => alive && setRows((x) => ({ ...x, [w]: r.kind === 'word' ? r : null })))
+      void wordLookup(w, text)
+        .then((r) => alive && setRows((x) => ({ ...x, [w]: r })))
         .catch(() => alive && setRows((x) => ({ ...x, [w]: null })));
     }
     return () => {
@@ -515,6 +640,19 @@ function ScanResult({ text, n }: { text: string; n: number }) {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [text]);
+
+  const saveWord = (w: string, r: WordLookup | null | undefined) => {
+    const name = !r?.found;
+    void vocabStore.add({
+      word: w,
+      lemma: r?.lemma ?? w.toLowerCase(),
+      ipa: r?.ipa,
+      meaning: name ? 'Tên riêng' : r ? primaryMeaning(r) : '',
+      pos: r?.context?.likelyPos ?? r?.posList?.[0],
+      sentence: text,
+      translation: m.state === 'done' ? m.text : undefined,
+    });
+  };
 
   return (
     <div className="mx-3 mt-3 space-y-3" data-ml-scan-result="">
@@ -544,24 +682,24 @@ function ScanResult({ text, n }: { text: string; n: number }) {
         </button>
       </div>
 
-      {mt.state !== 'off' && (
+      {m.state !== 'off' && (
         <div className="rounded-[20px] border border-accent/30 border-l-[4px] border-l-accent bg-accent/[0.1] p-3" data-ml-scan-mt="">
           <div className="mb-1 text-[11px] font-bold uppercase tracking-wider text-accent">Bản dịch</div>
-          {mt.state === 'loading' ? (
+          {m.state === 'loading' ? (
             <div className="flex items-center gap-2 text-[13px] text-muted">
-              <Spinner /> Đang dịch… <span className="text-[11.5px] text-subtle">(lần đầu iPhone có thể hỏi tải gói tiếng Việt)</span>
+              <Spinner /> Đang dịch…
             </div>
-          ) : mt.state === 'done' ? (
-            <div className="ml-tr text-[16px] font-semibold leading-snug">{mt.text}</div>
+          ) : m.state === 'done' ? (
+            <div className="ml-tr text-[16px] font-semibold leading-snug">{m.text}</div>
           ) : (
-            <div className="text-[13px] text-muted">Chưa dịch được ({mt.error}). Kiểm tra Cài đặt → Ứng dụng → Dịch thuật → đã tải tiếng Việt.</div>
+            <div className="text-[13px] text-muted">Chưa dịch được ({m.error}). Kiểm tra Cài đặt → Ứng dụng → Dịch thuật → đã tải tiếng Việt.</div>
           )}
         </div>
       )}
 
       {gloss !== null && (
         <div className="ml-glass-card rounded-[20px] border-l-[4px] border-l-subtle p-3">
-          <div className="mb-1 text-[11px] font-bold uppercase tracking-wider text-muted">{mt.state === 'off' ? 'Nghĩa (từ điển)' : 'Ghép nghĩa từng từ (từ điển)'}</div>
+          <div className="mb-1 text-[11px] font-bold uppercase tracking-wider text-muted">{m.state === 'off' ? 'Nghĩa (từ điển)' : 'Ghép nghĩa từng từ (từ điển)'}</div>
           {gloss === undefined ? (
             <div className="flex items-center gap-2 text-[13px] text-muted">
               <Spinner /> Đang tra…
@@ -579,8 +717,9 @@ function ScanResult({ text, n }: { text: string; n: number }) {
             {words.map((w) => {
               const r = rows[w];
               const meaning = r ? primaryMeaning(r) : '';
+              const isSaved = saved.has(r?.lemma ?? w.toLowerCase());
               return (
-                <li key={w} className="ml-glass-card ml-press flex items-start gap-2 rounded-[18px] border-l-[4px] border-l-ok/70 px-3 py-2" onClick={() => openLookup(w)}>
+                <li key={w} className="ml-glass-card ml-press flex items-start gap-1 rounded-[18px] border-l-[4px] border-l-ok/70 py-2 pl-3 pr-1.5" onClick={() => openLookup(w)}>
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-baseline gap-x-1.5">
                       <span className="text-[15px] font-semibold">{w}</span>
@@ -605,7 +744,7 @@ function ScanResult({ text, n }: { text: string; n: number }) {
                   {canSpeak() && (
                     <button
                       type="button"
-                      className="p-1 text-muted"
+                      className="p-1.5 text-muted"
                       aria-label={`Phát âm ${w}`}
                       onClick={(e) => {
                         e.stopPropagation();
@@ -615,12 +754,108 @@ function ScanResult({ text, n }: { text: string; n: number }) {
                       <IconVolume size={18} />
                     </button>
                   )}
+                  <button
+                    type="button"
+                    className={cx('ml-press rounded-full p-1.5', isSaved ? 'ml-glass-select border' : 'text-muted')}
+                    aria-label={isSaved ? `Đã lưu ${w}` : `Lưu từ ${w}`}
+                    disabled={isSaved || r === undefined}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      saveWord(w, r);
+                    }}
+                    data-ml-save-word=""
+                  >
+                    {isSaved ? <IconCheck size={18} /> : <IconBookmark size={18} />}
+                  </button>
                 </li>
               );
             })}
           </ul>
         </div>
       )}
+
+      <Notes sentence={text} translation={m.state === 'done' ? m.text : undefined} />
+    </div>
+  );
+}
+
+const NOTE_COLORS = ['border-l-accent', 'border-l-warn', 'border-l-ok', 'border-l-[rgb(var(--ml-box))]'];
+
+/**
+ * "Ghi chú": the reader writes phrase ↔ meaning pairs. Each pair is one card (numbered, its own
+ * colour stripe) with two differently tinted fields – phrase (blue) and meaning (green) – so pairs
+ * are easy to tell apart. Saved to the vocabulary notebook.
+ */
+function Notes({ sentence, translation }: { sentence: string; translation?: string }) {
+  const [open, setOpen] = useState(false);
+  const [pairs, setPairs] = useState([{ phrase: '', meaning: '' }]);
+  const [done, setDone] = useState(0);
+  const set = (i: number, k: 'phrase' | 'meaning', v: string) => setPairs((p) => p.map((x, j) => (j === i ? { ...x, [k]: v } : x)));
+  const save = async () => {
+    const good = pairs.filter((p) => p.phrase.trim());
+    for (const p of good) {
+      const r = await vocabStore.add({ word: p.phrase.trim(), lemma: p.phrase.trim().toLowerCase(), meaning: p.meaning.trim(), sentence, translation, notes: 'Ghi chú từ bản quét' });
+      // already in the notebook (e.g. saved as a word): keep your own meaning in its notes
+      if (!r.created && p.meaning.trim()) {
+        const mine = 'Ghi chú: ' + p.meaning.trim();
+        const notes = r.entry.notes && !r.entry.notes.includes(mine) ? `${r.entry.notes}\n${mine}` : mine;
+        await vocabStore.update(r.entry.id, { notes });
+      }
+    }
+    setDone(good.length);
+    setPairs([{ phrase: '', meaning: '' }]);
+  };
+  if (!open)
+    return (
+      <button type="button" onClick={() => setOpen(true)} className="ml-press ml-glass-card flex w-full items-center justify-center gap-1.5 rounded-[18px] py-2.5 text-[13.5px] font-semibold" data-ml-notes-open="">
+        ✏️ Ghi chú
+        {done > 0 && <span className="text-[12px] font-normal text-ok">· đã lưu {done} cụm vào Sổ từ</span>}
+      </button>
+    );
+  return (
+    <div className="ml-glass-card space-y-2 rounded-[20px] p-3" data-ml-notes="">
+      <div className="flex items-center justify-between">
+        <div className="text-[11px] font-bold uppercase tracking-wider text-muted">Ghi chú của bạn</div>
+        <button type="button" onClick={() => setOpen(false)} className="text-[12px] font-semibold text-muted">
+          Đóng
+        </button>
+      </div>
+      {pairs.map((p, i) => (
+        <div key={i} className={cx('rounded-2xl border border-border/60 border-l-[4px] bg-surface/40 p-2', NOTE_COLORS[i % NOTE_COLORS.length])} data-ml-note-pair="">
+          <div className="mb-1 flex items-center justify-between">
+            <span className="text-[11px] font-bold text-muted">Cụm {i + 1}</span>
+            {pairs.length > 1 && (
+              <button type="button" onClick={() => setPairs((x) => x.filter((_, j) => j !== i))} className="px-1 text-[13px] text-muted" aria-label={`Xoá cụm ${i + 1}`}>
+                ✕
+              </button>
+            )}
+          </div>
+          <input
+            value={p.phrase}
+            onChange={(e) => set(i, 'phrase', e.target.value)}
+            placeholder="Câu / cụm từ tiếng Anh"
+            className="ml-focus mb-1.5 block w-full rounded-xl border border-accent/35 bg-accent/10 px-2.5 py-2 text-[15px] font-semibold text-text placeholder:font-normal placeholder:text-subtle"
+            data-ml-note-phrase=""
+          />
+          <textarea
+            value={p.meaning}
+            onChange={(e) => set(i, 'meaning', e.target.value)}
+            rows={2}
+            placeholder="Nghĩa tiếng Việt (bạn tự ghi)"
+            className="ml-focus block w-full resize-none rounded-xl border border-ok/35 bg-ok/10 px-2.5 py-2 text-[15px] text-text placeholder:text-subtle"
+            data-ml-note-meaning=""
+          />
+        </div>
+      ))}
+      <div className="flex gap-2">
+        <button type="button" onClick={() => setPairs((x) => [...x, { phrase: '', meaning: '' }])} className="ml-press ml-glass-card flex-1 rounded-full py-2 text-[13px] font-semibold">
+          + Thêm cụm
+        </button>
+        <button type="button" disabled={!pairs.some((p) => p.phrase.trim())} onClick={() => void save()} className="ml-press ml-btn-primary flex-1 rounded-full py-2 text-[13px] font-semibold disabled:opacity-40" data-ml-notes-save="">
+          Lưu vào Sổ từ
+        </button>
+      </div>
+      {done > 0 && <div className="text-center text-[12px] text-ok">Đã lưu {done} cụm vào Sổ từ ✓</div>}
     </div>
   );
 }

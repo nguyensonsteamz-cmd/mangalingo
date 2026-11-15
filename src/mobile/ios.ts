@@ -43,6 +43,22 @@ export async function translateOnDevice(text: string): Promise<string | null> {
   }
 }
 
+/**
+ * Several texts in one request (all bubbles of a page): one model load instead of one per bubble.
+ * null when unavailable (older iOS, outside the app); throws on a translation error.
+ */
+export async function translateBatch(texts: string[]): Promise<string[] | null> {
+  const h = handler();
+  if (!h || !texts.length) return null;
+  try {
+    const r = (await h.postMessage({ cmd: 'translateBatch', texts })) as { texts?: string[] } | null;
+    return r?.texts ?? null;
+  } catch (e) {
+    if (String((e as Error)?.message ?? e).includes('unavailable')) return null;
+    throw e;
+  }
+}
+
 /** Is the Vietnamese translation pack on the phone? ('unavailable' = older iOS / not the iPhone app) */
 export async function translationPackStatus(): Promise<'installed' | 'download' | 'unsupported' | 'unavailable'> {
   const h = handler();
