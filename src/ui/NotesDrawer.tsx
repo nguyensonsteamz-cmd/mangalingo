@@ -6,7 +6,7 @@
 import { useEffect, useState } from 'react';
 import { cx } from '@/ui/components';
 import { vocabStore } from '@/ui/VocabManager';
-import { copyText } from './ios';
+import { copyText } from '@/mobile/ios';
 import { notesStore, useNotes } from './notes';
 
 const STRIPES = ['border-l-accent', 'border-l-warn', 'border-l-ok', 'border-l-[rgb(var(--ml-box))]'];

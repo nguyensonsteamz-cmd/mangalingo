@@ -22,6 +22,9 @@ function defaultTab(result?: LookupResult): string {
 
 async function runLookup(req: LookupRequest, replaceTop: boolean, anchor?: Rect) {
   const seq = ++lookupSeq;
+  // The sidebar mirrors what the popup is translating: same word / sentence, same moment (stored for the panel
+  // and delivered live when it is open; nothing is opened here).
+  if (req.text.trim()) void send({ type: 'sidebar:push', payload: { type: 'lookup', text: req.text, context: req.context, source: pageSource() } }).catch(() => {});
   const view: PopupView = { kind: 'lookup', req, loading: true };
   store.set((s) => {
     const prev = s.popup;

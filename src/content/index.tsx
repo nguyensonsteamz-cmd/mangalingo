@@ -10,6 +10,7 @@ import { isInactive } from '@/shared/settings';
 import { chromeLocal } from '@/storage/kv';
 import { SettingsStore } from '@/storage/settings-store';
 import { currentSelection, isInteractive, isTypingContext, wordAtPoint } from './dom-reader';
+import { installHoverUnderline } from './hover-underline';
 import { store, toast } from './store';
 import { App } from './App';
 import * as A from './actions';
@@ -203,6 +204,9 @@ async function main() {
     },
     { capture: true, passive: true },
   );
+
+  // ---------------- hover underline (the word a click would look up) ----------------
+  installHoverUnderline({ enabled: () => !ignored() && !store.get().regionSelect, fromUs: (e) => fromUs(e, host) });
 
   // ---------------- OCR hover detection ----------------
   let moveRaf = 0;

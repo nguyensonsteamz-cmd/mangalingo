@@ -15,7 +15,7 @@ import { native, onResume } from './native';
 import { latestScanUrl, pendingScanStamp, prepareTranslationPack, setAppIcon, translationPackStatus } from './ios';
 import { Scan, type HlBox } from './Scan';
 import { Assist, type AssistItem } from './Assist';
-import { NotesDrawer } from './NotesDrawer';
+import { NotesDrawer } from '@/ui/NotesDrawer';
 import { TextReader, type TextRange } from './TextReader';
 import { renderPdf } from './pdf';
 import { IosGuide } from './IosGuide';

@@ -643,6 +643,46 @@ try {
     await snap(panel, 'sidebar');
   });
 
+  await step('Hover underline: the word under the mouse is underlined (CSS highlight) and cleared when the mouse leaves', async () => {
+    // back on the reader page (earlier steps navigated away)
+    await page.send('Page.navigate', { url: `${BASE}/reader.html` });
+    await waitFor(() => page.evaluateMain(`!!document.getElementById('p1') && !!document.querySelector('mangalingo-root')`), { label: 'reader page with the content script' });
+    await sleep(500);
+    const w = await wordPos('p1', 'village');
+    await mouse('mouseMoved', w.x, w.y, { button: 'none' });
+    const on = await waitFor(() => page.evaluateMain(`CSS.highlights.has('lingolens-hover') && [...CSS.highlights.get('lingolens-hover')][0].toString()`), { label: 'hover highlight' });
+    assert(on === 'village', `underlined "${on}" instead of "village"`);
+    await mouse('mouseMoved', 3, 3, { button: 'none' });
+    await waitFor(() => page.evaluateMain(`!CSS.highlights.has('lingolens-hover')`), { label: 'highlight cleared' });
+    return 'village underlined, then cleared';
+  });
+
+  await step('Sidebar mirrors the popup: the word looked up on the page also shows in the open sidebar', async () => {
+    const w = await wordPos('p1', 'demon');
+    await click(w.x, w.y);
+    await waitFor(async () => {
+      const x = await panel.evaluate('document.body.innerText');
+      return /demon/i.test(x) && !x.includes("Don't look down") ? x : null;
+    }, { label: 'sidebar shows the clicked word', timeout: 10000 });
+    await closePopup();
+  });
+
+  await step('Sidebar notes: write a phrase + meaning pair and it is stored (same notes as the phone app)', async () => {
+    await panel.evaluate(`document.querySelector('[data-ml-notes-open]').click()`);
+    await waitFor(() => panel.evaluate(`!!document.querySelector('[data-ml-notes-drawer]')`), { label: 'notes drawer' });
+    await panel.evaluate(`document.querySelector('[data-ml-note-phrase]').focus()`);
+    await panel.send('Input.insertText', { text: 'piece of cake' });
+    await panel.evaluate(`document.querySelector('[data-ml-note-meaning]').focus()`);
+    await panel.send('Input.insertText', { text: 'dễ như ăn bánh' });
+    await panel.evaluate(`document.querySelector('[data-ml-notes-save]').click()`);
+    const stored = await waitFor(() => sw.evaluate(`chrome.storage.local.get('notes:v1').then(r => (r['notes:v1'] ?? []).find(n => n.phrase === 'piece of cake')?.meaning)`), { label: 'note stored' });
+    assert(stored === 'dễ như ăn bánh', 'note meaning stored');
+    await panel.evaluate(`document.querySelector('[data-ml-notes-drawer] button').click()`);
+    // the following steps work on the manga page
+    await page.send('Page.navigate', { url: `${BASE}/manga.html` });
+    await sleep(1500);
+  });
+
   const { targetId: optId } = await browser.send('Target.createTarget', { url: `chrome-extension://${extId}/options/index.html#appearance` });
   const opt = await attach(browser, optId);
   await opt.send('Page.enable');

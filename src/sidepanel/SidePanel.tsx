@@ -14,6 +14,7 @@ import {
 } from '@/ui/views';
 import { VocabManager, useVocab, vocabStore } from '@/ui/VocabManager';
 import { canSpeak, speak } from '@/ui/speech';
+import { NotesDrawer } from '@/ui/NotesDrawer';
 
 const SIDEBAR_KEY = 'sidebar:current';
 
@@ -28,6 +29,7 @@ export function SidePanel({ topBar }: { topBar?: ReactNode } = {}) {
   const { settings: s, loaded } = useSettings('sidebar');
   const [tab, setTab] = useState<SidebarTab>('translation');
   const [compact, setCompact] = useState(false);
+  const [notesOpen, setNotesOpen] = useState(false);
   const [entry, setEntry] = useState<Entry | null>(null);
   const requestedTab = useRef(false);
   // the phone's scan screen can ask for a tab ("Phân tích câu · từng từ" → Từ vựng)
@@ -124,6 +126,9 @@ export function SidePanel({ topBar }: { topBar?: ReactNode } = {}) {
               {s.reading.translationMode === 'machine' && hasTranslator ? 'Dịch máy · chạy trên máy' : 'Từ điển · chạy trên máy'}
             </div>
           </div>
+          <IconButton label="Ghi chú" onClick={() => setNotesOpen(true)} active={notesOpen} data-ml-notes-open="">
+            <span aria-hidden="true">✏️</span>
+          </IconButton>
           <IconButton label={compact ? 'Chế độ đầy đủ' : 'Chế độ thu gọn'} onClick={() => setCompact((v) => !v)} active={compact}>
             {compact ? <IconExpand /> : <IconCompact />}
           </IconButton>
@@ -213,6 +218,8 @@ export function SidePanel({ topBar }: { topBar?: ReactNode } = {}) {
           </Empty>
         )}
       </main>
+      {/* the reader's own notes (phrase ↔ meaning), same as in the phone app */}
+      <NotesDrawer open={notesOpen} onClose={() => setNotesOpen(false)} context={entry?.text} />
     </div>
   );
 }
@@ -386,6 +393,8 @@ function EntryView({ s, entry, tab, compact, onLookup, onBackToOcr }: { s: Setti
           {sentences.map((x, i) => (
             <div key={i} className="space-y-1.5">
               {r.kind === 'paragraph' && <div className="text-[13px] font-medium text-text">{i + 1}. {x.text}</div>}
+              {/* word-by-word analysis (tap a word / phrase to look it up); the "ghép nghĩa" gloss box stays removed */}
+              {!compact && <ChunksView chunks={x.chunks} onLookup={(t) => onLookup(t, x.text)} />}
             </div>
           ))}
         </div>
