@@ -1,63 +1,74 @@
-# MT engine – final report (finalization pass)
+# MT engine – final report (commit / push / CI pass)
 
-Date: 2026-11-16. **Overall status: PARTIAL — not ready for release as a whole** (see `MT_ENGINE_RELEASE_READINESS.md`). Chrome: ready. Android: verified in an emulator, unsigned, no physical phone. iPhone: **BLOCKED** (Swift never compiled, nothing iOS run). Google live API: not verified. **No git commit, no push, no release, no signing key created, no API key created.**
+## A. Executive summary
+**READY WITH LIMITATIONS — not ready for a store release.**
+* **Done and green:** code committed and pushed to `origin/master`; GitHub Actions green on Ubuntu (typecheck, 392 unit tests, production audit, extension build, Android debug / release / AAB) and macOS (typecheck, tests, **Swift compile**, unsigned IPA, **iOS simulator runtime probe**).
+* **Chrome:** complete and verified in real Chrome (e2e 45/45, local model 11/11, reader 18/18).
+* **Android:** verified in an **emulator** (15/15); builds; **unsigned**; no physical phone.
+* **iPhone:** **COMPILE VERIFIED**, unsigned IPA built; the downloaded model **RUNTIME VERIFIED in the simulator** but deliberately not enabled; Apple Translation and the scan flow have **never run** (needs a physical iPhone).
+* **Blockers (external):** physical iPhone + Android phone, Apple Developer / Android signing keys, a Google API key with billing, legal review of licences.
 
-## 1. Completed in this pass
-| Task | Result |
+## B. Git
+| | |
 |---|---|
-| Android environment inspected (SDK, JDK, Gradle, adb; AVD `ml35` Android 15 x86_64, 3 GB) | emulator booted and used |
-| ML Kit en→vi and vi→en on the real app | ✅ availability → download → translation; both translators side by side; unknown pair rejected |
-| OPUS-MT in the **real Android WebView** | ✅ download, en→vi, vi→en, chunk-level behaviour via shared runner, UI responsive (max gap 94 ms), background → foreground, restart persistence |
-| Model lifecycle hardening | ✅ SHA-256 + size verification (hashes of the pinned files = the benchmarked files), free-space check, cancel, duplicate-download join, stale-revision cleanup, damaged-file detection + deletion + repair, intact-file load failure keeps the model, offline message |
-| Real-Chrome lifecycle e2e | ✅ 11/11 (verify, corrupt → repair, cancel → restart) |
-| Google BYOK | 🟡 request-contract tests (endpoint, method, body, directions, key only in the query, no key in any error, status mapping); **no live call** |
-| Android release builds | 🟡 release APK (unsigned) 96.6 MB, AAB 42.5 MB build; **not signed** |
-| iOS | ⛔ Swift reviewed by reading only; CI workflow improved (typecheck step); nothing compiled |
-| Documentation | all MT docs updated; new `MT_ENGINE_RELEASE_READINESS.md` |
+| Branch / remote | `master` → `origin` = github.com/nomaex-hash/mangalingo (no force push, no history rewrite) |
+| Commits (this pass) | `ee70bfd` feat(translation): MT engine, long-text chunking, monthly usage v2, Smart Setup · `601e23c` / `8da6551` / `812d01e` CI probe (two had my Swift escape mistakes) · `0271f6d` fix · `a32d92d` probe SHA/persistence + MIME · `12fdde1` docs + optional signing config |
+| Scope note | the first commit also contains the earlier uncommitted work the MT engine depends on (Smart Setup, usage v2, chunking, billing/account) — it was all authored in this project and the code is interdependent (`messages.ts`, router, usage). No secrets: scanned (only fake test keys). |
+| Not committed | `.tmp/`, build output, IWSLT/ALT evaluation data, raw benchmark runs (git-ignored) |
+| CI links | https://github.com/nomaex-hash/mangalingo/actions — run ids in `MT_ENGINE_CI_RESULTS.md` |
 
-## 2. Android verification (emulator, x86_64, Android 15, 3 GB RAM) — 15/15
-ML Kit: en→vi "Where is the nearest train station?" → "Ga tàu gần nhất ở đâu?"; vi→en works; the same words give correct output in each direction. OPUS-MT: absent before consent; downloads inside the page's Worker; warm sentence ≈ 0.75–0.93 s; **memory ≈ 1.0 GB** (app + WebView renderer PSS; 248 MB before the models); UI thread max gap 94 ms; SHA-256 ok; cancel halfway leaves nothing; damaged file detected and repaired; survives Home → return and force-stop → restart without re-download. **Emulator numbers are not phone numbers.** Not done: physical device, low-storage / offline download on a device, signing.
+## C. Testing
+| Test | Result | Environment | Evidence |
+|---|---|---|---|
+| TypeScript | PASS | Windows, Ubuntu CI, macOS CI | `tsc --noEmit` |
+| Unit tests (392, 23 files) | PASS | Windows + both CI runners | vitest |
+| Chrome e2e (45) | PASS | real headless Chrome, Windows | `scripts/e2e.mjs` |
+| Web Reader (18) | PASS | real Chrome | `scripts/reader-test.mjs` |
+| OPUS-MT in the extension (11: consent, download, verify SHA-256, damaged-file repair, cancel, responsive) | PASS | real Chrome | `scripts/mt-local-e2e.mjs` |
+| OPUS-MT in the phone bundle (6) | PASS | desktop Chrome | `scripts/mt-local-mobile-test.mjs` |
+| Android app (15: ML Kit en↔vi, OPUS-MT, lifecycle, memory, repair, restart) | PASS — **VERIFIED ON EMULATOR** (Android 15 x86_64, 3 GB) | emulator | `scripts/android-emulator-test.mjs`; PSS ≈ 1.08 GB with both models |
+| Swift compile (Release iphoneos + Debug simulator) | PASS — **COMPILE VERIFIED** | macOS runner | CI 43883208282 / 43890461052 |
+| iOS runtime probe (Worker, Cache API, WASM, model download, SHA-256, translate, persistence after relaunch) | PASS — **RUNTIME VERIFIED (SIMULATOR iOS 18.7)** | macOS runner | CI 43890461052, artifact `ios-simulator-probe` |
+| Apple Translation en↔vi, iOS scan, iOS usage | **NOT RUN** (simulator: `unsupported`) | – | – |
+| Google BYOK contract (mock transport) | PASS | unit | `tests/mt-local.test.ts` |
+| Google BYOK **live** | **NOT RUN** | – | no key / billing; none created |
+| Physical Android / iPhone | **NOT RUN** | – | no devices |
 
-## 3. iOS verification — BLOCKED
-No macOS / Xcode here, and the only runner (GitHub Actions) requires a push, which is forbidden. So: Swift for vi→en (`Translator.swift`, `WebContainer.swift`) **not compiled**; Apple Translation en→vi / vi→en, iOS scan, iOS usage **not run**; no IPA. The downloaded model is **not offered** on iPhone (custom `app://` scheme: Cache API / module Workers unverified; `.mjs` / `.wasm` MIME types not set) and no UI claims otherwise. Core ML not done (needs Python + macOS). Scan keeps Apple's batch translation by design. The CI workflow is ready for the next run (see readiness file for the first things to check, including the new `onnxruntime-node` / `sharp` dependencies of `@huggingface/transformers` under `npm ci`).
+## D. Build artifacts
+| Artifact | Size | Status | Where |
+|---|---|---|---|
+| Chrome extension `dist/` | 47.5 MB | built (CI artifact `lingolens-extension`) | `dist/` |
+| Android debug APK | 100.3 MB | built, debug-signed by Gradle | `android/app/build/outputs/apk/debug/` |
+| Android release APK | 96.6 MB | **UNSIGNED** | `…/apk/release/app-release-unsigned.apk` |
+| Android AAB | 42.5 MB | **UNSIGNED** | `…/bundle/release/app-release.aab` |
+| iOS IPA | 17.2 MB | **UNSIGNED** (Sideloadly re-signs) | `ios-build/LingoLens.ipa` (verified: contains `MangaLingo` executable) |
+Release APK has `debuggable=false` (checked with aapt2); debug has it.
 
-## 4. Google BYOK
-Contract verified with a mock transport only. Live verification needs a user-provided API key with billing enabled (Smart Setup); none exists on this machine and none was created.
+## E. Platform verification
+Chrome: real browser, all suites above. Android emulator: 15/15. Android physical: NOT RUN (`MT_ENGINE_ANDROID_DEVICE_TEST.md`). iOS compile: verified. iOS simulator: probe verified (model works). iOS physical: NOT RUN (`MT_ENGINE_IOS_VERIFICATION.md`).
 
-## 5. Tests and builds (this pass)
-| | Result |
-|---|---|
-| Unit | **392 / 392** (23 files; 341 before the MT work) |
-| `tsc --noEmit` | clean |
-| Chrome e2e | **45 / 45** |
-| Web Reader | 18 / 18 |
-| Local model, real Chrome extension | **11 / 11** |
-| Local model, phone web bundle in desktop Chrome | 6 / 6 |
-| **Android emulator** | **15 / 15** |
-| Builds | extension `dist/` 47.5 MB; debug APK 100.3 MB; release APK 96.6 MB (unsigned); AAB 42.5 MB; **IPA: not built** |
+## F. Security / licence
+* `npm audit --omit=dev`: **0 vulnerabilities** (CI-gated). Full `npm audit`: high issues only in **dev-only** `sharp` (via transformers), `postcss`, `@vitest/mocker`; not shipped; fix needs major upgrades (not done).
+* Hardening: `@huggingface/transformers` moved to devDependencies (build-time bundling only) so macOS/Android installs of the shipped app carry no node-native runtime.
+* Bundled runtime licences (closure of transformers.js + ORT-web): Apache-2.0, MIT, BSD-3-Clause, ISC, BlueOak-1.0.0 — all permissive; notices shipped (`licenses/`). Model: OPUS-MT Apache-2.0 per model cards; training data = OPUS corpora with mixed terms; ONNX conversions carry no own licence text → **commercial use is plausible but unproven; needs legal review**. EnViT5 / NLLB / VinAI stay excluded.
+* Keys: no key in logs / errors / exports; no secrets committed; no workflow uses secrets; Android remote debugging only in debuggable builds.
 
-## 6. Performance (measured, with the right label)
-Dev machine (laptop CPU, onnxruntime-node): OPUS-MT p50 0.56–0.63 s/sentence, peak RSS ≈ 600 MB (`TRANSLATION_BENCHMARK_LAB.md`). Android emulator (WebView WASM): warm sentence 0.75–0.93 s, ≈ 1.0 GB PSS with both models. Phones: **not measured**. No new thresholds were invented; the only target proposed (don't offer the model when RAM is below app + ≈ 0.8 GB) is an *engineering target*, not enforced.
+## G. Remaining blockers
+| Blocker | Cause / evidence | Needs | Blocks release? |
+|---|---|---|---|
+| Apple Translation + scan unverified | simulator reports `unsupported`; no iPhone | install the IPA on an iPhone (iOS 18+) and run the checklist | yes for iOS |
+| Android physical device | none connected | checklist in `MT_ENGINE_ANDROID_DEVICE_TEST.md` | yes for Android |
+| Signing | no keystore / Apple credentials; signing config never exercised (creating a key was refused by the tool policy) | `MT_ENGINE_SIGNING_GUIDE.md` | yes for stores |
+| Google live | no API key / billing | Smart Setup with a real key | recommended |
+| Licence sign-off | model-card reading only | legal review | yes for commercial release |
+| COMET / human quality review | Python blocked by Application Control; no reviewer | – | no (documented limitation) |
 
-## 7. Security findings
-No key in logs / errors / exports (no `console` output in usage / smart-setup / translation / mt). No new permission. No remote code (ONNX Runtime WASM is bundled; only model data is downloaded, hash-verified). **Fixed in this pass:** Android WebView remote debugging is now enabled only for `debuggable` builds (needed by the emulator test; release builds unaffected). Residual: licence reading is not legal advice; Hugging Face is a third-party host.
+## H. Recommendation
+* Release **preparation** can start (Chrome first). **Signing** needs your keys. **Commercial release** only after legal review and the device passes.
+* **Do not enable OPUS-MT by default** anywhere: it is weaker than Chrome Translator (en→vi chrF++ 44.5 vs 55.6). Keep it opt-in.
+* **Keep OPUS-MT disabled on iPhone** until a memory test on a real phone (simulator evidence is positive).
+* Android: offer the model only after a phone pass; consider hiding it on ≤ 3 GB devices (engineering target, not enforced).
 
-## 8. Known limitations
-OPUS-MT en→vi quality below Chrome Translator (technical / academic text especially); metrics are re-implementations + a proxy, no COMET, no human fluency review; WASM speed on real phones unknown; no pause / resume of downloads; chunking / resume on Android not separately driven in the emulator (same unit-tested JS runner).
-
-## 9. Blocked, and what is needed
-| Blocked | Needs |
-|---|---|
-| iOS compile + run, IPA | your permission to commit + push (to run the CI) or a Mac |
-| Android on a real phone | a phone; a signing key for release |
-| Google live check | an API key with billing, from Smart Setup |
-| COMET, sacreBLEU, Core ML | not possible on this machine (Application Control policy / no macOS) — not bypassed |
-| Licence sign-off | a legal review |
-
-## 10. Files changed in this pass
-**New:** `src/…` none beyond the earlier module; `tests/mt-lifecycle.test.ts`, `scripts/android-emulator-test.mjs`, `docs/MT_ENGINE_RELEASE_READINESS.md`.
-**Modified:** `src/modules/mt/local/{engine,host,models,worker}.ts`, `src/shared/messages.ts`, `src/background/{router,index}.ts`, `src/offscreen/{main,protocol}.ts`, `src/translation/mt-providers.ts`, `src/options/LocalModelSection.tsx`, `src/ui/MachineTranslation.tsx`, `android/app/src/main/java/app/mangalingo/MainActivity.kt`, `scripts/mt-local-e2e.mjs`, `.github/workflows/ios.yml`, `tests/mt-local.test.ts`, and the docs `MT_ENGINE_{DEPLOYMENT,TEST_REPORT,PROVIDER_REGISTRY,MIGRATION_PLAN,FINAL_REPORT}.md`.
-(The previous pass' files — registry, local provider, benchmark lab, VI→EN — are listed in git as uncommitted changes.)
-
-## 11. Confirmation
-No `git commit`, no `git push`, no publish, no upload, no release. Working tree only.
+## Files
+Code and tests: see `git show --stat ee70bfd`. This pass additionally: `.github/workflows/{ci,ios}.yml`, `scripts/assets/ios-probe.html`, `scripts/build-mobile.mjs`, `ios/MangaLingo/WebContainer.swift`, `android/app/build.gradle.kts`, `package.json`/lock (transformers → dev), docs `MT_ENGINE_{CI_RESULTS,IOS_VERIFICATION,SIGNING_GUIDE,ANDROID_DEVICE_TEST,FINAL_REPORT,RELEASE_READINESS}.md`.
+No release, no tag, no publish, no store upload, no force push.
