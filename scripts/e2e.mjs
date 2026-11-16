@@ -219,6 +219,29 @@ try {
     return 'destroyed → destroy (phá hủy), popup below/above word, scroll unchanged';
   });
 
+  await step('Popup can be MOVED (drag the grip) and RESIZED (drag the corner); cards have a copy button', async () => {
+    const rectOf = () => page.evaluate(`(() => { const r = ${shadowQ('[data-ml-popup]')}.getBoundingClientRect(); return { left: Math.round(r.left), top: Math.round(r.top), width: Math.round(r.width), height: Math.round(r.height) }; })()`);
+    const center = (sel) => page.evaluate(`(() => { const r = ${shadowQ(sel)}.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`);
+    const drag = async (from, to) => {
+      await page.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: from.x, y: from.y });
+      await page.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: from.x, y: from.y, button: 'left', clickCount: 1 });
+      for (let i = 1; i <= 6; i++) await page.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: from.x + ((to.x - from.x) * i) / 6, y: from.y + ((to.y - from.y) * i) / 6, button: 'left' });
+      await page.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: to.x, y: to.y, button: 'left', clickCount: 1 });
+      await sleep(200);
+    };
+    const before = await rectOf();
+    const grip = await center('[data-ml-popup-grip]');
+    await drag(grip, { x: grip.x - 60, y: grip.y + 40 });
+    const moved = await rectOf();
+    assert(Math.abs(moved.left - (before.left - 60)) <= 3 && Math.abs(moved.top - (before.top + 40)) <= 3, `moved ${JSON.stringify(before)} → ${JSON.stringify(moved)}`);
+    const corner = await center('[data-ml-popup-resize]');
+    await drag(corner, { x: corner.x + 70, y: corner.y + 50 });
+    const grown = await rectOf();
+    assert(grown.width >= moved.width + 60 && grown.height >= moved.height + 40, `resized ${JSON.stringify(moved)} → ${JSON.stringify(grown)}`);
+    assert(await page.evaluate(`!!${shadowQ('[data-ml-popup] [data-ml-copy]')}`), 'copy button in the popup');
+    return `${JSON.stringify(before)} → moved → resized ${grown.width}×${grown.height}`;
+  });
+
   await step('Popup UI is isolated from hostile page CSS', async () => {
     const st = await page.evaluate(`(() => { const el = ${shadowQ('[data-ml-popup]')}; const cs = getComputedStyle(el); return { fs: cs.fontSize, color: cs.color, tt: cs.textTransform, ls: cs.letterSpacing }; })()`);
     assert(st.fs === '14px', `font-size leaked: ${st.fs}`);
@@ -535,6 +558,31 @@ try {
     const popup = await waitFor(async () => ((await popupText()) ?? '').includes('GONNA') && 'popup updated', { label: 'popup shows the new text' });
     await closePopup();
     return `"${b0.title}" → shrink → "${small.title}" → enlarge → "${big.title}" (${popup})`;
+  });
+
+  await step('Add a bubble the scan missed: drag a rectangle → ONE new bubble appears, every other bubble is left exactly as it was', async () => {
+    if ((await popupText()) !== null) await closePopup();
+    const titles = () => page.evaluate(`[...globalThis.__mangalingo.shadow.querySelectorAll('[data-ml-ocr-box]')].map((b) => b.title.split(String.fromCharCode(10))[0])`);
+    const before = await titles();
+    assert(before.length >= 1, 'a scanned image with bubbles is needed');
+    const addBtn = await page.evaluate(`(() => { const r = ${shadowQ('[data-ml-add-bubble]')}.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`);
+    await mouse('mouseMoved', addBtn.x, addBtn.y, { button: 'none' });
+    await mouse('mousePressed', addBtn.x, addBtn.y);
+    await mouse('mouseReleased', addBtn.x, addBtn.y); // a real click (the button ignores synthetic ones)
+    const area = await waitFor(() => page.evaluate(`(() => { const e = ${shadowQ('[data-ml-add-region]')}; if (!e) return null; const r = e.getBoundingClientRect(); return { l: r.left, t: r.top, w: r.width, h: r.height }; })()`), { label: 'add-bubble overlay' });
+    const x0 = area.l + area.w * 0.05, y0 = area.t + area.h * 0.62, x1 = area.l + area.w * 0.45, y1 = area.t + area.h * 0.9;
+    await mouse('mouseMoved', x0, y0, { button: 'none' });
+    await mouse('mousePressed', x0, y0);
+    for (let i = 1; i <= 6; i++) await mouse('mouseMoved', x0 + ((x1 - x0) * i) / 6, y0 + ((y1 - y0) * i) / 6, { buttons: 1 });
+    await mouse('mouseReleased', x1, y1);
+    const after = await waitFor(async () => {
+      const t = await titles();
+      return t.length === before.length + 1 ? t : null;
+    }, { label: 'one new bubble', timeout: 30000, interval: 300 });
+    for (const t of before) assert(after.includes(t), 'existing bubble changed: ' + t);
+    assert(await page.evaluate(`!${shadowQ('[data-ml-add-region]')}`), 'add mode ended');
+    if ((await popupText()) !== null) await closePopup();
+    return `${before.length} → ${after.length} bubbles, others unchanged`;
   });
 
   await step('OCR fallback: hotlink-protected image is captured from the visible tab', async () => {
