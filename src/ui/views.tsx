@@ -87,7 +87,7 @@ export function InflectionLine({ r }: { r: WordLookup }) {
 }
 
 /** Vietnamese meanings grouped by part of speech, then English definitions. */
-export function WordMeaning({ r, s, max = 6 }: { r: WordLookup; s: Settings; max?: number }) {
+export function WordMeaning({ r, s, max = 6, posInHeader = false }: { r: WordLookup; s: Settings; max?: number; posInHeader?: boolean }) {
   const vi = r.senses.filter((x) => x.vi?.length);
   const en = r.senses.filter((x) => x.en);
   const englishTarget = s.reading.targetLanguage === 'en';
@@ -103,7 +103,8 @@ export function WordMeaning({ r, s, max = 6 }: { r: WordLookup; s: Settings; max
         <div className="mt-2 space-y-2">
           {groupByPos(vi).map(([pos, list]) => (
             <div key={pos}>
-              {s.dictionary.showPos && <div className="mb-0.5"><PosBadge pos={pos} /></div>}
+              {/* the header already shows the part of speech: repeat it only to tell several groups apart */}
+              {s.dictionary.showPos && !(posInHeader && groupByPos(vi).length === 1) && <div className="mb-0.5"><PosBadge pos={pos} /></div>}
               <ul className="ml-tr space-y-0.5 text-text">
                 {list.map((x, i) => (
                   <li key={i} className="flex gap-1.5">

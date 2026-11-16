@@ -9,7 +9,7 @@ import { MachineTranslation } from '@/ui/MachineTranslation';
 import { Badge, Button, Empty, GlassIndicator, IconButton, Notice, SectionTitle, Spinner, cx, fastTap } from '@/ui/components';
 import { IconBookmark, IconCompact, IconEdit, IconEraser, IconExpand, IconGear, IconInfo, IconLayers, IconLogo, IconPanel, IconScan, IconSearch, IconVolume } from '@/ui/icons';
 import {
-  ChunksView, GlossBlock, GrammarView, NotesView, PosBadge, SourceLine, VocabHints, WordContextView, WordExamples, WordGrammar, WordMeaning,
+  ChunksView, GrammarView, NotesView, PosBadge, SourceLine, VocabHints, WordContextView, WordExamples, WordGrammar, WordMeaning,
   primaryMeaning,
 } from '@/ui/views';
 import { VocabManager, useVocab, vocabStore } from '@/ui/VocabManager';
@@ -316,8 +316,8 @@ function EntryView({ s, entry, tab, compact, onLookup, onBackToOcr }: { s: Setti
             <div className="flex flex-wrap items-baseline gap-2">
               <h2 className="text-[20px] font-semibold tracking-tight text-text">{r.found ? r.lemma : r.query}</h2>
               {s.dictionary.showIpa && r.ipa && <span className="ml-ipa text-[13px] text-muted">{r.ipa}</span>}
+              {r.posList.map((p) => <PosBadge key={p} pos={p} />)}
             </div>
-            <div className="mt-1 flex flex-wrap gap-1">{r.posList.map((p) => <PosBadge key={p} pos={p} />)}</div>
           </div>
           {canSpeak() && s.dictionary.showPronunciation && (
             <IconButton label="Phát âm" onClick={() => speak(r.query)}>
@@ -336,7 +336,7 @@ function EntryView({ s, entry, tab, compact, onLookup, onBackToOcr }: { s: Setti
           </Notice>
         ) : (
           <>
-            {tab === 'translation' && <WordMeaning r={r} s={s} max={compact ? 4 : 20} />}
+            {tab === 'translation' && <WordMeaning r={r} s={s} max={compact ? 4 : 20} posInHeader />}
             {tab === 'vocabulary' && <WordExamples r={r} s={s} onLookup={(t) => onLookup(t)} />}
             {tab === 'grammar' && <WordGrammar r={r} />}
             {tab === 'context' && <WordContextView r={r} />}
@@ -386,8 +386,6 @@ function EntryView({ s, entry, tab, compact, onLookup, onBackToOcr }: { s: Setti
           {sentences.map((x, i) => (
             <div key={i} className="space-y-1.5">
               {r.kind === 'paragraph' && <div className="text-[13px] font-medium text-text">{i + 1}. {x.text}</div>}
-              <GlossBlock gloss={x.gloss} coverage={x.coverage} />
-              {!compact && <ChunksView chunks={x.chunks} onLookup={(t) => onLookup(t, x.text)} />}
             </div>
           ))}
         </div>

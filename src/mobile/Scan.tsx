@@ -868,7 +868,7 @@ function ScanResult({ text, n, mt }: { text: string; n: number; mt?: Mt }) {
           )}
         </div>
         <div className="mt-2 flex flex-wrap items-center gap-1.5">
-          <button type="button" className="rounded-lg bg-accent/15 px-2.5 py-1 text-[12.5px] font-semibold text-accent" onClick={() => openLookup(text, 'vocabulary')} data-ml-analyse="">
+          <button type="button" className="rounded-lg bg-accent/15 px-2.5 py-1 text-[12.5px] font-semibold text-accent" onClick={() => openLookup(text, 'translation')} data-ml-analyse="">
             Phân tích câu · từng từ
           </button>
           <CopyButton text={text} label="Chép nguyên văn" />

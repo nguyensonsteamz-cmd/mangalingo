@@ -133,7 +133,11 @@ export function App() {
     // the floating button's menu opens the app at a tab (#lookup, #vocab, #settings)
     const on = () => {
       const h = location.hash.slice(1);
-      if (isTab(h)) setTab(h);
+      if (isTab(h))
+        setTab((cur) => {
+          if (cur !== h) prevTab.current = cur; // "‹" returns to the page you came from
+          return h;
+        });
     };
     window.addEventListener('hashchange', on);
     return () => window.removeEventListener('hashchange', on);
