@@ -46,6 +46,18 @@ export function SidePanel({ topBar }: { topBar?: ReactNode } = {}) {
       g.__mlNextSidebarTab = undefined;
     }
   }, [entry, loaded]);
+  // the Web Reader's native side can switch the tab (e.g. Ghi chú) of this sidebar
+  useEffect(() => {
+    const on = () => {
+      const g = globalThis as { __mlNextSidebarTab?: SidebarTab };
+      if (g.__mlNextSidebarTab) {
+        setTab(g.__mlNextSidebarTab);
+        g.__mlNextSidebarTab = undefined;
+      }
+    };
+    window.addEventListener('ml-sidebar-tab', on);
+    return () => window.removeEventListener('ml-sidebar-tab', on);
+  }, []);
   const fade = useRef({});
   const [ocr, setOcr] = useState<OcrState | null>(null);
   const [input, setInput] = useState('');

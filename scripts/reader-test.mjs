@@ -145,6 +145,38 @@ try {
     await reset();
   });
 
+  await step('region scan: drag a rectangle → only that area is requested (viewport rect) → boxes are ADDED, numbering continues, tapping a box starts a lookup', async () => {
+    await reset();
+    await p.evaluateMain(`window.__mlr.regionMode(true)`);
+    assert(await p.evaluateMain(`!!document.querySelector('mangalingo-reader-region')`), 'region layer shown');
+    await p.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 60, y: 120 });
+    await p.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: 60, y: 120, button: 'left', clickCount: 1 });
+    await p.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 200, y: 220 });
+    await p.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: 200, y: 220, button: 'left', clickCount: 1 });
+    await sleep(400);
+    const reg = (await log()).find((m) => m.t === 'ocrRegion');
+    assert(reg && Math.abs(reg.rect.x - 60) < 2 && Math.abs(reg.rect.w - 140) < 3 && Math.abs(reg.rect.h - 100) < 3, 'region request: ' + JSON.stringify(reg));
+    assert(await p.evaluateMain(`!document.querySelector('mangalingo-reader-region')`), 'layer removed before the snapshot');
+    // the app answers with two bubbles (normalised to the region), then a second region adds one more
+    await p.evaluateMain(`window.__mlr.ocrResult({ id: ${reg.id}, blocks: [{ id: 'a', text: 'HELLO THERE', box: { x: 0.1, y: 0.1, w: 0.4, h: 0.3 } }, { id: 'b', text: 'GOOD BYE', box: { x: 0.5, y: 0.5, w: 0.4, h: 0.3 } }] })`);
+    const second = await p.evaluateMain(`(() => { window.__mlr.scanScreen(); return 1; })()`);
+    const scr = (await log()).filter((m) => m.t === 'ocrRegion').pop();
+    assert(scr.rect.x === 0 && scr.rect.w > 300, 'whole-screen request');
+    await p.evaluateMain(`window.__mlr.ocrResult({ id: ${scr.id}, blocks: [{ id: 'c', text: 'THIRD', box: { x: 0.2, y: 0.2, w: 0.3, h: 0.1 } }] })`);
+    const n = await p.evaluateMain(`document.querySelectorAll('mangalingo-reader-ocr [data-mlr-ocr]').length`);
+    assert(n === 1, 'screen scan REPLACES earlier boxes (fresh scan), got ' + n);
+    // add mode again: region results accumulate
+    await p.evaluateMain(`window.__mlr.ocrResult({ id: ${reg.id}, blocks: [{ id: 'a', text: 'ADDED ONE', box: { x: 0.1, y: 0.1, w: 0.4, h: 0.3 } }] })`);
+    const nums = await p.evaluateMain(`[...document.querySelectorAll('mangalingo-reader-ocr [data-mlr-ocr]')].map(e => e.getAttribute('data-mlr-ocr'))`);
+    assert(nums.join(',') === '1,2', 'numbering continues: ' + nums.join(','));
+    const bubbles = (await log()).filter((m) => m.t === 'ocrBubbles');
+    assert(bubbles.length >= 3 && bubbles[0].blocks.length === 2, 'the app is told about the bubbles for its sidebar');
+    await open('article.html'); // clean page for the next steps
+    await sleep(900);
+    await reset();
+    return 'rect ' + JSON.stringify(reg.rect);
+  });
+
   await step('the site’s own click handlers still run (nothing is stopped or prevented)', async () => {
     await reset();
     await p.evaluateMain(`window.siteClicks = 0`);

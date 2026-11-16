@@ -17,24 +17,29 @@ struct WebContainer: UIViewRepresentable {
     func makeCoordinator() -> Coordinator { Coordinator() }
 
     func makeUIView(context: Context) -> WKWebView {
+        Self.makeWebView(coordinator: context.coordinator, route: nil, isMain: true)
+    }
+
+    /// The app's web view. `route` (for example "index.html#reader-sidebar") overrides the start page; only the main one is the engine the Reader asks.
+    static func makeWebView(coordinator: Coordinator, route: String?, isMain: Bool) -> WKWebView {
         let config = WKWebViewConfiguration()
         config.setURLSchemeHandler(BundleSchemeHandler(), forURLScheme: "app")
         config.websiteDataStore = .default() // vocabulary + settings persist between launches
         let platform = WKUserScript(source: "window.MangaLingoPlatform = 'ios';", injectionTime: .atDocumentStart, forMainFrameOnly: true)
         config.userContentController.addUserScript(platform)
-        config.userContentController.addScriptMessageHandler(context.coordinator, contentWorld: .page, name: "ml")
+        config.userContentController.addScriptMessageHandler(coordinator, contentWorld: .page, name: "ml")
 
         let web = WKWebView(frame: .zero, configuration: config)
         web.isOpaque = false
-        web.backgroundColor = Self.background
-        web.scrollView.backgroundColor = Self.background
+        web.backgroundColor = background
+        web.scrollView.backgroundColor = background
         web.scrollView.contentInsetAdjustmentBehavior = .never // the page handles the safe areas (viewport-fit=cover)
-        web.navigationDelegate = context.coordinator
+        web.navigationDelegate = coordinator
         if #available(iOS 16.4, *) { web.isInspectable = true }
-        context.coordinator.web = web
-        MainWebHub.shared.web = web // the Web Reader asks this page's engine to translate
+        coordinator.web = web
+        if isMain { MainWebHub.shared.web = web } // the Web Reader asks this page's engine to translate
         // CI only: `-lingolensProbe` opens the runtime probe page (Worker / Cache API / WASM / model on the app:// scheme)
-        let page = ProcessInfo.processInfo.arguments.contains("-lingolensProbe") ? "ios-probe.html" : "index.html#home"
+        let page = route ?? (ProcessInfo.processInfo.arguments.contains("-lingolensProbe") ? "ios-probe.html" : "index.html#home")
         if let url = URL(string: "app://local/" + page) { web.load(URLRequest(url: url)) }
         return web
     }

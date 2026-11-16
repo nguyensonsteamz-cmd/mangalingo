@@ -42,7 +42,9 @@
   var ocrOn = false;
   var ocrSeq = 0;
   var ocrImages = {}; // id -> element
-  var ocrOverlay = null;
+  var ocrOverlays = []; // one per scanned image / region (a region scan ADDS bubbles, it does not replace the others)
+  var ocrBlockSeq = 0; // numbering of bubbles across overlays
+  var regionOn = false;
   var host = null;
   var root = null;
   var card = null;
@@ -546,14 +548,10 @@
     }
   }
 
-  function onOcrClick(e) {
-    if (!ocrOn || inOurUi(e)) return;
-    var img = imageAt(e.clientX, e.clientY);
-    if (!img) return;
-    e.preventDefault();
-    e.stopPropagation(); // only while the user is explicitly picking an image
+  /** Asks the app to read one image (pixels when the page lets us, else its address). */
+  function requestImageOcr(img, silent) {
     var id = ++ocrSeq;
-    ocrImages[id] = img;
+    ocrImages[id] = { el: img };
     var r = img.getBoundingClientRect();
     post({
       t: 'ocrImage',
@@ -562,13 +560,130 @@
       dataUrl: img.tagName === 'IMG' ? imageDataUrl(img) : img.toDataURL ? img.toDataURL('image/jpeg', 0.9) : null,
       rect: { x: r.left, y: r.top, w: r.width, h: r.height },
     });
+    if (!silent) toast('Đang nhận dạng chữ trong ảnh…');
+    return id;
+  }
+
+  function onOcrClick(e) {
+    if (!ocrOn || inOurUi(e)) return;
+    var img = imageAt(e.clientX, e.clientY);
+    if (!img) return;
+    e.preventDefault();
+    e.stopPropagation(); // only while the user is explicitly picking an image
     clearOcrBoxes();
-    toast('Đang nhận dạng chữ trong ảnh…');
+    requestImageOcr(img, false);
+  }
+
+  /** Reads every sizeable image of the page, one after another (the app answers each; boxes accumulate). */
+  function scanAllImages() {
+    var list = [];
+    var imgs = document.images || [];
+    for (var i = 0; i < imgs.length && list.length < 12; i++) {
+      var im = imgs[i];
+      if (im.naturalWidth >= 150 && im.naturalHeight >= 150 && im.getBoundingClientRect().width >= 120) list.push(im);
+    }
+    if (!list.length) {
+      toast('Không thấy ảnh đủ lớn để quét trên trang này.');
+      return 0;
+    }
+    clearOcrBoxes();
+    toast('Đang quét ' + list.length + ' ảnh trên trang…');
+    list.forEach(function (im, k) {
+      setTimeout(function () {
+        requestImageOcr(im, true);
+      }, k * 350);
+    });
+    return list.length;
+  }
+
+  /** Reads the visible screen (or a rectangle of it) through a snapshot taken by the app. rect: viewport CSS px. */
+  function requestRegionOcr(rect, append) {
+    var id = ++ocrSeq;
+    ocrImages[id] = { rect: { x: rect.x + window.scrollX, y: rect.y + window.scrollY, w: rect.w, h: rect.h }, append: !!append };
+    post({ t: 'ocrRegion', id: id, rect: rect });
+    toast('Đang nhận dạng chữ…');
+    return id;
+  }
+  function scanScreen() {
+    ocrMode(false);
+    clearOcrBoxes();
+    requestRegionOcr({ x: 0, y: 0, w: window.innerWidth, h: window.innerHeight }, false);
+  }
+
+  /** Region mode: drag a rectangle over text the scan missed (or over any text); only that area is read and its bubbles are ADDED. */
+  var regionLayer = null;
+  function regionMode(on) {
+    regionOn = !!on;
+    ensureHost();
+    clearUi('.hint');
+    if (regionLayer) {
+      regionLayer.remove();
+      regionLayer = null;
+    }
+    if (!regionOn) return;
+    ocrMode(false);
+    closePopup();
+    var layer = document.createElement('mangalingo-reader-region');
+    layer.setAttribute('style', 'all:initial;position:fixed;left:0;top:0;width:100vw;height:100vh;z-index:2147483647;background:rgba(0,0,0,.28);touch-action:none;cursor:crosshair;');
+    var box = document.createElement('div');
+    box.setAttribute('style', 'position:fixed;border:2px solid #7c9cff;background:rgba(124,156,255,.18);border-radius:4px;display:none;pointer-events:none;');
+    layer.appendChild(box);
+    var start = null;
+    function pt(e) {
+      var t = e.touches && e.touches[0] ? e.touches[0] : e.changedTouches && e.changedTouches[0] ? e.changedTouches[0] : e;
+      return { x: t.clientX, y: t.clientY };
+    }
+    function draw(a, b2) {
+      box.style.display = 'block';
+      box.style.left = Math.min(a.x, b2.x) + 'px';
+      box.style.top = Math.min(a.y, b2.y) + 'px';
+      box.style.width = Math.abs(b2.x - a.x) + 'px';
+      box.style.height = Math.abs(b2.y - a.y) + 'px';
+    }
+    layer.addEventListener('pointerdown', function (e) {
+      e.preventDefault();
+      start = pt(e);
+      try { layer.setPointerCapture(e.pointerId); } catch (x) {}
+      draw(start, start);
+    });
+    layer.addEventListener('pointermove', function (e) {
+      if (start) draw(start, pt(e));
+    });
+    layer.addEventListener('pointerup', function (e) {
+      if (!start) return;
+      var end = pt(e);
+      var rr = { x: Math.min(start.x, end.x), y: Math.min(start.y, end.y), w: Math.abs(end.x - start.x), h: Math.abs(end.y - start.y) };
+      start = null;
+      if (rr.w < 14 || rr.h < 14) {
+        box.style.display = 'none';
+        return;
+      }
+      regionMode(false);
+      post({ t: 'regionDone' });
+      // the layer is removed first, so the snapshot shows the page, not the dimmer
+      setTimeout(function () {
+        requestRegionOcr(rr, true);
+      }, 80);
+    });
+    var h = el('div', 'hint');
+    h.appendChild(el('span', '', 'Kéo quanh chữ cần quét hoặc thêm bong bóng'));
+    h.appendChild(
+      btn('Huỷ', '', function () {
+        regionMode(false);
+        post({ t: 'regionDone' });
+      }),
+    );
+    root.appendChild(h);
+    (document.documentElement || document.body).appendChild(layer);
+    regionLayer = layer;
   }
 
   function clearOcrBoxes() {
-    if (ocrOverlay) ocrOverlay.remove();
-    ocrOverlay = null;
+    ocrOverlays.forEach(function (o) {
+      o.remove();
+    });
+    ocrOverlays = [];
+    ocrBlockSeq = 0;
   }
 
   function ocrMode(on) {
@@ -588,46 +703,66 @@
     }
   }
 
-  /** blocks: [{ id, text, box: {x,y,w,h} normalised to the image }] */
+  /** blocks: [{ id, text, box: {x,y,w,h} normalised to the image / region }] */
   function ocrResult(res) {
-    var img = ocrImages[res.id];
+    var src = ocrImages[res.id];
     clearUi('.toast');
-    if (!img || !img.isConnected) return;
+    if (!src) return;
     if (res.error) {
       toast(res.error);
       return;
     }
     if (!res.blocks || !res.blocks.length) {
-      toast('Không tìm thấy chữ trong ảnh này.');
+      toast(src.rect ? 'Không thấy chữ trong vùng này.' : 'Không tìm thấy chữ trong ảnh này.');
       return;
     }
-    clearOcrBoxes();
-    var r = img.getBoundingClientRect();
-    var sx = window.scrollX;
-    var sy = window.scrollY;
-    ocrOverlay = document.createElement('mangalingo-reader-ocr');
-    ocrOverlay.setAttribute('style', 'all:initial;position:absolute;z-index:2147483646;pointer-events:none;left:' + (r.left + sx) + 'px;top:' + (r.top + sy) + 'px;width:' + r.width + 'px;height:' + r.height + 'px;');
-    res.blocks.forEach(function (b, i) {
+    var left;
+    var top;
+    var width;
+    var height;
+    if (src.rect) {
+      left = src.rect.x;
+      top = src.rect.y;
+      width = src.rect.w;
+      height = src.rect.h;
+    } else {
+      var img = src.el;
+      if (!img || !img.isConnected) return;
+      var r = img.getBoundingClientRect();
+      left = r.left + window.scrollX;
+      top = r.top + window.scrollY;
+      width = r.width;
+      height = r.height;
+    }
+    var overlay = document.createElement('mangalingo-reader-ocr');
+    overlay.setAttribute('style', 'all:initial;position:absolute;z-index:2147483646;pointer-events:none;left:' + left + 'px;top:' + top + 'px;width:' + width + 'px;height:' + height + 'px;');
+    var texts = [];
+    res.blocks.forEach(function (b) {
+      var n = ++ocrBlockSeq;
+      texts.push({ id: 'b' + n, text: b.text });
       var d = document.createElement('div');
-      d.setAttribute('data-mlr-ocr', String(i + 1));
+      d.setAttribute('data-mlr-ocr', String(n));
       d.setAttribute(
         'style',
         'position:absolute;pointer-events:auto;box-sizing:border-box;border:2px solid #f97316;border-radius:6px;background:rgba(249,115,22,.12);' +
           'left:' + b.box.x * 100 + '%;top:' + b.box.y * 100 + '%;width:' + b.box.w * 100 + '%;height:' + b.box.h * 100 + '%;',
       );
-      var n = document.createElement('span');
-      n.textContent = String(i + 1);
-      n.setAttribute('style', 'position:absolute;left:-2px;top:-12px;min-width:18px;height:18px;border-radius:9px;background:#f97316;color:#fff;font:700 11px/18px -apple-system,system-ui,sans-serif;text-align:center;');
-      d.appendChild(n);
+      var num = document.createElement('span');
+      num.textContent = String(n);
+      num.setAttribute('style', 'position:absolute;left:-2px;top:-12px;min-width:18px;height:18px;border-radius:9px;background:#f97316;color:#fff;font:700 11px/18px -apple-system,system-ui,sans-serif;text-align:center;');
+      d.appendChild(num);
       d.addEventListener('click', function (e) {
         e.preventDefault();
         e.stopPropagation();
         var rr = d.getBoundingClientRect();
         startLookup({ text: b.text, context: b.text, paragraph: b.text, mode: modeOf(b.text) === 'word' ? 'word' : 'sentence', rect: { x: rr.left, y: rr.top, w: rr.width, h: rr.height }, src: 'ocr' });
       });
-      ocrOverlay.appendChild(d);
+      overlay.appendChild(d);
     });
-    (document.documentElement || document.body).appendChild(ocrOverlay);
+    (document.documentElement || document.body).appendChild(overlay);
+    ocrOverlays.push(overlay);
+    // the app shows the list of bubbles in its sidebar
+    post({ t: 'ocrBubbles', id: res.id, fresh: ocrOverlays.length === 1, blocks: res.blocks.map(function (b, i) { return { text: b.text, box: b.box, n: ocrBlockSeq - res.blocks.length + i + 1 }; }) });
   }
 
   // ------------------------------------------------------------------ hidden ads
@@ -695,6 +830,7 @@
     configure: function (s) {
       for (var k in s) if (Object.prototype.hasOwnProperty.call(s, k) && k in S) S[k] = s[k];
       if (!S.ocrEnabled && ocrOn) ocrMode(false);
+      if (!S.ocrEnabled && regionOn) regionMode(false);
       if (cur) place(cur.rect);
     },
     show: show,
@@ -702,6 +838,9 @@
     saved: saved,
     ocrMode: ocrMode,
     ocrResult: ocrResult,
+    regionMode: regionMode,
+    scanScreen: scanScreen,
+    scanAllImages: scanAllImages,
     translateSelection: translateSelection,
     toast: toast,
   };

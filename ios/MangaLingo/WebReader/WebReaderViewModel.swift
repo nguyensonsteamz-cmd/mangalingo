@@ -57,11 +57,18 @@ final class WebReaderViewModel: ObservableObject {
     @Published var showSettings = false
     @Published var showTabs = false
     @Published var isEditingAddress = false
+    /// "drag a rectangle" mode: scan a region / add a bubble the scan missed
+    @Published var regionMode = false {
+        didSet { controller.setRegionMode(regionMode) }
+    }
+    @Published var sidebarOpen = false
     /// "pick an image" mode of the OCR
     @Published var ocrMode = false {
         didSet { controller.setOCRMode(ocrMode) }
     }
 
+    /// The extension's sidebar in a second web view (created on first use).
+    let sidebar = ReaderSidebar()
     let settings = WebReaderSettings.shared
     let library = WebLibrary.shared
     var onClose: (() -> Void)?
@@ -229,6 +236,67 @@ final class WebReaderViewModel: ObservableObject {
             return
         }
         ocrMode.toggle()
+    }
+
+    // MARK: scans and sidebar
+
+    func startRegion() {
+        guard settings.ocrEnabled else { toast("OCR đang tắt trong Cài đặt của trình đọc."); return }
+        ocrMode = false
+        regionMode = true
+    }
+
+    func scanScreen() {
+        guard settings.ocrEnabled else { toast("OCR đang tắt trong Cài đặt của trình đọc."); return }
+        ocrMode = false
+        regionMode = false
+        controller.scanScreen()
+    }
+
+    func scanAllImages() {
+        guard settings.ocrEnabled else { toast("OCR đang tắt trong Cài đặt của trình đọc."); return }
+        ocrMode = false
+        regionMode = false
+        controller.scanAllImages()
+    }
+
+    func toggleSidebar() {
+        sidebarOpen.toggle()
+        if sidebarOpen { sidebar.ensureLoaded() }
+    }
+
+    func openNotes() {
+        sidebarOpen = true
+        sidebar.ensureLoaded()
+        sidebar.showTab("notes")
+    }
+
+    private func source(of c: WebReaderController) -> [String: Any] {
+        ["url": c.web.url?.absoluteString ?? "", "title": c.web.title ?? ""]
+    }
+
+    /// "Chi tiết" in the in-page popup: the sidebar opens with that text.
+    func showInSidebar(text: String, context: String, from c: WebReaderController) {
+        sidebarOpen = true
+        sidebar.push(["type": "lookup", "text": text, "context": context, "source": source(of: c)])
+    }
+
+    /// Bubbles read on the page: the sidebar lists them (Dịch tab) so each can be analysed.
+    func bubblesFound(_ blocks: [[String: Any]], fresh: Bool, from c: WebReaderController) {
+        let all = c.addBubbles(blocks, fresh: fresh)
+        let result: [String: Any] = [
+            "key": "reader-\(Int(Date().timeIntervalSince1970))",
+            "blocks": all,
+            "text": all.compactMap { $0["text"] as? String }.joined(separator: "\n\n"),
+            "meanConfidence": 90,
+            "lang": "eng",
+            "acquisition": "visible-capture",
+            "partial": false,
+            "durationMs": 0,
+            "fromCache": false,
+            "createdAt": Int(Date().timeIntervalSince1970 * 1000),
+        ]
+        sidebar.push(["type": "ocr", "result": result, "source": source(of: c)])
     }
 
     func translateSelection() {

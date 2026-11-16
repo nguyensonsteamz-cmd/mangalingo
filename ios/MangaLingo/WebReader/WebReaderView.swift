@@ -55,11 +55,16 @@ struct WebReaderView: View {
                     ReaderWebHost(web: model.controller.web)
                         .id(model.current.id)
                     if let error = model.error { errorView(error) }
+                    if model.error == nil { ReaderToolsDrawer(model: model) }
                 }
                 .overlay(alignment: .bottom) { toast }
                 bottomBar
             }
         }
+        .overlay {
+            if model.sidebarOpen { ReaderSidebarPanel(model: model) }
+        }
+        .animation(.easeOut(duration: 0.22), value: model.sidebarOpen)
         .preferredColorScheme(.dark)
         .sheet(isPresented: $model.showLibrary) {
             WebReaderLibraryView(model: model, library: library)

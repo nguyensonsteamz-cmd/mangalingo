@@ -24,6 +24,22 @@ final class WebReaderController: NSObject, WKNavigationDelegate, WKUIDelegate {
     private var selfInitiated = false
     /// The address was typed / chosen from a list: the page it ends on (after redirects) is the page being read.
     private var typedLoad = false
+    /// Bubbles read on the current page (a region scan adds to them; a new page or a fresh scan starts over).
+    private var bubbles: [[String: Any]] = []
+
+    /// Adds bubbles reported by the page and returns the whole list in the shape the sidebar expects.
+    func addBubbles(_ blocks: [[String: Any]], fresh: Bool) -> [[String: Any]] {
+        if fresh { bubbles = [] }
+        for b in blocks {
+            guard let text = b["text"] as? String else { continue }
+            let n = (b["n"] as? Int) ?? (bubbles.count + 1)
+            let box = (b["box"] as? [String: Any]) ?? ["x": 0, "y": 0, "w": 1, "h": 1]
+            bubbles.removeAll { ($0["n"] as? Int) == n }
+            bubbles.append(["id": "b\(n)", "n": n, "text": text, "confidence": 90, "box": box, "lines": [Any]()])
+        }
+        bubbles.sort { ($0["n"] as? Int ?? 0) < ($1["n"] as? Int ?? 0) }
+        return bubbles
+    }
 
     private let settings: WebReaderSettings
     private let library: WebLibrary
@@ -167,6 +183,9 @@ final class WebReaderController: NSObject, WKNavigationDelegate, WKUIDelegate {
         evalReader("window.__mlr && window.__mlr.configure(\(JS.literal(settings.jsConfig)));")
     }
     func setOCRMode(_ on: Bool) { evalReader("window.__mlr && window.__mlr.ocrMode(\(on ? "true" : "false"));") }
+    func setRegionMode(_ on: Bool) { evalReader("window.__mlr && window.__mlr.regionMode(\(on ? "true" : "false"));") }
+    func scanScreen() { evalReader("window.__mlr && window.__mlr.scanScreen();") }
+    func scanAllImages() { evalReader("window.__mlr && window.__mlr.scanAllImages();") }
     func translateSelection() { evalReader("window.__mlr && window.__mlr.translateSelection();") }
     func hidePopup() { evalReader("window.__mlr && window.__mlr.hide();") }
 
@@ -191,13 +210,16 @@ final class WebReaderController: NSObject, WKNavigationDelegate, WKUIDelegate {
             guard let id = body["id"] as? Int, let word = body["word"] as? String else { return }
             overlay.save(id: id, word: word, context: body["context"] as? String ?? "", url: web.url?.absoluteString ?? "", title: web.title ?? "")
         case "details":
+            // "Chi tiết": the Reader stays open and its sidebar shows the full look-up (Dịch / Từ vựng / Ngữ pháp / Ngữ cảnh / Đã lưu / Ghi chú)
             let text = body["text"] as? String ?? ""
             let context = body["context"] as? String ?? ""
-            model?.close()
-            // the Reader slides away first, then the app page opens the look-up screen with this text
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) {
-                MainWebHub.shared.call("openDetails", ["text": text, "context": context]) { _ in }
-            }
+            model?.showInSidebar(text: text, context: context, from: self)
+        case "ocrRegion":
+            handleRegion(body)
+        case "regionDone":
+            model?.regionMode = false
+        case "ocrBubbles":
+            if let blocks = body["blocks"] as? [[String: Any]] { model?.bubblesFound(blocks, fresh: (body["fresh"] as? Bool) ?? false, from: self) }
         case "speak":
             if let text = body["text"] as? String { Speaker.shared.speak(text, rate: 1) }
         case "selection":
@@ -212,6 +234,55 @@ final class WebReaderController: NSObject, WKNavigationDelegate, WKUIDelegate {
         }
     }
 
+    // MARK: OCR of a region / the visible screen
+
+    /// The page asked to read a rectangle (viewport points): the app takes a snapshot of just that area and reads it.
+    private func handleRegion(_ body: [String: Any]) {
+        guard let id = body["id"] as? Int, let r = body["rect"] as? [String: Any],
+              let x = (r["x"] as? NSNumber)?.doubleValue, let y = (r["y"] as? NSNumber)?.doubleValue,
+              let w = (r["w"] as? NSNumber)?.doubleValue, let h = (r["h"] as? NSNumber)?.doubleValue else { return }
+        let rect = CGRect(x: x, y: y, width: w, height: h).intersection(web.bounds)
+        guard !rect.isNull, rect.width >= 8, rect.height >= 8 else {
+            ocrFail(id, "Vùng quá nhỏ để quét.")
+            return
+        }
+        let config = WKSnapshotConfiguration()
+        config.rect = rect
+        config.afterScreenUpdates = true
+        web.takeSnapshot(with: config) { [weak self] image, _ in
+            guard let self = self, let data = image?.pngData() else {
+                self?.ocrFail(id, "Không chụp được vùng này.")
+                return
+            }
+            self.runOCR(id: id, data: data)
+        }
+    }
+
+    private func ocrFail(_ id: Int, _ message: String) {
+        evalReader("window.__mlr && window.__mlr.ocrResult(\(JS.literal(["id": id, "error": message])));")
+    }
+
+    /// Apple Vision reads the image; the app page groups the lines into speech bubbles (same as the scan screen); the page draws them.
+    private func runOCR(id: Int, data: Data) {
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                let lines = try TextRecognizer.recognize(data, region: nil)
+                DispatchQueue.main.async {
+                    MainWebHub.shared.call("ocrBlocks", lines) { [weak self] result in
+                        switch result {
+                        case .success(let blocks):
+                            self?.evalReader("window.__mlr && window.__mlr.ocrResult(\(JS.literal(["id": id, "blocks": blocks])));")
+                        case .failure(let error):
+                            self?.ocrFail(id, "Không nhóm được chữ: \(error.localizedDescription)")
+                        }
+                    }
+                }
+            } catch {
+                DispatchQueue.main.async { self.ocrFail(id, "Không nhận dạng được chữ trong ảnh này.") }
+            }
+        }
+    }
+
     // MARK: OCR of a picked image
 
     /// The page sent either the pixels (same-origin image) or just the address (image from another site): in the
@@ -220,29 +291,8 @@ final class WebReaderController: NSObject, WKNavigationDelegate, WKUIDelegate {
         guard let id = body["id"] as? Int else { return }
         let src = body["src"] as? String ?? ""
 
-        func fail(_ message: String) {
-            evalReader("window.__mlr && window.__mlr.ocrResult(\(JS.literal(["id": id, "error": message])));")
-        }
-        func recognize(_ data: Data) {
-            DispatchQueue.global(qos: .userInitiated).async {
-                do {
-                    let lines = try TextRecognizer.recognize(data, region: nil)
-                    DispatchQueue.main.async {
-                        // same grouping / filtering of speech bubbles as the scan screen
-                        MainWebHub.shared.call("ocrBlocks", lines) { [weak self] result in
-                            switch result {
-                            case .success(let blocks):
-                                self?.evalReader("window.__mlr && window.__mlr.ocrResult(\(JS.literal(["id": id, "blocks": blocks])));")
-                            case .failure(let error):
-                                fail("Không nhóm được chữ: \(error.localizedDescription)")
-                            }
-                        }
-                    }
-                } catch {
-                    DispatchQueue.main.async { fail("Không nhận dạng được chữ trong ảnh này.") }
-                }
-            }
-        }
+        func fail(_ message: String) { ocrFail(id, message) }
+        func recognize(_ data: Data) { runOCR(id: id, data: data) }
 
         if let dataUrl = body["dataUrl"] as? String, let comma = dataUrl.firstIndex(of: ","),
            let data = Data(base64Encoded: String(dataUrl[dataUrl.index(after: comma)...])) {
@@ -326,6 +376,7 @@ final class WebReaderController: NSObject, WKNavigationDelegate, WKUIDelegate {
     }
 
     func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
+        bubbles = []
         error = nil
         hasSelection = false
         changed()
