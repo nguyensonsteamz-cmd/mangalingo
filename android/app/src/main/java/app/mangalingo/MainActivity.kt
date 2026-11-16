@@ -18,6 +18,13 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.FrameLayout
 import androidx.webkit.WebViewAssetLoader
+import com.google.mlkit.common.model.DownloadConditions
+import com.google.mlkit.common.model.RemoteModelManager
+import com.google.mlkit.nl.translate.TranslateLanguage
+import com.google.mlkit.nl.translate.TranslateRemoteModel
+import com.google.mlkit.nl.translate.Translation
+import com.google.mlkit.nl.translate.TranslatorOptions
+import org.json.JSONObject
 
 /**
  * The app screen: the LingoLens web UI (home switch, lookup, vocabulary, settings – the same React
@@ -34,6 +41,18 @@ class MainActivity : Activity() {
     }
 
     private lateinit var web: WebView
+
+    /** On-device EN → VI translator (ML Kit). */
+    private val translator by lazy {
+        Translation.getClient(
+            TranslatorOptions.Builder().setSourceLanguage(TranslateLanguage.ENGLISH).setTargetLanguage(TranslateLanguage.VIETNAMESE).build(),
+        )
+    }
+
+    /** Answers a machine-translation request of the page (see src/mobile/native.ts). */
+    private fun mtReply(id: Int, ok: Boolean, text: String) {
+        runOnUiThread { web.evaluateJavascript("window.__mlMt && window.__mlMt($id, $ok, ${JSONObject.quote(text)});", null) }
+    }
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -145,6 +164,25 @@ class MainActivity : Activity() {
                 if (pm.getComponentEnabledSetting(component) != state) pm.setComponentEnabledSetting(component, state, PackageManager.DONT_KILL_APP)
             }
             return true
+        }
+
+        /** Machine translation. op: "status" → installed | download, "prepare" → downloads the model, "translate". Answer comes through window.__mlMt(id, ok, text). */
+        @JavascriptInterface
+        fun mt(id: Int, op: String, text: String) {
+            val model = TranslateRemoteModel.Builder(TranslateLanguage.VIETNAMESE).build()
+            when (op) {
+                "status" -> RemoteModelManager.getInstance().isModelDownloaded(model)
+                    .addOnSuccessListener { mtReply(id, true, if (it) "installed" else "download") }
+                    .addOnFailureListener { mtReply(id, false, it.message ?: "status") }
+                "prepare" -> translator.downloadModelIfNeeded(DownloadConditions.Builder().build())
+                    .addOnSuccessListener { mtReply(id, true, "installed") }
+                    .addOnFailureListener { mtReply(id, false, it.message ?: "download") }
+                "translate" -> translator.downloadModelIfNeeded(DownloadConditions.Builder().build())
+                    .onSuccessTask { translator.translate(text) }
+                    .addOnSuccessListener { mtReply(id, true, it) }
+                    .addOnFailureListener { mtReply(id, false, it.message ?: "translate") }
+                else -> mtReply(id, false, "unknown op")
+            }
         }
 
         @JavascriptInterface

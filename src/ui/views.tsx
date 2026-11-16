@@ -94,9 +94,8 @@ export function WordMeaning({ r, s, max = 6, posInHeader = false }: { r: WordLoo
   return (
     <div>
       <InflectionLine r={r} />
-      {/* Single-word machine translation only when the dictionary has no Vietnamese meaning: out of
-          context it is unreliable for common words ("you" → "mày", "run" → "bay màu"). */}
-      {!englishTarget && vi.length === 0 && <MtWordMeaning r={r} s={s} hasEnglish={en.length > 0} noDict />}
+      {/* machine translation of the word first (when on); the dictionary meanings follow as the cross-check */}
+      {!englishTarget && <MtWordMeaning r={r} s={s} hasEnglish={en.length > 0} noDict={vi.length === 0} />}
       {englishTarget ? (
         <EnglishDefinitions r={r} en={en} s={s} max={max} title="English definitions · WordNet" />
       ) : vi.length > 0 ? (
@@ -154,7 +153,7 @@ function MtWordMeaning({ r, s, hasEnglish, noDict }: { r: WordLookup; s: Setting
       <div className="ml-card rounded-xl border border-accent/25 border-l-[4px] border-l-accent bg-accent/[0.07] px-3 py-2 hover:border-accent/50" data-ml-word-mt="">
         <div className="mb-0.5 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-accent">
           <span className="h-1.5 w-1.5 rounded-full bg-accent" /> Nghĩa
-          <span className="rounded bg-warn/15 px-1 text-[10px] font-semibold normal-case tracking-normal text-warn" title="Từ điển chưa có nghĩa tiếng Việt cho từ này – dịch bằng Chrome (trên máy)">
+          <span className="rounded bg-accent/15 px-1 text-[10px] font-semibold normal-case tracking-normal text-accent" title="Dịch máy – chạy trên máy của bạn">
             dịch máy
           </span>
         </div>
@@ -498,33 +497,59 @@ export function GrammarView({ g, compact }: { g: GrammarReport; compact?: boolea
   );
 }
 
-export function VocabHints({ items, onLookup, onSave, saved }: { items: VocabHint[]; onLookup?: (t: string) => void; onSave?: (v: VocabHint) => void; saved?: Set<string> }) {
+export function VocabHints({ items, onLookup, onSave, saved, s }: { items: VocabHint[]; onLookup?: (t: string) => void; onSave?: (v: VocabHint) => void; saved?: Set<string>; s?: Settings }) {
   if (!items.length) return <Notice>Không phát hiện từ khó trong đoạn này (theo danh sách từ phổ biến của bộ Starter).</Notice>;
   return (
     <ul className="divide-y divide-border/60">
       {items.map((v) => (
-        <li key={v.lemma} className="flex items-start gap-2 py-1.5">
-          <div className="min-w-0 flex-1">
-            <button type="button" className="ml-word text-[13px] font-medium text-text" onClick={() => onLookup?.(v.pos === 'phrase' ? v.lemma : v.word)}>
-              {v.word}
-            </button>
-            {v.lemma !== v.word.toLowerCase() && <span className="text-[11.5px] text-subtle"> ({v.lemma})</span>}
-            <div className="truncate text-[12px] text-muted">{v.vi ?? (v.en ? <i>{v.en}</i> : 'chưa có nghĩa')}</div>
-            <div className="text-[10.5px] text-subtle">{v.reason}</div>
-          </div>
-          {onSave && (
-            <button
-              type="button"
-              disabled={saved?.has(v.lemma)}
-              onClick={() => onSave(v)}
-              className="ml-focus shrink-0 rounded-md px-1.5 py-0.5 text-[11.5px] text-accent hover:bg-accent/10 disabled:text-subtle"
-            >
-              {saved?.has(v.lemma) ? 'đã lưu' : '+ lưu'}
-            </button>
-          )}
-        </li>
+        <VocabRow key={v.lemma} v={v} s={s} onLookup={onLookup} onSave={onSave} saved={saved} />
       ))}
     </ul>
+  );
+}
+
+/** One word of the vocabulary list: machine translation first (when on), the dictionary meaning as the cross-check / fallback. */
+function VocabRow({ v, s, onLookup, onSave, saved }: { v: VocabHint; s?: Settings; onLookup?: (t: string) => void; onSave?: (v: VocabHint) => void; saved?: Set<string> }) {
+  // lower case: a capitalised lone word reads like an exclamation to the translator ("You" → "Mày!")
+  const asked = s ? v.word.toLowerCase() : undefined;
+  const mt = useMt(asked, s ?? ({ reading: { translationMode: 'dictionary' } } as Settings));
+  const mtVi = asked && mt && mt.trim().toLowerCase() !== asked ? mt.charAt(0).toLowerCase() + mt.slice(1) : undefined;
+  const vi = mtVi ?? v.vi;
+  return (
+    <li className="flex items-start gap-2 py-1.5">
+      <div className="min-w-0 flex-1">
+        <button type="button" className="ml-word text-[13px] font-medium text-text" onClick={() => onLookup?.(v.pos === 'phrase' ? v.lemma : v.word)}>
+          {v.word}
+        </button>
+        {v.lemma !== v.word.toLowerCase() && <span className="text-[11.5px] text-subtle"> ({v.lemma})</span>}
+        <div className="text-[12.5px] text-muted">
+          {vi ? (
+            <>
+              {vi}
+              {mtVi && <span className="ml-1.5 rounded bg-accent/15 px-1 text-[10px] font-semibold text-accent">dịch máy</span>}
+              {mtVi && v.vi && v.vi.trim().toLowerCase() !== mtVi.trim().toLowerCase() && <div className="text-[11.5px] text-subtle">Từ điển: {v.vi}</div>}
+            </>
+          ) : asked && mt === undefined ? (
+            <span className="inline-flex items-center gap-1.5"><Spinner /> Đang dịch…</span>
+          ) : v.en ? (
+            <i className="line-clamp-2">{v.en}</i>
+          ) : (
+            'chưa có nghĩa'
+          )}
+        </div>
+        <div className="text-[10.5px] text-subtle">{v.reason}</div>
+      </div>
+      {onSave && (
+        <button
+          type="button"
+          disabled={saved?.has(v.lemma)}
+          onClick={() => onSave({ ...v, vi })}
+          className="ml-focus shrink-0 rounded-md px-1.5 py-0.5 text-[11.5px] text-accent hover:bg-accent/10 disabled:text-subtle"
+        >
+          {saved?.has(v.lemma) ? 'đã lưu' : '+ lưu'}
+        </button>
+      )}
+    </li>
   );
 }
 

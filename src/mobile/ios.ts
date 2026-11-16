@@ -122,3 +122,38 @@ export async function setAppIcon(logo: string): Promise<void> {
   const name = logo === 'glass' ? null : `AppIcon-${logo[0].toUpperCase()}${logo.slice(1)}`;
   await h.postMessage({ cmd: 'setIcon', name }).catch(() => {});
 }
+
+/**
+ * Makes the iPhone's Apple Translation look like Chrome's `Translator` API, so everything that
+ * machine-translates (sentence translation, single words in the vocabulary list…) works in the app.
+ * No-op outside the iPhone app.
+ */
+export function installTranslatorShim(): void {
+  const h = handler();
+  const g = globalThis as { Translator?: unknown };
+  if (!h) return;
+  g.Translator = {
+    async availability() {
+      const s = await translationPackStatus();
+      return s === 'installed' ? 'available' : s === 'download' ? 'downloadable' : 'unavailable';
+    },
+    async create(o?: { monitor?: (m: { addEventListener: (t: string, cb: (e: { loaded: number }) => void) => void }) => void }) {
+      const s = await translationPackStatus();
+      if (s === 'unsupported' || s === 'unavailable') throw new Error('Bản dịch trên máy cần iOS 18 trở lên.');
+      if (s === 'download') {
+        const cbs: Array<(e: { loaded: number }) => void> = [];
+        o?.monitor?.({ addEventListener: (_t, cb) => cbs.push(cb) });
+        cbs.forEach((cb) => cb({ loaded: 0 }));
+        if (!(await prepareTranslationPack())) throw new Error('Chưa tải được gói dịch Anh → Việt.');
+        cbs.forEach((cb) => cb({ loaded: 1 }));
+      }
+      return {
+        async translate(text: string) {
+          const out = await translateOnDevice(text);
+          if (out === null) throw new Error('Bản dịch trên máy không khả dụng.');
+          return out;
+        },
+      };
+    },
+  };
+}

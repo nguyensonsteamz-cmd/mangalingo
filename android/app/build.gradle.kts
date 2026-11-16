@@ -36,5 +36,7 @@ android {
 dependencies {
     implementation("androidx.core:core-ktx:1.15.0")
     implementation("androidx.webkit:webkit:1.12.1")
+    // on-device English → Vietnamese translation (the model is downloaded once, then it works offline)
+    implementation("com.google.mlkit:translate:17.0.3")
     testImplementation("junit:junit:4.13.2")
 }

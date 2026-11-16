@@ -390,7 +390,7 @@ function EntryView({ s, entry, tab, compact, onLookup, onBackToOcr }: { s: Setti
           ))}
         </div>
       )}
-      {tab === 'vocabulary' && <VocabHints items={r.vocabulary} onLookup={(t) => onLookup(t, entry.text)} onSave={(v) => saveHint(v, entry.text, entry.source)} saved={saved} />}
+      {tab === 'vocabulary' && <VocabHints s={s} items={r.vocabulary} onLookup={(t) => onLookup(t, entry.text)} onSave={(v) => saveHint(v, entry.text, entry.source)} saved={saved} />}
       {tab === 'grammar' && (
         <div className="space-y-4">
           {sentences.map((x, i) => (

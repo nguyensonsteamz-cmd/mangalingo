@@ -113,16 +113,15 @@ describe('result views render with real engine output', () => {
     const dictOnly = mergeSettings(s, { reading: { translationMode: 'dictionary' } });
     expect(renderToStaticMarkup(<WordMeaning r={r} s={dictOnly} />)).toContain('Chưa có nghĩa tiếng Việt');
   });
-  it('machine mode (default): only words WITHOUT Vietnamese data are machine-translated; dictionary meanings come first', async () => {
+  it('machine mode (default): every word is machine-translated first; dictionary meanings stay underneath', async () => {
     const r = (await service.lookup({ text: 'photosynthesis' })) as WordLookup;
     const html = renderToStaticMarkup(<WordMeaning r={r} s={s} />);
-    expect(html).toContain('Đang dịch'); // pending until Chrome's translator answers
+    expect(html).toContain('Đang dịch'); // pending until the on-device translator answers
     expect(html).not.toContain('Chưa có nghĩa tiếng Việt');
-    // "you" has curated meanings: no single-word machine translation ("mày") on top of them
+    // "you" has curated meanings: the machine translation is requested too, the dictionary meaning is still shown
     const you = (await service.lookup({ text: 'You' })) as WordLookup;
     const html2 = renderToStaticMarkup(<WordMeaning r={you} s={s} />);
-    expect(html2).not.toContain('Đang dịch');
-    expect(html2).not.toContain('dịch máy');
+    expect(html2).toContain('Đang dịch');
     expect(html2).toContain('bạn');
   });
   it('sentence views', async () => {

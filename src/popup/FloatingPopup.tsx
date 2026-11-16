@@ -381,7 +381,7 @@ function SentenceView({ r, s, canBack, tab }: { r: SentenceAnalysis; s: Settings
         )}
         {active === 'context' && <NotesView notes={r.notes} empty={<Notice>Không phát hiện slang, thành ngữ hay sắc thái đặc biệt.</Notice>} />}
         {active === 'grammar' && <GrammarView g={r.grammar} compact />}
-        {active === 'vocab' && <VocabHints items={r.vocabulary} onLookup={(t) => A.drillDown(t, r.text)} onSave={(v) => void A.savePhrase(v.lemma, v.vi ?? v.en ?? '', r.text)} />}
+        {active === 'vocab' && <VocabHints s={s} items={r.vocabulary} onLookup={(t) => A.drillDown(t, r.text)} onSave={(v) => void A.savePhrase(v.lemma, v.vi ?? v.en ?? '', r.text)} />}
         <SourceLine sources={r.sources} />
       </Body>
     </>
@@ -442,7 +442,7 @@ function ParagraphView({ r, s, canBack, tab }: { r: ParagraphAnalysis; s: Settin
             ))}
           </ol>
         )}
-        {active === 'vocab' && <VocabHints items={r.vocabulary} onLookup={(t) => A.drillDown(t)} onSave={(v) => void A.savePhrase(v.lemma, v.vi ?? v.en ?? '')} />}
+        {active === 'vocab' && <VocabHints s={s} items={r.vocabulary} onLookup={(t) => A.drillDown(t)} onSave={(v) => void A.savePhrase(v.lemma, v.vi ?? v.en ?? '')} />}
         <SourceLine sources={r.sources} />
       </Body>
     </>
