@@ -8,7 +8,8 @@
 | 43886895123 | 8da6551 | iOS app / build | **FAIL** — Swift syntax errors (backslashes lost in a string literal) — caught by `xcodebuild` |
 | 43889720688 | 812d01e…0271f6d | iOS app | build **PASS**, simulator probe **PASS** (fix of the above) |
 | 43890461052 | a32d92d | iOS app | build **PASS**, simulator probe **PASS** incl. SHA-256 verification and persistence after relaunch |
-| (final) | see FINAL_REPORT | CI + iOS | see FINAL_REPORT |
+| 43893968854 | 12fdde1 | CI (extension + Android) | **PASS** (incl. the optional signing config; no keystore, so unsigned) |
+| 43894092541 | 0a1a08c | CI (extension + Android) | **PASS** (docs; the iOS workflow is path-filtered and did not run — its last run is 43890461052, PASS) |
 
 Honest note: two pushes to `master` contained my own Swift mistakes (runs above). The first only affected the probe job; `812d01e`/`8da6551` broke the iOS compile for ~one run; the literal-`(page)` bug affected the **app's start page** in those commits and was fixed in `0271f6d` before any IPA from those commits was built or used. No force push, no history rewrite.
 
