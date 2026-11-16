@@ -24,7 +24,7 @@ const hasTranslator = typeof (globalThis as { Translator?: unknown }).Translator
 /** Running inside the phone app (iPhone / Android) rather than the Chrome side panel. */
 const IN_APP = !!(globalThis as { MangaLingoPlatform?: string; MangaLingoNative?: unknown }).MangaLingoPlatform || !!(globalThis as { MangaLingoNative?: unknown }).MangaLingoNative;
 
-export function SidePanel() {
+export function SidePanel({ topBar }: { topBar?: ReactNode } = {}) {
   const { settings: s, loaded } = useSettings('sidebar');
   const [tab, setTab] = useState<SidebarTab>('translation');
   const [compact, setCompact] = useState(false);
@@ -113,6 +113,8 @@ export function SidePanel() {
   return (
     <div className={cx('mx-auto flex min-h-screen flex-col', width)}>
       <header className="ml-glass-bar sticky top-0 z-10 border-b" data-ml-sidebar-header="">
+        {/* phone app: a minimal bar (back + page title) replaces the brand row */}
+        {topBar ?? (
         <div className="flex items-center gap-2.5 px-3 pb-2.5 pt-3">
           <IconLogo size={38} />
           <div className="min-w-0 flex-1">
@@ -154,8 +156,9 @@ export function SidePanel() {
             <IconGear />
           </IconButton>
         </div>
+        )}
         <form
-          className="px-3 pb-2"
+          className={cx('px-3 pb-2', !!topBar && 'pt-2')}
           onSubmit={(e) => {
             e.preventDefault();
             setOcr(null);

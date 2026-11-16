@@ -33,7 +33,7 @@ type SectionId = (typeof SECTIONS)[number]['id'];
 const ACCENTS = ['#7c9cff', '#5cc78c', '#e8b356', '#f06c6c', '#b48cff', '#4cc3d9', '#f08ccf', '#a0a7b6'];
 
 /** `hidden`: sections that do not apply to the host (e.g. keyboard shortcuts in the Android app). */
-export function SettingsCenter({ hidden = [] }: { hidden?: string[] } = {}) {
+export function SettingsCenter({ hidden = [], topBar }: { hidden?: string[]; topBar?: ReactNode } = {}) {
   const { settings: s, update, reset, loaded, saveState } = useSettings('page');
   const initial = (decodeURIComponent(location.hash.slice(1)) as SectionId) || 'appearance';
   const [section, setSection] = useState<SectionId>(SECTIONS.some((x) => x.id === initial) ? initial : 'appearance');
@@ -50,13 +50,17 @@ export function SettingsCenter({ hidden = [] }: { hidden?: string[] } = {}) {
   return (
     <div className={cx('mx-auto flex min-h-screen flex-col md:flex-row', PREVIEW_SECTIONS.includes(section) ? 'max-w-7xl' : 'max-w-5xl')}>
       <nav className="ml-glass-bar sticky top-0 z-10 shrink-0 border-b px-4 py-4 md:h-screen md:w-60 md:border-b-0 md:border-r">
-        <div className="mb-4 flex items-center gap-2">
-          <IconLogo size={26} />
-          <div>
-            <div className="text-[15px] font-semibold text-text">LingoLens</div>
-            <div className="text-[11.5px] text-subtle">Settings Center</div>
+        {topBar ? (
+          <div className="-mx-4 -mt-4 mb-3">{topBar}</div>
+        ) : (
+          <div className="mb-4 flex items-center gap-2">
+            <IconLogo size={26} />
+            <div>
+              <div className="text-[15px] font-semibold text-text">LingoLens</div>
+              <div className="text-[11.5px] text-subtle">Settings Center</div>
+            </div>
           </div>
-        </div>
+        )}
         <ul className="relative flex gap-1 overflow-x-auto md:flex-col">
           <GlassIndicator activeKey={section} className="rounded-full md:rounded-xl" />
           {SECTIONS.filter((x) => !hidden.includes(x.id)).map((x) => (

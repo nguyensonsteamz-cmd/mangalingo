@@ -4,13 +4,13 @@
  * Both: Lookup (the extension's sidebar), Vocabulary notebook, Settings (the extension's Settings
  * Center).
  */
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { SettingsCenter } from '@/options/SettingsCenter';
 import { SidePanel } from '@/sidepanel/SidePanel';
 import { VocabManager } from '@/ui/VocabManager';
 import { useSettings } from '@/ui/hooks';
 import { cx, fastTap, GlassIndicator, Notice } from '@/ui/components';
-import { IconBookmark, IconGear, IconLogo, IconScan, IconSearch } from '@/ui/icons';
+import { IconBack, IconBookmark, IconGear, IconLogo, IconScan, IconSearch } from '@/ui/icons';
 import { native, onResume } from './native';
 import { latestScanUrl, pendingScanStamp, prepareTranslationPack, setAppIcon, translationPackStatus } from './ios';
 import { Scan, type HlBox } from './Scan';
@@ -138,10 +138,14 @@ export function App() {
     window.addEventListener('hashchange', on);
     return () => window.removeEventListener('hashchange', on);
   }, []);
+  const prevTab = useRef<Tab>('home');
   const go = (t: Tab) => {
+    if (t !== tab) prevTab.current = tab;
     setTab(t);
     history.replaceState(null, '', `#${t}`);
   };
+  /** "‹" of a page: back to the tab you came from (home if none). */
+  const back = () => go(prevTab.current !== tab ? prevTab.current : 'home');
 
   // iPhone: an image from the Shortcuts action (AssistiveTouch → Take Screenshot → LingoLens)
   // the open document on the scan page: page images (screenshot, photo, PDF pages) or a text file
@@ -220,7 +224,7 @@ export function App() {
 
   return (
     <div className="flex min-h-[calc(100dvh-env(safe-area-inset-top))] flex-col text-text" style={{ zoom: SCALE[settings.appearance.uiScale] ?? 1 }} data-ml-app="">
-      <main className="min-h-0 flex-1 pb-[calc(120px+env(safe-area-inset-bottom))]">
+      <main className="min-h-0 flex-1 pb-[calc(104px+env(safe-area-inset-bottom))]">
         {tab === 'home' && (PLATFORM === 'ios' ? <IosHome onOpen={go} pack={pack} /> : <Home onOpen={go} />)}
         {/* the scan page: pick an image (or come from the Shortcut) → the scan screen */}
         {tab === 'scan' && !doc && (
@@ -255,54 +259,18 @@ export function App() {
           </div>
         )}
         {tab === 'scan' && <NotesDrawer open={notesOpen} onClose={() => setNotesOpen(false)} context={noteContext} />}
-        {tab === 'lookup' && <SidePanel />}
+        {tab === 'lookup' && <SidePanel topBar={<AppBar title="Tra cứu" onBack={back} />} />}
         {tab === 'vocab' && (
-          <div className="px-3 py-3">
-            <h1 className="mb-3 text-[18px] font-bold">Sổ từ vựng</h1>
-            <VocabManager />
-          </div>
+          <>
+            <AppBar title="Sổ từ vựng" onBack={back} sticky />
+            <div className="px-3 py-3">
+              <VocabManager />
+            </div>
+          </>
         )}
-        {tab === 'settings' && <SettingsCenter hidden={['shortcuts']} />}
+        {tab === 'settings' && <SettingsCenter hidden={['shortcuts']} topBar={<AppBar title="Cài đặt" onBack={back} />} />}
       </main>
-      <nav className={cx('ml-glass fixed inset-x-3 bottom-[max(10px,env(safe-area-inset-bottom))] z-20 grid rounded-[30px] p-1', PLATFORM === 'ios' ? 'grid-cols-5' : 'grid-cols-4')} data-ml-app-nav="">
-        <GlassIndicator activeKey={tab} className="rounded-[26px]" />
-        {TABS.flatMap((t, i) => {
-          const item = (
-            <button
-              key={t.id}
-              type="button"
-              {...fastTap(() => go(t.id))}
-              data-ml-active={tab === t.id}
-              className={cx('ml-press relative z-[1] flex flex-col items-center gap-0.5 rounded-[26px] border border-transparent py-1.5 text-[11.5px] font-semibold', tab === t.id ? 'ml-sel-text' : 'text-muted')}
-              aria-current={tab === t.id ? 'page' : undefined}
-            >
-              <span className="px-3 py-0.5">{t.icon}</span>
-              {t.label}
-            </button>
-          );
-          // iPhone: the scan button sits in the middle of the bar, raised above it
-          if (PLATFORM !== 'ios' || i !== 1) return [item];
-          return [
-            item,
-            <div key="scan" className="relative z-[2] flex flex-col items-center justify-end pb-1.5">
-              <button
-                type="button"
-                {...fastTap(() => go('scan'))}
-                className={cx(
-                  'ml-btn-primary ml-press ml-ripple absolute -top-7 flex h-[62px] w-[62px] items-center justify-center rounded-full ring-[5px] ring-[rgb(var(--ml-bg))]',
-                  tab === 'scan' && 'shadow-[0_0_0_2px_rgb(var(--ml-sel)),0_10px_26px_-6px_rgb(var(--ml-accent))]',
-                )}
-                aria-label="Quét chữ trong ảnh"
-                aria-current={tab === 'scan' ? 'page' : undefined}
-                data-ml-scan-tab=""
-              >
-                <IconScan size={28} />
-              </button>
-              <span className={cx('text-[11.5px] font-semibold', tab === 'scan' ? 'ml-sel-text' : 'text-muted')}>Quét</span>
-            </div>,
-          ];
-        })}
-      </nav>
+      <TabBar ios={PLATFORM === 'ios'} tab={tab} go={go} />
     </div>
   );
 }
@@ -495,5 +463,104 @@ function ScanStart({ onFile, uploadError, opening }: { onFile: (f: File) => void
         </div>
       </div>
     </div>
+  );
+}
+
+/** Minimal top bar of a page: back button + page title (nothing else). */
+function AppBar({ title, onBack, sticky }: { title: string; onBack: () => void; sticky?: boolean }) {
+  return (
+    <div className={cx('flex h-11 items-center gap-1 px-2', sticky && 'ml-glass-bar sticky top-0 z-10 border-b')} data-ml-app-bar="">
+      <button type="button" onClick={onBack} className="ml-press flex h-9 w-9 items-center justify-center rounded-full text-muted" aria-label="Quay lại">
+        <IconBack size={22} />
+      </button>
+      <div className="min-w-0 flex-1 truncate text-[15.5px] font-bold">{title}</div>
+    </div>
+  );
+}
+
+/**
+ * Bottom tab bar. On the iPhone the bar's top edge rises into a smooth hill above the middle (scan)
+ * button: the bar and the hill are ONE glass shape (clip-path), outlined by an SVG stroke, and the
+ * selection pill grows taller and higher when it moves onto that button.
+ */
+const BAR_H = 66;
+const RISE = 18; // height of the hill above the bar
+const HALF = 46; // half width of the hill
+function barPath(w: number, hill: boolean) {
+  const r = 30;
+  const y0 = RISE; // the shape's box starts RISE px above the bar
+  const cx = w / 2;
+  let d = `M ${r} ${y0}`;
+  if (hill) d += ` L ${cx - HALF} ${y0} C ${cx - HALF * 0.5} ${y0} ${cx - HALF * 0.5} 0 ${cx} 0 C ${cx + HALF * 0.5} 0 ${cx + HALF * 0.5} ${y0} ${cx + HALF} ${y0}`;
+  d += ` L ${w - r} ${y0} A ${r} ${r} 0 0 1 ${w} ${y0 + r} L ${w} ${y0 + BAR_H - r} A ${r} ${r} 0 0 1 ${w - r} ${y0 + BAR_H} L ${r} ${y0 + BAR_H} A ${r} ${r} 0 0 1 0 ${y0 + BAR_H - r} L 0 ${y0 + r} A ${r} ${r} 0 0 1 ${r} ${y0} Z`;
+  return d;
+}
+
+function TabBar({ ios, tab, go }: { ios: boolean; tab: Tab; go: (t: Tab) => void }) {
+  const ref = useRef<HTMLElement>(null);
+  const [w, setW] = useState(0);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    setW(el.clientWidth);
+    if (typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(() => setW(el.clientWidth));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const d = w ? barPath(w, ios) : '';
+  const item = (t: (typeof TABS)[number]) => (
+    <button
+      key={t.id}
+      type="button"
+      {...fastTap(() => go(t.id))}
+      data-ml-active={tab === t.id}
+      className={cx('ml-press relative z-[1] flex flex-col items-center gap-0.5 rounded-[26px] border border-transparent py-1.5 text-[11.5px] font-semibold', tab === t.id ? 'ml-sel-text' : 'text-muted')}
+      aria-current={tab === t.id ? 'page' : undefined}
+    >
+      <span className="px-3 py-0.5">{t.icon}</span>
+      {t.label}
+    </button>
+  );
+  return (
+    <nav ref={ref} className="fixed inset-x-3 bottom-[max(10px,env(safe-area-inset-bottom))] z-20" style={{ height: BAR_H }} data-ml-app-nav="">
+      {/* depth (the bar body) */}
+      <div className="absolute inset-0 rounded-[30px]" style={{ boxShadow: 'var(--ml-glass-shadow)' }} aria-hidden="true" />
+      {/* one glass shape: the bar with its hill */}
+      <div className="ml-glass-shape absolute inset-x-0 bottom-0" style={{ top: -RISE, clipPath: d ? `path("${d}")` : undefined }} aria-hidden="true" />
+      {d && (
+        <svg className="pointer-events-none absolute inset-x-0 bottom-0 overflow-visible" style={{ top: -RISE }} width={w} height={BAR_H + RISE} viewBox={`0 0 ${w} ${BAR_H + RISE}`} aria-hidden="true">
+          <path d={d} fill="none" stroke="rgb(255 255 255 / calc(var(--ml-glass-hi) * 0.55))" strokeWidth="1" transform="translate(0 1)" />
+          <path d={d} fill="none" stroke="rgb(var(--ml-glass-edge) / var(--ml-glass-edge-a))" strokeWidth="1" />
+        </svg>
+      )}
+      <div className={cx('relative grid h-full p-1', ios ? 'grid-cols-5' : 'grid-cols-4')}>
+        <GlassIndicator activeKey={tab} className="rounded-[26px]" />
+        {TABS.flatMap((t, i) => {
+          if (!ios || i !== 1) return [item(t)];
+          return [
+            item(t),
+            // the scan tab: same bar background, a taller cell that reaches up into the hill – the
+            // selection pill follows this size, so it bulges upwards when it lands here
+            <div key="scan" className="flex justify-center">
+              <button
+                type="button"
+                {...fastTap(() => go('scan'))}
+                data-ml-active={tab === 'scan'}
+                className={cx('ml-press ml-ripple relative z-[1] -mt-[14px] flex h-[72px] w-[58px] flex-col items-center justify-center gap-0.5 rounded-[26px] border border-transparent text-[11.5px] font-semibold', tab === 'scan' ? 'ml-sel-text' : 'text-muted')}
+                aria-label="Quét chữ trong ảnh"
+                aria-current={tab === 'scan' ? 'page' : undefined}
+                data-ml-scan-tab=""
+              >
+                <span className={cx('-mt-0.5', tab !== 'scan' && 'text-accent')}>
+                  <IconScan size={26} />
+                </span>
+                Quét
+              </button>
+            </div>,
+          ];
+        })}
+      </div>
+    </nav>
   );
 }
