@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Demo manga site</title>
+<style>
+  body { margin: 0; background: #0f1117; color: #e8eaf0; font: 17px/1.55 -apple-system, system-ui, sans-serif; }
+  header { padding: 14px 16px; background: #181b24; border-bottom: 1px solid #262a36; display: flex; justify-content: space-between; align-items: center; }
+  header b { font-size: 18px; color: #fff; } header a { color: #8ea4ff; text-decoration: none; font-size: 14px; }
+  main { padding: 16px; }
+  h1 { font-size: 22px; margin: 4px 0 2px; } .meta { color: #8a92a6; font-size: 13px; margin-bottom: 14px; }
+  p { margin: 0 0 14px; }
+  img, canvas { display: block; width: 100%; border-radius: 10px; margin: 6px 0 16px; background: #fff; }
+  .nav { display: flex; gap: 10px; margin: 12px 0 30px; } .nav a { flex: 1; text-align: center; padding: 10px; background: #1f2330; border-radius: 10px; color: #cfd6ee; text-decoration: none; font-size: 15px; }
+</style>
+</head>
+<body>
+  <header><b>MangaHub</b><a href="#">Library</a></header>
+  <main>
+    <h1 id="t">The Last Village — Chapter 12</h1>
+    <div class="meta">Updated 2 days ago · 24 pages</div>
+    <p id="p1">The village was destroyed by the demon. Nobody survived the night, and the hero never came back.</p>
+    <p id="p2">"Run!" he shouted. It's a well-known fact that she doesn't give up easily, even when the sword breaks.</p>
+    <img id="page" alt="page 1">
+    <p id="p3">Swipe to read the next page, or press the arrow keys to move between chapters.</p>
+    <div class="nav"><a href="#">‹ Previous</a><a href="#">Next ›</a></div>
+  </main>
+  <script>
+    var c = document.createElement('canvas');
+    c.width = 780; c.height = 900;
+    var g = c.getContext('2d');
+    g.fillStyle = '#f7f3ea'; g.fillRect(0, 0, 780, 900);
+    g.strokeStyle = '#111'; g.lineWidth = 6; g.strokeRect(20, 20, 740, 860);
+    g.fillStyle = '#d9d2c3'; g.fillRect(26, 26, 728, 300);
+    function bubble(x, y, w, h) { g.fillStyle = '#fff'; g.strokeStyle = '#111'; g.lineWidth = 4; g.beginPath(); g.ellipse(x + w / 2, y + h / 2, w / 2, h / 2, 0, 0, 6.2832); g.fill(); g.stroke(); }
+    bubble(60, 70, 420, 190);
+    bubble(300, 560, 440, 200);
+    g.fillStyle = '#000'; g.font = 'bold 40px "Comic Sans MS", sans-serif'; g.textAlign = 'center';
+    g.fillText("I'M GONNA BECOME", 270, 150); g.fillText('THE STRONGEST NINJA!', 270, 200);
+    g.fillText('WHAT THE HELL IS', 520, 640); g.fillText('GOING ON HERE?!', 520, 690);
+    document.getElementById('page').src = c.toDataURL('image/png');
+  </script>
+</body>
+</html>
