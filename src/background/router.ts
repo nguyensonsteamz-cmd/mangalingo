@@ -6,6 +6,7 @@ import type { DictStats, Envelope, ImportReport, Request, ResponseMap } from '@/
 import { MessageError } from '@/shared/messages';
 import type { LookupResult, OcrResult } from '@/shared/types';
 import type { SidebarState } from './sidebar';
+import type { UsageService } from '@/modules/usage';
 
 export interface RouterDeps {
   lookup(req: Extract<Request, { type: 'lookup' }>['req']): Promise<LookupResult>;
@@ -22,6 +23,8 @@ export interface RouterDeps {
   dictStats(): Promise<DictStats>;
   dictImport(name: string, format: 'json' | 'csv', text: string): Promise<ImportReport>;
   dictClearUser(): Promise<void>;
+  /** Translation quota / cost protection (see src/modules/usage). */
+  usage: UsageService;
 }
 
 type Handler<K extends Request['type']> = (msg: Extract<Request, { type: K }>, sender: chrome.runtime.MessageSender) => Promise<ResponseMap[K]>;
@@ -62,6 +65,26 @@ export function createRouter(d: RouterDeps) {
       await d.dictClearUser();
       return true;
     },
+    'usage:translate': (m) => d.usage.translate(String(m.text ?? '').slice(0, 20000)),
+    'usage:snapshot': () => d.usage.snapshot(),
+    'usage:settings': async (m) => {
+      if (m.patch) await d.usage.updateSettings(m.patch);
+      if (m.apiKey !== undefined) await d.usage.setApiKey(m.apiKey);
+      return d.usage.snapshot();
+    },
+    'usage:authorize': async (m) => {
+      await d.usage.setPaidAuthorized(!!m.enable);
+      return d.usage.snapshot();
+    },
+    'usage:clear-history': async () => {
+      await d.usage.clearHistory();
+      return true;
+    },
+    'usage:reset': async () => {
+      await d.usage.resetAll();
+      return true;
+    },
+    'usage:export': (m) => d.usage.exportReport(m.format === 'csv' ? 'csv' : 'json'),
   };
 
   return async function route(msg: unknown, sender: chrome.runtime.MessageSender): Promise<Envelope<unknown> | undefined> {

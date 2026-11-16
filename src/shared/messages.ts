@@ -3,6 +3,7 @@
  * (`chrome.runtime.sendMessage`); background → tab events use `chrome.tabs.sendMessage`.
  */
 import type { LookupRequest, LookupResult, OcrProgress, OcrResult } from './types';
+import type { TranslateOutcome, UsageSettings, UsageSnapshot } from '@/modules/usage/types';
 
 export interface ScanTarget {
   /** Image URL to fetch at full resolution (optional). */
@@ -38,6 +39,16 @@ export type Request =
   | { type: 'dict:import'; name: string; format: 'json' | 'csv'; text: string }
   | { type: 'dict:clear-user' }
   | { type: 'shortcuts:open' }
+  /** Machine translation through the quota guard: tells the caller to use the device, or returns Google's text, or a block. */
+  | { type: 'usage:translate'; text: string }
+  | { type: 'usage:snapshot' }
+  /** Update the usage settings and / or the API key (null removes it); answers with a fresh snapshot. */
+  | { type: 'usage:settings'; patch?: Partial<UsageSettings>; apiKey?: string | null }
+  /** The user's explicit consent to paid translation (or its withdrawal). */
+  | { type: 'usage:authorize'; enable: boolean }
+  | { type: 'usage:clear-history' }
+  | { type: 'usage:reset' }
+  | { type: 'usage:export'; format?: 'json' | 'csv' }
   | { type: 'ping' };
 
 export interface DictStats {
@@ -65,6 +76,13 @@ export interface ResponseMap {
   'dict:import': ImportReport;
   'dict:clear-user': boolean;
   'shortcuts:open': boolean;
+  'usage:translate': TranslateOutcome;
+  'usage:snapshot': UsageSnapshot;
+  'usage:settings': UsageSnapshot;
+  'usage:authorize': UsageSnapshot;
+  'usage:clear-history': boolean;
+  'usage:reset': boolean;
+  'usage:export': string;
   ping: string;
 }
 

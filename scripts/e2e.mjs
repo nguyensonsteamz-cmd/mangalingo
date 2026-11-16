@@ -710,6 +710,23 @@ try {
     return 'theme light → persisted → reset to dark (sites cleared)';
   });
 
+  await step('Settings → Hạn mức dịch: dashboard, paid translation off by default, quota settings persist, device default is never metered', async () => {
+    await opt.evaluate(`location.hash = 'usage'`);
+    const txt = await waitFor(() => opt.evaluate(`document.querySelector('[data-ml-usage-section]')?.innerText ?? null`), { label: 'usage section' });
+    assert(txt.includes('Hạn mức dịch') && txt.includes('500.000'), 'free quota 500,000 shown');
+    assert(txt.includes('KHÔNG phải dữ liệu thanh toán của Google Cloud'), 'local-estimate disclaimer shown');
+    const resp = await opt.evaluate(`chrome.runtime.sendMessage({ type: 'usage:snapshot' })`);
+    assert(resp.ok && resp.data.settings.provider === 'device' && resp.data.settings.paidEnabled === false, 'defaults: on-device, paid translation off');
+    const dev = await opt.evaluate(`chrome.runtime.sendMessage({ type: 'usage:translate', text: 'hello' })`);
+    assert(dev.ok && dev.data.source === 'device', 'on-device translation is not routed to Google');
+    // change the free quota through the UI field and see it persist
+    await opt.evaluate(`(() => { const i = document.querySelector('[data-ml-usage-input="free"]'); i.focus(); const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; set.call(i, '123456'); i.dispatchEvent(new Event('input', { bubbles: true })); i.blur(); })()`);
+    await waitFor(() => sw.evaluate(`chrome.storage.local.get('usage:settings:v1').then(r => r['usage:settings:v1']?.freeQuotaChars === 123456)`), { label: 'quota saved' });
+    await opt.evaluate(`chrome.runtime.sendMessage({ type: 'usage:settings', patch: { freeQuotaChars: 500000 } })`);
+    await opt.evaluate(`chrome.runtime.sendMessage({ type: 'usage:reset' })`);
+    await opt.evaluate(`location.hash = 'appearance'`);
+  });
+
   await step('Settings live preview: changing the OCR box colour / popup width updates the preview block at once', async () => {
     await opt.evaluate(`location.hash = 'ocr'; dispatchEvent(new HashChangeEvent('hashchange'))`);
     await waitFor(() => opt.evaluate(`!!document.querySelector('[data-ml-preview-box]') && !!document.querySelector('button[aria-label="#22c55e"]')`), { label: 'OCR settings + preview' });

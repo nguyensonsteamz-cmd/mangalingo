@@ -5,7 +5,9 @@
  */
 import { useEffect, useState } from 'react';
 import type { Settings } from '@/shared/settings';
-import { getTranslator, machineTranslate, mtAvailability, type MtAvailability } from '@/translation/chrome-mt';
+import { UsageBlockedError, getTranslator, machineTranslate, mtAvailability, type MtAvailability } from '@/translation/chrome-mt';
+import type { BlockedDecision } from '@/modules/usage/types';
+import { UsageConsent } from './UsageNotice';
 import { Button, Progress, Spinner, cx } from './components';
 import { SettingsStore } from '@/storage/settings-store';
 import { chromeLocal } from '@/storage/kv';
@@ -17,7 +19,8 @@ type State =
   | { k: 'downloading'; p: number }
   | { k: 'translating' }
   | { k: 'done'; text: string }
-  | { k: 'error'; msg: string };
+  | { k: 'error'; msg: string }
+  | { k: 'blocked'; decision: BlockedDecision };
 
 export type MtState = State['k'] | 'off';
 
@@ -40,7 +43,7 @@ export function MachineTranslation({ text, s, className, onState }: { text: stri
     setSt({ k: 'translating' });
     machineTranslate(text).then(
       (out) => alive() && setSt({ k: 'done', text: out }),
-      (e: Error) => alive() && setSt({ k: 'error', msg: e.message }),
+      (e: Error) => alive() && setSt(e instanceof UsageBlockedError ? { k: 'blocked', decision: e.decision } : { k: 'error', msg: e.message }),
     );
   };
 
@@ -136,6 +139,12 @@ export function MachineTranslation({ text, s, className, onState }: { text: stri
           <div>Đang tải mô hình dịch… {Math.round(st.p * 100)}%</div>
           <Progress value={st.p} />
         </div>
+      ) : st.k === 'blocked' ? (
+        <UsageConsent
+          decision={st.decision}
+          onAuthorized={() => run(() => true)}
+          onStop={() => run(() => true)} // stopped paid translation: the on-device translator takes over
+        />
       ) : st.k === 'error' ? (
         <div className="text-[12px] text-danger">Không dịch được: {st.msg}</div>
       ) : (

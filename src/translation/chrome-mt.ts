@@ -5,6 +5,32 @@
  * Off by default (Settings → Hành vi đọc → Bản dịch máy).
  */
 
+import { send } from '@/shared/messages';
+import type { BlockedDecision } from '@/modules/usage/types';
+
+/** A translation the quota guard did not let through (needs the user's consent, or a limit was reached). */
+export class UsageBlockedError extends Error {
+  constructor(public decision: BlockedDecision) {
+    super(decision.message);
+    this.name = 'UsageBlockedError';
+  }
+}
+
+let googleOn: { t: number; on: boolean } | null = null;
+/** Is the optional Google Cloud provider selected (and has a key)? Cached briefly; asked from the background / in-app router. */
+export async function googleActive(): Promise<boolean> {
+  if (googleOn && Date.now() - googleOn.t < 2000) return googleOn.on;
+  const on = await send({ type: 'usage:snapshot' }).then(
+    (s) => s.settings.provider === 'google' && s.hasKey,
+    () => false,
+  );
+  googleOn = { t: Date.now(), on };
+  return on;
+}
+export function invalidateGoogleActive() {
+  googleOn = null;
+}
+
 export type MtAvailability = 'unsupported' | 'unavailable' | 'downloadable' | 'downloading' | 'available';
 
 interface ChromeTranslator {
@@ -23,6 +49,7 @@ const PAIR = { sourceLanguage: 'en', targetLanguage: 'vi' } as const;
 const api = (): TranslatorStatic | undefined => (globalThis as { Translator?: TranslatorStatic }).Translator;
 
 export async function mtAvailability(): Promise<MtAvailability> {
+  if (await googleActive()) return 'available'; // Google Cloud provider: nothing to download
   const T = api();
   if (!T) return 'unsupported';
   try {
@@ -71,12 +98,24 @@ export function prepareForMt(text: string): string {
 
 const cache = new Map<string, Promise<string>>();
 
+/** Google Cloud (through the quota guard) when selected, otherwise the on-device translator. */
+async function translateRouted(src: string): Promise<string> {
+  if (await googleActive()) {
+    const r = await send({ type: 'usage:translate', text: src });
+    if (r.source === 'google') return r.text;
+    if (r.source === 'blocked') throw new UsageBlockedError(r.decision);
+    // 'device': fall through to the on-device translator
+  }
+  const t = await getTranslator();
+  return t.translate(src);
+}
+
 /** Translates EN→VI on-device. Requires an available model (see mtAvailability / getTranslator). */
 export function machineTranslate(text: string): Promise<string> {
   const src = prepareForMt(text).slice(0, 4000);
   let p = cache.get(src);
   if (!p) {
-    p = getTranslator().then((t) => t.translate(src));
+    p = translateRouted(src);
     p.catch(() => cache.delete(src));
     cache.set(src, p);
     if (cache.size > 300) cache.delete(cache.keys().next().value!);

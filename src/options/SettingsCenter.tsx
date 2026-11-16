@@ -12,6 +12,7 @@ import { IconLogo, IconTrash, IconUpload } from '@/ui/icons';
 import { VocabManager } from '@/ui/VocabManager';
 import { chromeLocal } from '@/storage/kv';
 import { OcrCache } from '@/storage/ocr-cache';
+import { UsageSection } from './UsageSection';
 
 type Update = (p: DeepPartial<Settings>) => void;
 
@@ -22,6 +23,7 @@ const SECTIONS = [
   { id: 'typography', label: 'Chữ' },
   { id: 'dictionary', label: 'Từ điển' },
   { id: 'reading', label: 'Hành vi đọc' },
+  { id: 'usage', label: 'Hạn mức dịch' },
   { id: 'ocr', label: 'OCR' },
   { id: 'shortcuts', label: 'Phím tắt' },
   { id: 'vocab', label: 'Sổ từ vựng' },
@@ -101,6 +103,7 @@ export function SettingsCenter({ hidden = [], topBar }: { hidden?: string[]; top
             {section === 'typography' && <Typography s={s} update={update} />}
             {section === 'dictionary' && <DictionarySettings s={s} update={update} />}
             {section === 'reading' && <Reading s={s} update={update} />}
+            {section === 'usage' && <UsageSection />}
             {section === 'ocr' && <OcrSettings s={s} update={update} />}
             {section === 'shortcuts' && <Shortcuts s={s} update={update} />}
             {section === 'vocab' && (

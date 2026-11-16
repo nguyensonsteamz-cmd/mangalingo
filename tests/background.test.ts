@@ -65,6 +65,7 @@ describe('message router', () => {
       dictStats: vi.fn(async () => ({ sources: [], userEntries: 0, userSets: [] })),
       dictImport: vi.fn(async () => ({ imported: 1, skipped: 0, errors: [] })),
       dictClearUser: vi.fn(async () => {}),
+      usage: {} as never,
     };
   });
   const sender = { tab: { id: 7, windowId: 3 } } as chrome.runtime.MessageSender;

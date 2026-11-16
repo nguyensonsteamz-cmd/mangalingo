@@ -12,6 +12,7 @@ import { MessageError, type PageEvent } from '@/shared/messages';
 import { chromeLocal } from '@/storage/kv';
 import { SettingsStore } from '@/storage/settings-store';
 import { UserDictProvider } from '@/storage/user-dict';
+import { UsageService } from '@/modules/usage';
 
 const settings = new SettingsStore(chromeLocal());
 
@@ -28,6 +29,7 @@ const broadcast = async (e: PageEvent) => {
 };
 
 const route = createRouter({
+  usage: new UsageService(chromeLocal()),
   lookup: async (req) => {
     if (!req.assumeEnglish) {
       const s = await settings.load();

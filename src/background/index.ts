@@ -17,6 +17,7 @@ import type { OffscreenProgress } from '@/offscreen/protocol';
 import { OcrService } from './ocr-service';
 import { SidebarState } from './sidebar';
 import { createRouter } from './router';
+import { UsageService } from '@/modules/usage';
 
 const kv = chromeLocal();
 const settings = new SettingsStore(kv);
@@ -107,7 +108,10 @@ function openSidePanel(tab: { id?: number; windowId?: number; url?: string }): P
   return Promise.reject(new Error('Không xác định được tab để mở sidebar.'));
 }
 
+const usage = new UsageService(chromeLocal());
+
 const route = createRouter({
+  usage,
   lookup: async (req) => {
     if (!req.assumeEnglish) {
       const s = await settings.load();
