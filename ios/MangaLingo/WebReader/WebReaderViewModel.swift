@@ -2,25 +2,46 @@ import Combine
 import SwiftUI
 
 /// Presents / dismisses the Reader above the app (the React UI keeps running underneath it – the Reader's
-/// look-ups are answered by that page).
+/// look-ups are answered by that page). The Reader's session (its tabs and their web views) lives as long as the
+/// app: closing the Reader only hides it, so opening it again shows the same pages.
 final class ReaderPresenter: ObservableObject {
     static let shared = ReaderPresenter()
     @Published var isPresented = false
-    var startURL: URL?
+
+    lazy var model: WebReaderViewModel = {
+        let m = WebReaderViewModel()
+        m.onClose = { [weak self] in self?.dismiss() }
+        return m
+    }()
 
     func present(_ url: URL?) {
-        startURL = url
+        if let url = url { model.openTab(url, activate: true) } else { model.ensureCurrentLoaded() }
         isPresented = true
+    }
+
+    func dismiss() {
+        model.pauseAll()
+        model.saveNow()
+        isPresented = false
     }
 }
 
-/// State of one Reader session (address bar, progress, errors, toolbar toggles) + the WebReaderController.
+/// State of the Reader session: the tabs, the current tab's address bar / progress / errors, toolbar toggles.
 final class WebReaderViewModel: ObservableObject {
     struct ReaderError: Equatable {
         var message: String
         var url: String?
     }
 
+    struct ToastAction {
+        var title: String
+        var run: () -> Void
+    }
+
+    static let maxTabs = 10
+
+    @Published var tabs: [ReaderTab] = []
+    @Published var currentIndex = 0
     @Published var addressText = ""
     @Published var progress = 0.0
     @Published var isLoading = false
@@ -31,42 +52,161 @@ final class WebReaderViewModel: ObservableObject {
     @Published var error: ReaderError?
     @Published var hasSelection = false
     @Published var toastText: String?
+    @Published var toastAction: ToastAction?
     @Published var showLibrary = false
     @Published var showSettings = false
+    @Published var showTabs = false
     @Published var isEditingAddress = false
     /// "pick an image" mode of the OCR
     @Published var ocrMode = false {
         didSet { controller.setOCRMode(ocrMode) }
     }
 
-    let controller: WebReaderController
     let settings = WebReaderSettings.shared
     let library = WebLibrary.shared
-    private let onClose: () -> Void
+    var onClose: (() -> Void)?
     private var bag = Set<AnyCancellable>()
     private var toastTask: DispatchWorkItem?
+    private var saveTask: DispatchWorkItem?
 
-    init(startURL: URL?, onClose: @escaping () -> Void) {
-        controller = WebReaderController()
-        self.onClose = onClose
-        controller.model = self
+    var current: ReaderTab { tabs[min(max(currentIndex, 0), tabs.count - 1)] }
+    var controller: WebReaderController { current.controller }
+
+    init() {
+        if let saved = ReaderSessionStore.load(), !saved.tabs.isEmpty {
+            for s in saved.tabs.prefix(Self.maxTabs) {
+                let tab = makeTab(id: s.id)
+                tab.restoreURL = URL(string: s.url)
+                tab.title = s.title
+                tab.controller.originURL = s.origin.flatMap { URL(string: $0) }
+                tabs.append(tab)
+            }
+            currentIndex = min(max(saved.current, 0), tabs.count - 1)
+        } else {
+            tabs = [makeTab()]
+        }
         // changes in the Reader settings reach the page at once
         settings.objectWillChange
             .debounce(for: .milliseconds(80), scheduler: DispatchQueue.main)
             .sink { [weak self] _ in
                 guard let self = self else { return }
-                self.controller.pushSettings()
+                for t in self.tabs where t.controller.isLoaded { t.controller.pushSettings() }
                 if !self.settings.ocrEnabled && self.ocrMode { self.ocrMode = false }
             }
             .store(in: &bag)
-        if let url = startURL {
-            controller.load(url.absoluteString)
+        ensureCurrentLoaded()
+        syncPublished()
+    }
+
+    private func makeTab(id: UUID = UUID()) -> ReaderTab {
+        let controller = WebReaderController()
+        let tab = ReaderTab(id: id, controller: controller)
+        controller.model = self
+        return tab
+    }
+
+    // MARK: tabs
+
+    /// Loads the current tab if it has not been loaded yet (a tab restored after a restart is created empty).
+    func ensureCurrentLoaded() {
+        let t = current
+        guard !t.controller.isLoaded else { return }
+        t.controller.isLoaded = true
+        if let url = t.restoreURL ?? t.url {
+            t.controller.load(url.absoluteString)
         } else {
-            controller.load(settings.homeURL)
+            t.controller.load(settings.homeURL)
         }
     }
 
-    deinit { controller.teardown() }
+    func openTab(_ url: URL?, activate: Bool) {
+        if tabs.count >= Self.maxTabs {
+            toast("Tối đa \(Self.maxTabs) tab. Hãy đóng bớt tab.")
+            if let url = url { controller.load(url.absoluteString) }
+            return
+        }
+        let tab = makeTab()
+        tab.controller.isLoaded = true
+        tabs.append(tab)
+        if activate { select(tabs.count - 1) }
+        if let url = url { tab.controller.load(url.absoluteString) } else { tab.controller.load(settings.homeURL) }
+        scheduleSave()
+    }
+
+    func select(_ index: Int) {
+        guard tabs.indices.contains(index) else { return }
+        current.controller.hidePopup()
+        currentIndex = index
+        ensureCurrentLoaded()
+        syncPublished()
+        scheduleSave()
+    }
+
+    func closeTab(at index: Int) {
+        guard tabs.indices.contains(index) else { return }
+        let gone = tabs.remove(at: index)
+        gone.controller.teardown()
+        if tabs.isEmpty {
+            tabs = [makeTab()]
+            currentIndex = 0
+        } else if index < currentIndex || currentIndex >= tabs.count {
+            currentIndex = max(0, min(currentIndex - 1, tabs.count - 1))
+        }
+        ensureCurrentLoaded()
+        syncPublished()
+        scheduleSave()
+    }
+
+    func closeCurrentTab() { closeTab(at: currentIndex) }
+
+    func pauseAll() {
+        for t in tabs { t.controller.pauseMedia() }
+    }
+
+    // MARK: state shown by the toolbar (always the current tab's)
+
+    /// A web view changed (progress, title, address…): update its tab, and the toolbar when it is the current one.
+    func controllerDidChange(_ c: WebReaderController) {
+        guard let tab = tabs.first(where: { $0.controller === c }) else { return }
+        let url = c.web.url
+        if tab.url != url { tab.url = url }
+        let title = c.web.title ?? ""
+        if tab.title != title && !title.isEmpty { tab.title = title }
+        if tab.id == current.id { syncPublished() }
+        scheduleSave()
+    }
+
+    func syncPublished() {
+        let c = controller
+        let w = c.web
+        progress = w.estimatedProgress
+        isLoading = w.isLoading
+        canGoBack = c.canGoBackSmart
+        canGoForward = w.canGoForward
+        title = w.title ?? ""
+        currentURL = w.url
+        error = c.error
+        hasSelection = c.hasSelection
+        if !isEditingAddress { addressText = w.url?.absoluteString ?? "" }
+    }
+
+    // MARK: persistence
+
+    func scheduleSave() {
+        saveTask?.cancel()
+        let work = DispatchWorkItem { [weak self] in self?.saveNow() }
+        saveTask = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8, execute: work)
+    }
+
+    func saveNow() {
+        let saved = tabs.map { t in
+            SavedTab(id: t.id, url: (t.controller.web.url ?? t.restoreURL ?? t.url)?.absoluteString ?? "", title: t.title, origin: t.controller.originURL?.absoluteString)
+        }
+        ReaderSessionStore.save(SavedSession(tabs: saved, current: currentIndex))
+    }
+
+    // MARK: toolbar actions
 
     var isBookmarked: Bool {
         guard let url = currentURL?.absoluteString else { return false }
@@ -95,16 +235,17 @@ final class WebReaderViewModel: ObservableObject {
         if hasSelection { controller.translateSelection() } else { toast("Hãy chọn từ, câu hoặc đoạn tiếng Anh trước.") }
     }
 
-    func toast(_ text: String) {
+    func toast(_ text: String, action: ToastAction? = nil) {
         toastTask?.cancel()
         toastText = text
-        let work = DispatchWorkItem { [weak self] in self?.toastText = nil }
+        toastAction = action
+        let work = DispatchWorkItem { [weak self] in
+            self?.toastText = nil
+            self?.toastAction = nil
+        }
         toastTask = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.4, execute: work)
+        DispatchQueue.main.asyncAfter(deadline: .now() + (action == nil ? 2.4 : 7), execute: work)
     }
 
-    func close() {
-        controller.teardown()
-        onClose()
-    }
+    func close() { onClose?() }
 }

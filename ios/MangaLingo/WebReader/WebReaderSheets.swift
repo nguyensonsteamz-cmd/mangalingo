@@ -110,6 +110,12 @@ struct WebReaderSettingsView: View {
                         .font(.footnote)
                         .foregroundColor(ReaderPalette.muted)
                 }
+                Section("Quảng cáo") {
+                    Toggle("Chặn quảng cáo và cửa sổ bật lên", isOn: $settings.blockAds)
+                    Text("Chặn các mạng quảng cáo phổ biến, cửa sổ do trang tự mở, và lớp quảng cáo vô hình phủ lên trang. Nếu trang bị chuyển hướng, thanh thông báo có nút “Quay lại trang đang đọc”. Thay đổi áp dụng cho tab mở sau.")
+                        .font(.footnote)
+                        .foregroundColor(ReaderPalette.muted)
+                }
                 Section("OCR ảnh truyện") {
                     Toggle("Cho phép quét chữ trong ảnh", isOn: $settings.ocrEnabled)
                     Text("Bấm biểu tượng quét ở thanh dưới, rồi chạm vào ảnh. Chữ được nhận dạng trên máy bằng Apple Vision.")

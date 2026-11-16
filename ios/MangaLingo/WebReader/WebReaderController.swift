@@ -10,6 +10,21 @@ final class WebReaderController: NSObject, WKNavigationDelegate, WKUIDelegate {
     let web: WKWebView
     weak var model: WebReaderViewModel?
 
+    /// Per-tab state (the toolbar shows the current tab's).
+    var error: WebReaderViewModel.ReaderError?
+    var hasSelection = false
+    /// The tab's web view has been given an address (a tab restored after a restart is created empty and loaded when first shown).
+    var isLoaded = false
+    /// The last page the user deliberately opened here (typed address, bookmark, same-site link). "Back to the page I was reading" returns to it.
+    var originURL: URL?
+    /// The next navigation is one the user asked for (set before load / same-site link taps; consumed when the page finishes).
+    private var userNavPending = false
+    /// Set when the page moved to another site; shown as a "go back" notice once the new page has loaded.
+    private var crossSiteNotice: String?
+    private var selfInitiated = false
+    /// The address was typed / chosen from a list: the page it ends on (after redirects) is the page being read.
+    private var typedLoad = false
+
     private let settings: WebReaderSettings
     private let library: WebLibrary
     private let bridge = WebContentBridge()
@@ -26,6 +41,8 @@ final class WebReaderController: NSObject, WKNavigationDelegate, WKUIDelegate {
         // touch the app's own data (the vocabulary notebook lives in the default store of the other web view).
         config.websiteDataStore = WKWebsiteDataStore.nonPersistent()
         config.allowsInlineMediaPlayback = true
+        // pop-ups and hidden ads must not take over the tab: window.open is handled in createWebViewWith (new tab / blocked)
+        config.preferences.javaScriptCanOpenWindowsAutomatically = false
         let controllerUC = config.userContentController
         controllerUC.addUserScript(WKUserScript(source: ReaderScript.source, injectionTime: .atDocumentEnd, forMainFrameOnly: true, in: WebReaderController.world))
 
@@ -39,6 +56,12 @@ final class WebReaderController: NSObject, WKNavigationDelegate, WKUIDelegate {
         web.navigationDelegate = self
         web.uiDelegate = self
         web.allowsBackForwardNavigationGestures = true
+        if settings.blockAds {
+            ReaderAdBlock.ruleList { [weak self] list in
+                guard let self = self, !self.tornDown, let list = list else { return }
+                self.web.configuration.userContentController.add(list)
+            }
+        }
         web.isOpaque = false
         web.backgroundColor = UIColor(red: 16 / 255, green: 18 / 255, blue: 24 / 255, alpha: 1)
         web.scrollView.backgroundColor = web.backgroundColor
@@ -63,46 +86,72 @@ final class WebReaderController: NSObject, WKNavigationDelegate, WKUIDelegate {
     // MARK: state → view model
 
     private func observe() {
-        observers.append(web.observe(\.estimatedProgress, options: [.new]) { [weak self] w, _ in
-            DispatchQueue.main.async { self?.model?.progress = w.estimatedProgress }
-        })
-        observers.append(web.observe(\.isLoading, options: [.new]) { [weak self] w, _ in
-            DispatchQueue.main.async { self?.model?.isLoading = w.isLoading }
-        })
-        observers.append(web.observe(\.canGoBack, options: [.new]) { [weak self] w, _ in
-            DispatchQueue.main.async { self?.model?.canGoBack = w.canGoBack }
-        })
-        observers.append(web.observe(\.canGoForward, options: [.new]) { [weak self] w, _ in
-            DispatchQueue.main.async { self?.model?.canGoForward = w.canGoForward }
-        })
-        observers.append(web.observe(\.title, options: [.new]) { [weak self] w, _ in
-            DispatchQueue.main.async { self?.model?.title = w.title ?? "" }
-        })
-        observers.append(web.observe(\.url, options: [.new]) { [weak self] w, _ in
-            DispatchQueue.main.async {
-                guard let model = self?.model else { return }
-                model.currentURL = w.url
-                if !model.isEditingAddress { model.addressText = w.url?.absoluteString ?? "" }
-            }
-        })
+        func notify(_ me: WebReaderController?) {
+            DispatchQueue.main.async { if let me = me { me.model?.controllerDidChange(me) } }
+        }
+        observers.append(web.observe(\.estimatedProgress, options: [.new]) { [weak self] _, _ in notify(self) })
+        observers.append(web.observe(\.isLoading, options: [.new]) { [weak self] _, _ in notify(self) })
+        observers.append(web.observe(\.canGoBack, options: [.new]) { [weak self] _, _ in notify(self) })
+        observers.append(web.observe(\.canGoForward, options: [.new]) { [weak self] _, _ in notify(self) })
+        observers.append(web.observe(\.title, options: [.new]) { [weak self] _, _ in notify(self) })
+        observers.append(web.observe(\.url, options: [.new]) { [weak self] _, _ in notify(self) })
     }
+
+    private func changed() { model?.controllerDidChange(self) }
 
     // MARK: actions
 
     func load(_ input: String) {
         switch WebNavigationManager.resolve(input) {
         case .load(let url):
-            model?.error = nil
+            isLoaded = true
+            error = nil
+            selfInitiated = true
+            userNavPending = true
+            typedLoad = true
             web.load(URLRequest(url: url, cachePolicy: .useProtocolCachePolicy, timeoutInterval: 30))
+            changed()
         case .invalid(let message):
-            model?.error = WebReaderViewModel.ReaderError(message: message, url: nil)
+            error = WebReaderViewModel.ReaderError(message: message, url: nil)
+            changed()
         }
     }
 
-    func goBack() { if web.canGoBack { web.goBack() } }
+    /// Back is enabled when there is an earlier page, or when the tab was taken to another page than the one the user was reading.
+    var canGoBackSmart: Bool {
+        if web.canGoBack { return true }
+        if let o = originURL, !SiteName.samePage(o, web.url) { return true }
+        return false
+    }
+
+    /// Back that cannot be trapped: entries that are the same page as the current one (an ad page that keeps pushing the same address)
+    /// are skipped; with no earlier page it returns to the page the user was reading.
+    func goBack() {
+        let here = web.url
+        if let target = web.backForwardList.backList.reversed().first(where: { !SiteName.samePage($0.url, here) }) {
+            web.go(to: target)
+            return
+        }
+        backToOrigin()
+    }
+
+    /// "Back to the page I was reading": jumps to the last page the user opened on purpose (before a redirect / ad took the tab).
+    func backToOrigin() {
+        guard let o = originURL, !SiteName.samePage(o, web.url) else {
+            if web.canGoBack { web.goBack() }
+            return
+        }
+        if let item = web.backForwardList.backList.last(where: { SiteName.samePage($0.url, o) }) {
+            web.go(to: item)
+        } else {
+            selfInitiated = true
+            web.load(URLRequest(url: o))
+        }
+    }
+
     func goForward() { if web.canGoForward { web.goForward() } }
     func reload() {
-        if web.url != nil { web.reload() } else if let m = model?.error?.url { load(m) } else { load(settings.homeURL) }
+        if web.url != nil { web.reload() } else if let m = error?.url { load(m) } else { load(settings.homeURL) }
     }
     func stop() { web.stopLoading() }
     func home() { load(settings.homeURL) }
@@ -152,7 +201,8 @@ final class WebReaderController: NSObject, WKNavigationDelegate, WKUIDelegate {
         case "speak":
             if let text = body["text"] as? String { Speaker.shared.speak(text, rate: 1) }
         case "selection":
-            model?.hasSelection = (body["has"] as? Bool) ?? false
+            hasSelection = (body["has"] as? Bool) ?? false
+            if model?.current.controller === self { model?.hasSelection = hasSelection }
         case "ocrImage":
             handleOCR(body)
         case "ocrCancel":
@@ -236,6 +286,7 @@ final class WebReaderController: NSObject, WKNavigationDelegate, WKUIDelegate {
         if navigationAction.targetFrame?.isMainFrame ?? true {
             // top-level: only http(s) (and about:blank); javascript:, file:, tel:, app schemes … stay out of the Reader
             if WebNavigationManager.isWebURL(url) || url.absoluteString == "about:blank" {
+                noteNavigation(navigationAction, to: url)
                 decisionHandler(.allow)
             } else {
                 model?.toast("Liên kết \"\(url.scheme ?? "?")\" đã bị chặn trong trình đọc.")
@@ -255,15 +306,49 @@ final class WebReaderController: NSObject, WKNavigationDelegate, WKUIDelegate {
         }
     }
 
+    /// Decides what a top-level navigation means for "the page the user is reading": the user's own loads and same-site links move it; a
+    /// move to ANOTHER site (a redirect, a script, a tapped hidden ad) leaves it where it was and shows a one-tap way back.
+    private func noteNavigation(_ action: WKNavigationAction, to url: URL) {
+        if selfInitiated {
+            selfInitiated = false
+            return
+        }
+        guard WebNavigationManager.isWebURL(url) else { return }
+        switch action.navigationType {
+        case .backForward, .reload:
+            return
+        case .linkActivated, .formSubmitted:
+            if SiteName.same(web.url, url) || web.url == nil { userNavPending = true } else { crossSiteNotice = url.host ?? "trang khác" }
+        default:
+            // .other: redirects, location changes from scripts
+            if let here = web.url, !SiteName.same(here, url), action.sourceFrame.isMainFrame { crossSiteNotice = url.host ?? "trang khác" }
+        }
+    }
+
     func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
-        model?.error = nil
-        model?.hasSelection = false
+        error = nil
+        hasSelection = false
+        changed()
     }
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         guard let url = webView.url, WebNavigationManager.isWebURL(url) else { return }
         library.addHistory(url: url.absoluteString, title: webView.title ?? "")
         pushSettings()
+        if typedLoad {
+            typedLoad = false
+            crossSiteNotice = nil
+            originURL = url
+        } else if let host = crossSiteNotice {
+            crossSiteNotice = nil
+            if originURL != nil && model?.current.controller === self {
+                model?.toast("Trang vừa chuyển sang \(host).", action: .init(title: "Quay lại trang đang đọc") { [weak self] in self?.backToOrigin() })
+            }
+        } else if userNavPending {
+            originURL = url
+        }
+        userNavPending = false
+        changed()
     }
 
     func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) { failLoad(error) }
@@ -274,7 +359,8 @@ final class WebReaderController: NSObject, WKNavigationDelegate, WKUIDelegate {
         if e.domain == NSURLErrorDomain && e.code == NSURLErrorCancelled { return } // the user tapped stop / started another page
         if e.domain == "WebKitErrorDomain" && e.code == 102 { return } // frame load interrupted (a download / a redirect)
         let failing = (e.userInfo[NSURLErrorFailingURLStringErrorKey] as? String) ?? web.url?.absoluteString
-        model?.error = WebReaderViewModel.ReaderError(message: WebNavigationManager.message(for: error), url: failing)
+        self.error = WebReaderViewModel.ReaderError(message: WebNavigationManager.message(for: error), url: failing)
+        changed()
     }
 
     /// iOS may stop the page's process to free memory: reload instead of leaving a blank view.
@@ -284,10 +370,16 @@ final class WebReaderController: NSObject, WKNavigationDelegate, WKUIDelegate {
 
     // MARK: WKUIDelegate
 
-    /// target="_blank" and window.open: stay in this Reader (never jump to Safari).
+    /// target="_blank" and window.open. A link the user tapped opens in a NEW TAB (the page they were reading stays as it is).
+    /// A pop-up opened by a script (what hidden ads do when they catch a tap) is blocked, with a notice that can still open it.
     func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration, for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
-        if navigationAction.targetFrame == nil, let url = navigationAction.request.url, WebNavigationManager.isWebURL(url) {
-            webView.load(navigationAction.request)
+        guard navigationAction.targetFrame == nil, let url = navigationAction.request.url, WebNavigationManager.isWebURL(url) else { return nil }
+        if navigationAction.navigationType == .linkActivated {
+            model?.openTab(url, activate: true)
+        } else if settings.blockAds {
+            model?.toast("Đã chặn một cửa sổ quảng cáo (\(url.host ?? "?")).", action: .init(title: "Vẫn mở") { [weak self] in self?.model?.openTab(url, activate: true) })
+        } else {
+            model?.openTab(url, activate: true)
         }
         return nil
     }

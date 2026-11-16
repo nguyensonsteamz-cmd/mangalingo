@@ -112,6 +112,39 @@ try {
     return `"${l[0].text}" in "${l[0].context}"`;
   });
 
+  await step('hidden ads: an invisible full-screen overlay is switched off for the tap, the ad handler never runs, the tap reaches the page underneath', async () => {
+    await open('ghost-ad.html');
+    await sleep(500);
+    await clear();
+    const w = await posOf('p1', 'village');
+    await click(w.x, w.y);
+    await sleep(300);
+    const r = await p.evaluateMain(`({ ad: window.adClicks, real: window.realClicks, ghost: document.getElementById('ghost').getAttribute('data-mlr-ghost') })`);
+    assert(r.ad === 0, 'the ad click handler must not run, ran ' + r.ad + ' times');
+    assert(r.ghost === '1', 'overlay marked');
+    assert((await log()).some((m) => m.t === 'adBlocked'), 'adBlocked message to the app');
+    // second tap: the overlay is gone, the page gets the click (lookup works)
+    await click(w.x, w.y);
+    const r2 = await p.evaluateMain(`({ ad: window.adClicks, real: window.realClicks })`);
+    assert(r2.ad === 0 && r2.real >= 1, 'second tap reaches the page: ' + JSON.stringify(r2));
+    await cfg({ blockAds: false });
+    return `ad handler runs: ${r2.ad}, page handler runs: ${r2.real}`;
+  });
+
+  await step('hidden-ad blocking can be switched off (a legitimate transparent cover then works as the site wrote it)', async () => {
+    await open('ghost-ad.html');
+    await sleep(400);
+    await cfg({ blockAds: false });
+    await p.evaluateMain(`window.open = () => null`); // never open a real pop-up tab in the test browser
+    const w = await posOf('p1', 'village');
+    await click(w.x, w.y);
+    const r = await p.evaluateMain(`window.adClicks`);
+    assert(r >= 1, 'with blocking off the site handler runs');
+    await open('article.html'); // the following steps use the article page
+    await sleep(900);
+    await reset();
+  });
+
   await step('the site’s own click handlers still run (nothing is stopped or prevented)', async () => {
     await reset();
     await p.evaluateMain(`window.siteClicks = 0`);

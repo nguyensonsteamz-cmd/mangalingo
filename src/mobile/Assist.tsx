@@ -1,5 +1,5 @@
 /**
- * Tools drawer of the scan page: a glass panel docked to a screen edge. When not in use only its
+ * Tools drawer of the scan page: a glass panel docked to a screen edge, tools stacked in a vertical column. When not in use only its
  * arrow tab shows at the edge; tap the arrow and the panel slides out with the tools (notes,
  * highlight…); tap it again or outside and it slides back in. Drag the arrow up / down to move it,
  * or across the middle of the screen to dock it on the other side.
@@ -17,7 +17,7 @@ export interface AssistItem {
 
 const TAB_W = 26; // visible arrow strip
 const TILE_W = 64; // one tool: icon on top, its name below
-const PANEL_H = 76;
+const TILE_H = 66; // tools are stacked in a COLUMN (top to bottom)
 const POS_KEY = 'mlapp:assistPos';
 
 export function Assist({ items }: { items: AssistItem[] }) {
@@ -36,8 +36,8 @@ export function Assist({ items }: { items: AssistItem[] }) {
 
   const H = typeof window === 'undefined' ? 844 : window.innerHeight;
   const W = typeof window === 'undefined' ? 390 : window.innerWidth;
-  const panelH = PANEL_H;
-  const PANEL_W = items.length * TILE_W + 10;
+  const panelH = items.length * TILE_H + 12;
+  const PANEL_W = TILE_W + 12;
   const centerY = dragY ?? Math.min(H - 200 - panelH / 2, Math.max(80 + panelH / 2, pos.y * H));
   const right = pos.side === 'right';
 
@@ -97,7 +97,7 @@ export function Assist({ items }: { items: AssistItem[] }) {
           <span className={cx('transition-transform duration-300', open === right && 'rotate-180')}>‹</span>
         </button>
         {/* the panel with the tools */}
-        <div className={cx('flex shrink-0 items-center py-1.5', right ? 'pr-2.5 border-l' : 'pl-2.5 border-r', 'border-text/10')} style={{ width: PANEL_W }} data-ml-assist-menu="">
+        <div className={cx('flex shrink-0 flex-col items-center justify-center gap-0 py-1.5', right ? 'pr-2 border-l' : 'pl-2 border-r', 'border-text/10')} style={{ width: PANEL_W }} data-ml-assist-menu="">
           {items.map((it) => (
             <button
               key={it.id}
@@ -107,8 +107,8 @@ export function Assist({ items }: { items: AssistItem[] }) {
                 setOpen(false);
                 it.onClick();
               }}
-              className={cx('ml-press flex h-full flex-col items-center justify-center gap-1 rounded-[16px] text-[11px] font-semibold leading-tight', it.active ? 'ml-glass-select border' : 'border border-transparent hover:bg-text/[0.06]')}
-              style={{ width: TILE_W }}
+              className={cx('ml-press flex flex-col items-center justify-center gap-1 rounded-[16px] text-[11px] font-semibold leading-tight', it.active ? 'ml-glass-select border' : 'border border-transparent hover:bg-text/[0.06]')}
+              style={{ width: TILE_W, height: TILE_H - 2 }}
               data-ml-assist-item={it.id}
             >
               <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-text/[0.08] text-[17px]">{it.icon}</span>

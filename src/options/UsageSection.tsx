@@ -114,19 +114,19 @@ export function UsageSection() {
       <div>
         <h1 className="text-[20px] font-semibold tracking-tight text-text">Hạn mức dịch</h1>
         <p className="mt-1 text-[13px] text-muted">
-          Theo dõi lượng ký tự gửi đi dịch và chặn việc vô tình phát sinh phí Google Cloud Translation. Mặc định LingoLens dịch ngay trên máy: miễn phí và không bị đếm.
+          Theo dõi lượng ký tự gửi đi dịch và chặn việc vô tình phát sinh phí Google Cloud Translation. LingoLens ưu tiên Google Cloud Translation (bản dịch sát nghĩa nhất). Khi hết hạn mức miễn phí, bạn quyết định: dừng và chuyển sang dịch trên máy (miễn phí), hoặc cho phép dịch có phí.
         </p>
       </div>
 
       <UsageNotice snap={snap} onChanged={() => void refresh()} />
 
       <Card title="Nguồn dịch">
-        <Field label="Dịch bằng" description={google ? 'Văn bản được gửi tới Google Cloud Translation và tính phí theo ký tự khi vượt hạn mức miễn phí.' : 'Dịch trên máy: không gửi văn bản đi đâu, không tính phí.'}>
+        <Field label="Dịch bằng" description={google ? 'Văn bản được gửi tới Google Cloud Translation và tính phí theo ký tự khi vượt hạn mức miễn phí.' : 'Dịch trên máy (Chrome Translator / Apple Translation): không gửi văn bản đi đâu, không tính phí; chất lượng thấp hơn Google.'}>
           <Segmented
             value={s.provider}
             onChange={(v) => void save({ provider: v })}
             options={[
-              { value: 'device', label: 'Trên máy' },
+              { value: 'device', label: 'Trên máy (dự phòng)' },
               { value: 'google', label: 'Google Cloud' },
             ]}
           />
@@ -175,7 +175,7 @@ export function UsageSection() {
             </div>
           </Field>
         )}
-        {!google && <div className="py-3 text-[12px] text-muted">Chọn “Google Cloud” để nhập khoá API và bật theo dõi hạn mức. Mặc định không có gì được gửi đi và không có gì bị tính phí.</div>}
+        {!google && <div className="py-3 text-[12px] text-muted">Chọn “Google Cloud” (ưu tiên) để nhập khoá API hoặc dùng Smart Setup và bật theo dõi hạn mức. Đang dùng bộ dịch trên máy: không có gì được gửi đi và không có gì bị tính phí.</div>}
         <div className="py-3 text-[12px] text-muted">
           Không muốn tự tạo khoá? <button type="button" className="font-semibold text-accent underline" onClick={() => (location.hash = 'setup')}>Dùng Lingolens Smart Setup</button> để thiết lập Google Cloud ngay trong ứng dụng.
         </div>

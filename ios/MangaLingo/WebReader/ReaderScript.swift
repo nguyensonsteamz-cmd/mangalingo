@@ -36,6 +36,7 @@ enum ReaderScript {
     popupSize: 'medium', // small | medium | large
     fontSize: 15,
     ocrEnabled: true,
+    blockAds: true,
   };
 
   var SIZES = { small: 264, medium: 328, large: 392 };
@@ -631,6 +632,55 @@ enum ReaderScript {
     });
     (document.documentElement || document.body).appendChild(ocrOverlay);
   }
+
+  // ------------------------------------------------------------------ hidden ads
+  // Some pages put an invisible full-screen element over the content: a tap on it opens an ad (a pop-up or a redirect) and the
+  // reader is left on a page it cannot get out of. Such an element is recognised by what it IS (large, high, transparent, no text,
+  // no media) – never by what it does – and is switched off for this tap: the tap then reaches the page underneath.
+  function isGhostOverlay(el) {
+    if (!el || el === host || el === document.documentElement || el === document.body) return false;
+    var tag = el.tagName;
+    if (tag !== 'DIV' && tag !== 'A' && tag !== 'SPAN' && tag !== 'INS' && tag !== 'IFRAME') return false;
+    var cs = getComputedStyle(el);
+    if (cs.position !== 'fixed' && cs.position !== 'absolute') return false;
+    if (cs.visibility === 'hidden' || cs.display === 'none') return false;
+    var r = el.getBoundingClientRect();
+    var vw = window.innerWidth;
+    var vh = window.innerHeight;
+    if (r.width * r.height < 0.45 * vw * vh) return false;
+    var z = parseInt(cs.zIndex, 10);
+    if (!(z >= 1000)) return false;
+    var invisible = parseFloat(cs.opacity) <= 0.05;
+    if (!invisible) {
+      var bg = cs.backgroundColor;
+      var transparentBg = bg === 'transparent' || /rgba\(\s*\d+,\s*\d+,\s*\d+,\s*0(\.0+)?\s*\)/.test(bg);
+      var noContent = !norm(el.textContent || '') && !el.querySelector('img,video,canvas,svg,picture,input,button,iframe') && cs.backgroundImage === 'none';
+      invisible = transparentBg && noContent;
+    }
+    return invisible;
+  }
+  var ghostSeen = 0;
+  function killGhost(e) {
+    if (!S.blockAds || inOurUi(e)) return;
+    var t = e.touches && e.touches[0] ? e.touches[0] : e.changedTouches && e.changedTouches[0] ? e.changedTouches[0] : e;
+    var x = t.clientX;
+    var y = t.clientY;
+    if (typeof x !== 'number') return;
+    var top = document.elementFromPoint(x, y);
+    if (!isGhostOverlay(top)) return;
+    top.style.setProperty('pointer-events', 'none', 'important');
+    top.setAttribute('data-mlr-ghost', '1');
+    e.stopImmediatePropagation();
+    if (e.cancelable) e.preventDefault();
+    if (Date.now() - ghostSeen > 4000) {
+      toast('Đã chặn một lớp quảng cáo vô hình. Chạm lại để mở nội dung.');
+      post({ t: 'adBlocked', tag: top.tagName });
+    }
+    ghostSeen = Date.now();
+  }
+  ['pointerdown', 'touchstart', 'mousedown', 'click'].forEach(function (type) {
+    document.addEventListener(type, killGhost, true);
+  });
 
   // ------------------------------------------------------------------ wiring
   function onScroll() {

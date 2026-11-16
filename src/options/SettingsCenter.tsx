@@ -8,7 +8,7 @@ import { useSettings } from '@/ui/hooks';
 import { MtStatus } from '@/ui/MtStatus';
 import { SettingsPreview } from './SettingsPreview';
 import { Badge, Button, Field, GlassIndicator, Notice, Segmented, Select, Slider, Toggle, cx, fastTap } from '@/ui/components';
-import { IconLogo, IconTrash, IconUpload } from '@/ui/icons';
+import { IconBack, IconChevron, IconLogo, IconTrash, IconUpload } from '@/ui/icons';
 import { VocabManager } from '@/ui/VocabManager';
 import { chromeLocal } from '@/storage/kv';
 import { OcrCache } from '@/storage/ocr-cache';
@@ -38,6 +38,28 @@ const SECTIONS = [
 ] as const;
 type SectionId = (typeof SECTIONS)[number]['id'];
 
+/** One line under each row of the phone settings list. */
+const SECTION_DESC: Record<string, string> = {
+  appearance: 'Chủ đề, màu, hiệu ứng kính, logo',
+  popup: 'Cửa sổ tra từ nổi',
+  sidebar: 'Thanh bên: tab, độ rộng, cỡ chữ',
+  typography: 'Phông chữ và cỡ chữ',
+  dictionary: 'Nguồn nghĩa, phiên âm, phát âm',
+  reading: 'Chế độ dịch, hành vi khi đọc',
+  account: 'Tài khoản Google và dữ liệu trên máy',
+  setup: 'Thiết lập Google Cloud Translation',
+  usage: 'Hạn mức tháng, cảnh báo, chi phí',
+  billing: 'Thanh toán và hóa đơn',
+  ocr: 'Quét chữ trong ảnh',
+  shortcuts: 'Phím tắt',
+  vocab: 'Từ đã lưu',
+  data: 'Sao lưu, nhập, xóa dữ liệu',
+  about: 'Phiên bản, giấy phép, quyền riêng tư',
+};
+
+/** Phone / tablet app: settings as a vertical list of rows; a row opens its own page (with a back button). */
+const isApp = () => typeof document !== 'undefined' && !!document.documentElement.dataset.app; // read at render: main.tsx sets it after the imports ran
+
 const ACCENTS = ['#7c9cff', '#5cc78c', '#e8b356', '#f06c6c', '#b48cff', '#4cc3d9', '#f08ccf', '#a0a7b6'];
 
 /** `hidden`: sections that do not apply to the host (e.g. keyboard shortcuts in the Android app). */
@@ -47,6 +69,9 @@ export function SettingsCenter({ hidden = [], topBar }: { hidden?: string[]; top
   const requested = (globalThis as { __mlNextSettingsSection?: string }).__mlNextSettingsSection as SectionId | undefined;
   const initial = (requested ?? decodeURIComponent(location.hash.slice(1))) as SectionId || 'appearance';
   const [section, setSection] = useState<SectionId>(SECTIONS.some((x) => x.id === initial) ? initial : 'appearance');
+  // list mode (phone app): the list is the first screen, a row opens its page; a section asked for from elsewhere opens straight on it
+  const IS_APP = isApp();
+  const [detailOpen, setDetailOpen] = useState(IS_APP && !!requested && SECTIONS.some((x) => x.id === requested));
 
   useEffect(() => {
     const g = globalThis as { __mlNextSettingsSection?: string };
@@ -54,7 +79,10 @@ export function SettingsCenter({ hidden = [], topBar }: { hidden?: string[]; top
     const onRequest = () => {
       const r = g.__mlNextSettingsSection as SectionId | undefined;
       g.__mlNextSettingsSection = undefined;
-      if (r && SECTIONS.some((x) => x.id === r)) setSection(r);
+      if (r && SECTIONS.some((x) => x.id === r)) {
+        setSection(r);
+        setDetailOpen(true);
+      }
     };
     window.addEventListener('ml-settings-section', onRequest);
     return () => window.removeEventListener('ml-settings-section', onRequest);
@@ -71,7 +99,42 @@ export function SettingsCenter({ hidden = [], topBar }: { hidden?: string[]; top
 
   return (
     <div className={cx('mx-auto flex min-h-screen flex-col md:flex-row', PREVIEW_SECTIONS.includes(section) ? 'max-w-7xl' : 'max-w-5xl')}>
-      <nav className="ml-glass-bar sticky top-0 z-10 shrink-0 border-b px-4 py-4 md:h-screen md:w-60 md:border-b-0 md:border-r">
+      {IS_APP && !detailOpen && (
+        <div className="w-full" data-ml-settings-list="">
+          {topBar}
+          <ul className="divide-y divide-border/60 px-3 pb-28 pt-1">
+            {SECTIONS.filter((x) => !hidden.includes(x.id)).map((x) => (
+              <li key={x.id}>
+                <button
+                  type="button"
+                  data-ml-settings-row={x.id}
+                  {...fastTap(() => {
+                    setSection(x.id);
+                    setDetailOpen(true);
+                  })}
+                  className="ml-press flex w-full items-center gap-3 py-3.5 text-left"
+                >
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[15.5px] font-semibold text-text">{x.label}</span>
+                    <span className="block truncate text-[12.5px] text-muted">{SECTION_DESC[x.id]}</span>
+                  </span>
+                  <IconChevron size={18} className="shrink-0 -rotate-90 text-subtle" />
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {IS_APP && detailOpen && (
+        <div className="ml-glass-bar sticky top-0 z-10 flex h-11 w-full items-center gap-1 border-b px-2" data-ml-settings-detail-bar="">
+          <button type="button" onClick={() => setDetailOpen(false)} className="ml-press flex h-9 items-center gap-0.5 rounded-full pr-2 text-accent" aria-label="Quay lại danh sách cài đặt" data-ml-settings-back="">
+            <IconBack size={22} />
+            <span className="text-[14px] font-semibold">Cài đặt</span>
+          </button>
+          <div className="min-w-0 flex-1 truncate pr-9 text-center text-[15.5px] font-bold">{SECTIONS.find((x) => x.id === section)?.label}</div>
+        </div>
+      )}
+      {!IS_APP && <nav className="ml-glass-bar sticky top-0 z-10 shrink-0 border-b px-4 py-4 md:h-screen md:w-60 md:border-b-0 md:border-r">
         {topBar ? (
           <div className="-mx-4 -mt-4 mb-3">{topBar}</div>
         ) : (
@@ -105,8 +168,8 @@ export function SettingsCenter({ hidden = [], topBar }: { hidden?: string[]; top
         <div className="mt-4 hidden text-[11.5px] text-subtle md:block">
           {saveState === 'saving' ? 'Đang lưu…' : saveState === 'saved' ? 'Đã lưu · áp dụng ngay' : saveState === 'error' ? 'Lỗi khi lưu' : 'Mọi thay đổi được lưu tự động'}
         </div>
-      </nav>
-      <main className="min-w-0 flex-1 px-5 py-6 md:px-8">
+      </nav>}
+      {(!IS_APP || detailOpen) && <main className="min-w-0 flex-1 px-5 py-6 md:px-8">
         {!loaded ? null : (
           <div className={cx(PREVIEW_SECTIONS.includes(section) && 'grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]')}>
           {PREVIEW_SECTIONS.includes(section) && (
@@ -139,7 +202,7 @@ export function SettingsCenter({ hidden = [], topBar }: { hidden?: string[]; top
           </div>
           </div>
         )}
-      </main>
+      </main>}
     </div>
   );
 }

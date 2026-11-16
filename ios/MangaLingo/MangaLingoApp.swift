@@ -15,7 +15,7 @@ struct MangaLingoApp: App {
                 .background(Color(red: 16 / 255, green: 18 / 255, blue: 24 / 255).ignoresSafeArea())
                 // the in-app browser (translate websites while reading) – the web UI keeps running underneath
                 .fullScreenCover(isPresented: $reader.isPresented) {
-                    WebReaderView(startURL: reader.startURL, onClose: { reader.isPresented = false })
+                    WebReaderView(model: reader.model)
                 }
         }
     }

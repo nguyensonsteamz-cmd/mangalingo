@@ -1,0 +1,11 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Ghost ad page</title>
+<style>body{margin:0;font:18px sans-serif} #p1{padding:40px} #ghost{position:fixed;left:0;top:0;width:100vw;height:100vh;z-index:99999;opacity:0;background:#000}
+#legit{position:fixed;left:0;top:0;width:100vw;height:100vh;z-index:5000;background:rgba(0,0,0,.6);color:#fff;display:none}
+#video-cover{position:fixed;left:0;top:0;width:100vw;height:100vh;z-index:99999;background:transparent;display:none}</style></head>
+<body><p id="p1">The village was destroyed by the demon. <a id="real" href="#x">A real link</a></p>
+<div id="ghost"></div>
+<script>window.adClicks = 0; window.realClicks = 0;
+document.getElementById('ghost').addEventListener('click', function(){ window.adClicks++; window.open('https://ads.example/pop'); });
+document.getElementById('p1').addEventListener('click', function(){ window.realClicks++; });
+</script></body></html>

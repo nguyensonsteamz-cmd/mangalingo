@@ -10,33 +10,50 @@ enum ReaderPalette {
     static let muted = Color(red: 154 / 255, green: 164 / 255, blue: 184 / 255)
 }
 
-struct ReaderWebView: UIViewRepresentable {
+/// Shows the current tab's web view (the tabs own their web views, so switching tabs swaps the view inside this container).
+struct ReaderWebHost: UIViewRepresentable {
     let web: WKWebView
-    func makeUIView(context: Context) -> WKWebView { web }
-    func updateUIView(_ uiView: WKWebView, context: Context) {}
+
+    func makeUIView(context: Context) -> UIView {
+        let v = UIView()
+        v.backgroundColor = .clear
+        return v
+    }
+
+    func updateUIView(_ container: UIView, context: Context) {
+        guard web.superview !== container else { return }
+        container.subviews.forEach { $0.removeFromSuperview() }
+        web.translatesAutoresizingMaskIntoConstraints = false
+        container.addSubview(web)
+        NSLayoutConstraint.activate([
+            web.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            web.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            web.topAnchor.constraint(equalTo: container.topAnchor),
+            web.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+        ])
+    }
 }
 
-/// The in-app browser: address bar, page, bottom toolbar. Looking words up happens inside the page itself
-/// (popup drawn by the injected script), so the Reader never has to leave this screen.
+/// The in-app browser: address bar, tab strip, page, bottom toolbar. Looking words up happens inside the page itself
+/// (popup drawn by the injected script), so the Reader never has to leave this screen. The tabs live in the session
+/// (ReaderPresenter): closing the Reader and opening it again shows the same pages.
 struct WebReaderView: View {
-    @StateObject private var model: WebReaderViewModel
+    @ObservedObject var model: WebReaderViewModel
     @ObservedObject private var library = WebLibrary.shared
     @ObservedObject private var settings = WebReaderSettings.shared
     @Environment(\.scenePhase) private var scenePhase
     @FocusState private var addressFocused: Bool
-
-    init(startURL: URL?, onClose: @escaping () -> Void) {
-        _model = StateObject(wrappedValue: WebReaderViewModel(startURL: startURL, onClose: onClose))
-    }
 
     var body: some View {
         ZStack {
             ReaderPalette.background.ignoresSafeArea()
             VStack(spacing: 0) {
                 topBar
+                tabStrip
                 progressBar
                 ZStack {
-                    ReaderWebView(web: model.controller.web)
+                    ReaderWebHost(web: model.controller.web)
+                        .id(model.current.id)
                     if let error = model.error { errorView(error) }
                 }
                 .overlay(alignment: .bottom) { toast }
@@ -50,11 +67,16 @@ struct WebReaderView: View {
         .sheet(isPresented: $model.showSettings) {
             WebReaderSettingsView(model: model, settings: settings)
         }
-        .onChange(of: scenePhase) { phase in
-            // the app went to the background: stop video / audio of the page
-            if phase != .active { model.controller.pauseMedia() }
+        .sheet(isPresented: $model.showTabs) {
+            WebReaderTabsView(model: model)
         }
-        .onDisappear { model.controller.teardown() }
+        .onChange(of: scenePhase) { phase in
+            // the app went to the background: stop video / audio of the pages and remember the tabs
+            if phase != .active {
+                model.pauseAll()
+                model.saveNow()
+            }
+        }
     }
 
     // MARK: top bar
@@ -67,7 +89,7 @@ struct WebReaderView: View {
                     .frame(width: 34, height: 34)
                     .background(Circle().fill(ReaderPalette.surface))
             }
-            .accessibilityLabel("Đóng trình đọc")
+            .accessibilityLabel("Đóng trình đọc (các tab được giữ lại)")
 
             HStack(spacing: 6) {
                 Image(systemName: isSecure ? "lock.fill" : "globe")
@@ -115,6 +137,58 @@ struct WebReaderView: View {
 
     private var isSecure: Bool { model.currentURL?.scheme?.lowercased() == "https" }
 
+    // MARK: tab strip
+
+    private var tabStrip: some View {
+        ScrollViewReader { proxy in
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 6) {
+                    ForEach(Array(model.tabs.enumerated()), id: \.element.id) { index, tab in
+                        tabChip(tab, index: index)
+                            .id(tab.id)
+                    }
+                    Button { model.openTab(nil, activate: true) } label: {
+                        Image(systemName: "plus")
+                            .font(.system(size: 14, weight: .bold))
+                            .frame(width: 32, height: 30)
+                            .background(Capsule().fill(ReaderPalette.surface))
+                    }
+                    .accessibilityLabel("Mở tab mới")
+                }
+                .padding(.horizontal, 12)
+            }
+            .onChange(of: model.currentIndex) { _ in
+                withAnimation { proxy.scrollTo(model.current.id, anchor: .center) }
+            }
+        }
+        .frame(height: 36)
+        .foregroundColor(.white)
+    }
+
+    private func tabChip(_ tab: ReaderTab, index: Int) -> some View {
+        let selected = index == model.currentIndex
+        return HStack(spacing: 4) {
+            Button { model.select(index) } label: {
+                Text(tab.label)
+                    .font(.system(size: 13, weight: selected ? .semibold : .regular))
+                    .lineLimit(1)
+                    .frame(maxWidth: 130, alignment: .leading)
+            }
+            Button { model.closeTab(at: index) } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 10, weight: .bold))
+                    .frame(width: 18, height: 18)
+                    .foregroundColor(selected ? .white : ReaderPalette.muted)
+            }
+            .accessibilityLabel("Đóng tab")
+        }
+        .padding(.leading, 12)
+        .padding(.trailing, 6)
+        .frame(height: 30)
+        .background(Capsule().fill(selected ? ReaderPalette.accentFill.opacity(0.55) : ReaderPalette.surface))
+        .overlay(Capsule().stroke(selected ? ReaderPalette.accent.opacity(0.7) : Color.white.opacity(0.06), lineWidth: 1))
+    }
+
     private var progressBar: some View {
         GeometryReader { geo in
             Rectangle()
@@ -132,17 +206,47 @@ struct WebReaderView: View {
         HStack(spacing: 0) {
             barButton("chevron.left", label: "Quay lại", enabled: model.canGoBack) { model.controller.goBack() }
             barButton("chevron.right", label: "Tiến tới", enabled: model.canGoForward) { model.controller.goForward() }
-            barButton(model.isBookmarked ? "star.fill" : "star", label: "Dấu trang", tint: model.isBookmarked ? Color.yellow : nil) { model.toggleBookmark() }
+            tabsButton
             barButton("character.bubble", label: "Dịch phần đã chọn", tint: model.hasSelection ? ReaderPalette.accent : nil) { model.translateSelection() }
             barButton("text.viewfinder", label: "Quét chữ trong ảnh", tint: model.ocrMode ? Color.orange : nil, filled: model.ocrMode) { model.toggleOCR() }
-            barButton("books.vertical", label: "Dấu trang và lịch sử") { model.showLibrary = true }
-            barButton("gearshape", label: "Cài đặt trình đọc") { model.showSettings = true }
+            moreMenu
         }
         .padding(.horizontal, 6)
         .padding(.top, 6)
         .padding(.bottom, 2)
         .background(ReaderPalette.background)
         .overlay(alignment: .top) { Rectangle().fill(Color.white.opacity(0.07)).frame(height: 1) }
+    }
+
+    private var tabsButton: some View {
+        Button { model.showTabs = true } label: {
+            ZStack {
+                RoundedRectangle(cornerRadius: 5).stroke(Color.white, lineWidth: 1.6).frame(width: 21, height: 21)
+                Text("\(model.tabs.count)").font(.system(size: 11, weight: .bold))
+            }
+            .frame(maxWidth: .infinity, minHeight: 44)
+        }
+        .foregroundColor(.white)
+        .accessibilityLabel("Các tab (\(model.tabs.count))")
+    }
+
+    private var moreMenu: some View {
+        Menu {
+            Button { model.toggleBookmark() } label: {
+                Label(model.isBookmarked ? "Bỏ dấu trang" : "Thêm dấu trang", systemImage: model.isBookmarked ? "star.fill" : "star")
+            }
+            Button { model.showLibrary = true } label: { Label("Dấu trang và lịch sử", systemImage: "books.vertical") }
+            Button { model.controller.backToOrigin() } label: { Label("Về trang đang đọc", systemImage: "arrow.uturn.backward") }
+            Button { model.controller.home() } label: { Label("Trang chủ", systemImage: "house") }
+            Button { model.closeCurrentTab() } label: { Label("Đóng tab này", systemImage: "xmark.square") }
+            Button { model.showSettings = true } label: { Label("Cài đặt trình đọc", systemImage: "gearshape") }
+        } label: {
+            Image(systemName: "ellipsis.circle")
+                .font(.system(size: 19, weight: .medium))
+                .frame(maxWidth: .infinity, minHeight: 44)
+        }
+        .foregroundColor(.white)
+        .accessibilityLabel("Thêm")
     }
 
     private func barButton(_ symbol: String, label: String, enabled: Bool = true, tint: Color? = nil, filled: Bool = false, action: @escaping () -> Void) -> some View {
@@ -195,16 +299,75 @@ struct WebReaderView: View {
 
     @ViewBuilder private var toast: some View {
         if let text = model.toastText {
-            Text(text)
-                .font(.system(size: 13.5, weight: .semibold))
-                .foregroundColor(.white)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 9)
-                .background(Capsule().fill(ReaderPalette.surface))
-                .overlay(Capsule().stroke(Color.white.opacity(0.12), lineWidth: 1))
-                .padding(.bottom, 16)
-                .transition(.opacity)
+            HStack(spacing: 10) {
+                Text(text)
+                    .font(.system(size: 13.5, weight: .semibold))
+                    .foregroundColor(.white)
+                if let action = model.toastAction {
+                    Button(action.title) {
+                        action.run()
+                        model.toastText = nil
+                        model.toastAction = nil
+                    }
+                    .font(.system(size: 13.5, weight: .bold))
+                    .foregroundColor(ReaderPalette.accent)
+                }
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 9)
+            .background(Capsule().fill(ReaderPalette.surface))
+            .overlay(Capsule().stroke(Color.white.opacity(0.12), lineWidth: 1))
+            .padding(.bottom, 16)
+            .transition(.opacity)
         }
+    }
+}
+
+/// All open tabs as a list (title + address), with close buttons and "new tab".
+struct WebReaderTabsView: View {
+    @ObservedObject var model: WebReaderViewModel
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            List {
+                ForEach(Array(model.tabs.enumerated()), id: \.element.id) { index, tab in
+                    Button {
+                        model.select(index)
+                        dismiss()
+                    } label: {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(tab.label).font(.system(size: 15, weight: .semibold)).lineLimit(1)
+                                Text((tab.url ?? tab.restoreURL)?.absoluteString ?? "").font(.system(size: 12)).foregroundColor(ReaderPalette.muted).lineLimit(1)
+                            }
+                            Spacer()
+                            if index == model.currentIndex { Image(systemName: "checkmark").foregroundColor(ReaderPalette.accent) }
+                        }
+                    }
+                    .foregroundColor(.white)
+                    .listRowBackground(Color.clear)
+                }
+                .onDelete { offsets in
+                    for i in offsets.sorted(by: >) { model.closeTab(at: i) }
+                }
+            }
+            .listStyle(.plain)
+            .scrollContentBackground(.hidden)
+            .background(ReaderPalette.background)
+            .navigationTitle("Các tab (\(model.tabs.count))")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Tab mới") {
+                        model.openTab(nil, activate: true)
+                        dismiss()
+                    }
+                }
+                ToolbarItem(placement: .navigationBarTrailing) { Button("Xong") { dismiss() } }
+            }
+        }
+        .preferredColorScheme(.dark)
     }
 }
 
