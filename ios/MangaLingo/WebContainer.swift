@@ -35,7 +35,7 @@ struct WebContainer: UIViewRepresentable {
         MainWebHub.shared.web = web // the Web Reader asks this page's engine to translate
         // CI only: `-lingolensProbe` opens the runtime probe page (Worker / Cache API / WASM / model on the app:// scheme)
         let page = ProcessInfo.processInfo.arguments.contains("-lingolensProbe") ? "ios-probe.html" : "index.html#home"
-        if let url = URL(string: "app://local/(page)") { web.load(URLRequest(url: url)) }
+        if let url = URL(string: "app://local/" + page) { web.load(URLRequest(url: url)) }
         return web
     }
 
