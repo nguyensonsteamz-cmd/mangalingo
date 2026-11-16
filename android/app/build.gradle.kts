@@ -26,9 +26,28 @@ android {
         buildConfig = true
     }
 
+    // Release signing: ONLY when the keystore is supplied from outside (never committed): environment variables or -P properties
+    //   LINGOLENS_KEYSTORE (path), LINGOLENS_KEYSTORE_PASSWORD, LINGOLENS_KEY_ALIAS, LINGOLENS_KEY_PASSWORD.
+    // Without them the release build is UNSIGNED (see docs/MT_ENGINE_SIGNING_GUIDE.md).
+    fun signingValue(name: String): String? = (project.findProperty(name) as String?) ?: System.getenv(name)
+    val keystorePath = signingValue("LINGOLENS_KEYSTORE")
+    val hasSigning = !keystorePath.isNullOrBlank() && file(keystorePath).exists() &&
+        listOf("LINGOLENS_KEYSTORE_PASSWORD", "LINGOLENS_KEY_ALIAS", "LINGOLENS_KEY_PASSWORD").all { !signingValue(it).isNullOrBlank() }
+    if (hasSigning) {
+        signingConfigs {
+            create("release") {
+                storeFile = file(keystorePath!!)
+                storePassword = signingValue("LINGOLENS_KEYSTORE_PASSWORD")
+                keyAlias = signingValue("LINGOLENS_KEY_ALIAS")
+                keyPassword = signingValue("LINGOLENS_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
+            if (hasSigning) signingConfig = signingConfigs.getByName("release")
         }
     }
     compileOptions {

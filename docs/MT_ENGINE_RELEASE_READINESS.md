@@ -1,6 +1,6 @@
 # MT engine — release readiness
 
-**Verdict: NOT READY FOR RELEASE as a whole.** Chrome is ready (verified in real Chrome). Android is verified in an emulator but needs a physical-phone pass and a signing key. iPhone is **BLOCKED**: its new Swift code has never been compiled and nothing iOS-side was run. Google live API is unverified. This file lists exactly what is left; nothing here was invented or ticked without a run.
+**Verdict: READY WITH LIMITATIONS — not ready for a store release.** CI is green on GitHub (Ubuntu + macOS). Chrome is ready (verified in real Chrome). Android is verified in an emulator and builds (unsigned) but needs a physical-phone pass and a signing key. iPhone compiles and builds an unsigned IPA, but Apple Translation and the scan flow have never run on a phone. Google live API is unverified. This file lists exactly what is left; nothing here was invented or ticked without a run.
 
 Legend: ✅ verified by a run in this work · 🟡 partly verified · ⛔ blocked / not done.
 
@@ -21,7 +21,7 @@ Legend: ✅ verified by a run in this work · 🟡 partly verified · ⛔ blocke
 | Item | State | Evidence |
 |---|---|---|
 | Debug APK | ✅ 100.3 MB | gradle |
-| Release APK / AAB | 🟡 build OK, **unsigned** (96.6 MB / 42.5 MB) | gradle; no keystore exists, none was faked |
+| Release APK / AAB | 🟡 build OK, **UNSIGNED** (96.6 MB / 42.5 MB); release manifest is not debuggable; optional signing config reads an external keystore (written, **never exercised**) | gradle, aapt, CI |
 | ML Kit en→vi, vi→en (download, translation, errors) | ✅ emulator | `android-emulator-test.mjs` |
 | OPUS-MT en→vi, vi→en in the real WebView; verify; cancel; repair; background → foreground; restart persistence; UI responsive | ✅ emulator | 15 / 15 |
 | Memory | 🟡 ≈ 1.0 GB PSS with both models on a 3 GB x86_64 emulator | **needs a real ARM phone**; engineering target to decide: do not offer the model on devices with less RAM than the app + ≈ 0.8 GB (not enforced in code yet) |
@@ -32,14 +32,14 @@ Legend: ✅ verified by a run in this work · 🟡 partly verified · ⛔ blocke
 ## iPhone
 | Item | State | Evidence |
 |---|---|---|
-| Web bundle rebuilt | ✅ | `ios/MangaLingo/web` |
-| Swift for vi→en (second `TranslationQueue` + session) | ⛔ **never compiled** | reviewed by reading; no macOS here, CI needs a push |
-| Apple Translation en→vi / vi→en, scan, usage | ⛔ not run | – |
-| OPUS-MT on iPhone | ⛔ **deliberately not offered** | `app://` scheme: Cache API / Workers unverified; UI hidden |
-| IPA | ⛔ not built | – |
-| CI workflow | ✅ ready: typecheck → unit tests → web build → xcodegen → `xcodebuild` (fails the job on a compile error) → executable check → IPA | `.github/workflows/ios.yml` |
-| Manual | ⛔ | after you allow commit + push: run the workflow, read the compile log, install the IPA with Sideloadly, test en→vi, vi→en, scan; then decide on enabling the model (needs explicit `.mjs` / `.wasm` MIME types in `BundleSchemeHandler` and a device test) |
-Risk to check in that CI run: `npm ci` now installs `@huggingface/transformers` (it pulls `onnxruntime-node`, `sharp`); if the macOS job fails there, move the package to an `optionalDependencies`/build-only group.
+| Swift (vi→en queue/session, scheme handler, Setup/Keychain/OAuth) | ✅ **COMPILE VERIFIED** (Release iphoneos + Debug simulator) | CI runs 43883208282, 43890461052 |
+| Unsigned IPA | ✅ built (17.2 MB, executable present) → `ios-build/LingoLens.ipa`; **UNSIGNED**, not run on a phone | CI artifact |
+| Apple Translation en→vi / vi→en at runtime | ⛔ **NOT RUN** (the simulator reports `unsupported`; needs a physical iPhone, iOS 18+) | probe |
+| iOS scan flow, usage on iOS | ⛔ NOT RUN (unchanged code path; needs device) | – |
+| OPUS-MT in the iOS WebView | 🟡 **RUNTIME VERIFIED (SIMULATOR)**: Worker, Cache API, WASM, SHA-256, translate, persistence after relaunch all work on `app://`; **not enabled** in the app until a physical-device memory test | `MT_ENGINE_IOS_VERIFICATION.md` |
+| Signing / TestFlight | ⛔ no Apple Developer credentials in the repo | `MT_ENGINE_SIGNING_GUIDE.md` |
+| CI | ✅ typecheck → tests → web build → xcodegen → `xcodebuild` → executable check → IPA, plus a simulator probe job | `.github/workflows/ios.yml` |
+| Manual | ⛔ | install the IPA with Sideloadly; test en→vi, vi→en, scan; then (optional) enable the model on iOS after a memory check |
 
 ## Google BYOK
 | Item | State |
