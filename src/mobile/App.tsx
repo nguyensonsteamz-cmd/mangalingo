@@ -220,7 +220,7 @@ export function App() {
   };
   // tools in the floating button of the scan page
   const notesItem: AssistItem = { id: 'notes', label: 'Ghi chú', icon: '✏️', onClick: () => setNotesOpen(true) };
-  const hlItem: AssistItem = { id: 'highlight', label: highlightMode ? 'Tắt tô sáng' : 'Tô sáng', icon: '🖍', active: highlightMode, onClick: () => setHighlightMode((v) => !v) };
+  const hlItem: AssistItem = { id: 'highlight', label: highlightMode ? 'Tắt tô' : 'Tô sáng', icon: '🖍', active: highlightMode, onClick: () => setHighlightMode((v) => !v) };
 
   return (
     <div className="flex min-h-[calc(100dvh-env(safe-area-inset-top))] flex-col text-text" style={{ zoom: SCALE[settings.appearance.uiScale] ?? 1 }} data-ml-app="">

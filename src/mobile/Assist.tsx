@@ -15,9 +15,9 @@ export interface AssistItem {
   active?: boolean;
 }
 
-const TAB_W = 26; // visible arrow tab
-const TAB_H = 64;
-const PANEL_W = 196;
+const TAB_W = 26; // visible arrow strip
+const TILE_W = 64; // one tool: icon on top, its name below
+const PANEL_H = 76;
 const POS_KEY = 'mlapp:assistPos';
 
 export function Assist({ items }: { items: AssistItem[] }) {
@@ -36,7 +36,8 @@ export function Assist({ items }: { items: AssistItem[] }) {
 
   const H = typeof window === 'undefined' ? 844 : window.innerHeight;
   const W = typeof window === 'undefined' ? 390 : window.innerWidth;
-  const panelH = Math.max(TAB_H, items.length * 52 + 16);
+  const panelH = PANEL_H;
+  const PANEL_W = items.length * TILE_W + 10;
   const centerY = dragY ?? Math.min(H - 200 - panelH / 2, Math.max(80 + panelH / 2, pos.y * H));
   const right = pos.side === 'right';
 
@@ -75,7 +76,7 @@ export function Assist({ items }: { items: AssistItem[] }) {
     <>
       {open && <div className="fixed inset-0 z-[29]" onClick={() => setOpen(false)} data-ml-assist-backdrop="" />}
       <div
-        className={cx('fixed z-[31] flex items-center', right ? 'right-0 flex-row' : 'left-0 flex-row-reverse', dragY === null && 'transition-[transform,top] duration-[360ms] ease-[cubic-bezier(.22,1.15,.36,1)]')}
+        className={cx('ml-glass fixed z-[31] flex items-stretch overflow-hidden', right ? 'right-0 flex-row rounded-l-[22px] border-r-0' : 'left-0 flex-row-reverse rounded-r-[22px] border-l-0', dragY === null && 'transition-[transform,top] duration-[360ms] ease-[cubic-bezier(.22,1.15,.36,1)]')}
         style={{ top: centerY - panelH / 2, height: panelH, transform: `translateX(${right ? hidden : -hidden}px)` }}
         data-ml-assist-drawer=""
         data-open={open ? '' : undefined}
@@ -89,14 +90,14 @@ export function Assist({ items }: { items: AssistItem[] }) {
           onPointerMove={onMove}
           onPointerUp={onUp}
           onPointerCancel={onUp}
-          className={cx('ml-glass flex touch-none select-none items-center justify-center text-[22px] font-bold text-muted', right ? 'rounded-l-[16px] border-r-0' : 'rounded-r-[16px] border-l-0')}
-          style={{ width: TAB_W, height: TAB_H }}
+          className="flex shrink-0 touch-none select-none items-center justify-center text-[22px] font-bold text-muted"
+          style={{ width: TAB_W }}
           data-ml-assist=""
         >
           <span className={cx('transition-transform duration-300', open === right && 'rotate-180')}>‹</span>
         </button>
         {/* the panel with the tools */}
-        <div className={cx('ml-glass flex h-full flex-col justify-center gap-1 p-2', right ? 'rounded-l-[24px] border-r-0' : 'rounded-r-[24px] border-l-0')} style={{ width: PANEL_W }} data-ml-assist-menu="">
+        <div className={cx('flex shrink-0 items-center py-1.5', right ? 'pr-2.5 border-l' : 'pl-2.5 border-r', 'border-text/10')} style={{ width: PANEL_W }} data-ml-assist-menu="">
           {items.map((it) => (
             <button
               key={it.id}
@@ -106,11 +107,12 @@ export function Assist({ items }: { items: AssistItem[] }) {
                 setOpen(false);
                 it.onClick();
               }}
-              className={cx('ml-press flex h-[46px] items-center gap-2.5 rounded-[16px] px-2.5 text-left text-[14px] font-semibold', it.active ? 'ml-glass-select border' : 'border border-transparent hover:bg-text/[0.06]')}
+              className={cx('ml-press flex h-full flex-col items-center justify-center gap-1 rounded-[16px] text-[11px] font-semibold leading-tight', it.active ? 'ml-glass-select border' : 'border border-transparent hover:bg-text/[0.06]')}
+              style={{ width: TILE_W }}
               data-ml-assist-item={it.id}
             >
               <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-text/[0.08] text-[17px]">{it.icon}</span>
-              <span className="truncate">{it.label}</span>
+              <span className="max-w-full truncate px-0.5">{it.label}</span>
             </button>
           ))}
         </div>

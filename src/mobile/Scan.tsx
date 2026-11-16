@@ -422,10 +422,10 @@ export function Scan({
       <Assist
         items={[
           ...extraItems,
-          ...(onNewFile ? [{ id: 'file', label: 'Ảnh / tệp khác', icon: '📎', onClick: () => fileInput.current?.click() }] : []),
-          ...(!showFrame && blocks.length ? [{ id: 'clear', label: 'Xoá bong bóng', icon: '🧹', onClick: clearBubbles }] : []),
+          ...(onNewFile ? [{ id: 'file', label: 'Tệp khác', icon: '📎', onClick: () => fileInput.current?.click() }] : []),
+          ...(!showFrame && blocks.length ? [{ id: 'clear', label: 'Xoá bóng', icon: '🧹', onClick: clearBubbles }] : []),
           ...(!showFrame && !blocks.length ? [{ id: 'frame', label: 'Khung mới', icon: '⬚', onClick: () => setShowFrame(true) }] : []),
-          ...(view.s > 1.05 ? [{ id: 'fit', label: 'Vừa màn hình', icon: '⤢', onClick: () => setView(clampView(1, 0, 0)) }] : []),
+          ...(view.s > 1.05 ? [{ id: 'fit', label: 'Vừa khung', icon: '⤢', onClick: () => setView(clampView(1, 0, 0)) }] : []),
         ]}
       />
 
@@ -577,12 +577,12 @@ export function Scan({
         title={blocks.length > 1 ? `${blocks.length} bong bóng · chạm khung trên ảnh để tới` : 'Kết quả dịch · chạm ra ngoài để đóng'}
       >
         {blocks.map((b, i) => (
-          <div
-            key={b.id}
-            data-ml-block={b.id}
-            className={cx('rounded-[22px]', blocks.length > 1 && i > 0 && 'mt-2 border-t border-border/60 pt-1')}
-          >
-            <ScanResult text={b.text} n={blocks.length > 1 ? i + 1 : 0} mt={translations[b.id]} />
+          <div key={b.id}>
+            {/* a dashed line between bubbles, so each one reads as its own group */}
+            {i > 0 && <div className="mx-2 my-3 border-t-2 border-dashed border-text/40" aria-hidden="true" data-ml-divider="" />}
+            <div data-ml-block={b.id} className="rounded-[22px]">
+              <ScanResult text={b.text} n={blocks.length > 1 ? i + 1 : 0} mt={translations[b.id]} />
+            </div>
           </div>
         ))}
         {blocks.length > 0 && (
