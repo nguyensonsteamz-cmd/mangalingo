@@ -1,0 +1,47 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>LingoLens iOS runtime probe</title>
+<body>probe running…
+<script>
+// Runs inside the REAL WKWebView of the iOS app (app:// scheme), launched with the argument -lingolensProbe by the CI simulator job.
+// Every result is sent to Swift (NSLog "LINGOLENS_PROBE …") so the CI log is the evidence. Nothing here is used in normal runs.
+const WORKER = '__MT_WORKER__';
+const out = {};
+const post = (k, v) => { out[k] = v; try { webkit.messageHandlers.ml.postMessage({ cmd: 'probe', key: k, value: JSON.stringify(v) }); } catch (e) {} };
+const t = async (name, fn) => { const t0 = performance.now(); try { const detail = await fn(); post(name, { ok: true, ms: Math.round(performance.now() - t0), detail }); } catch (e) { post(name, { ok: false, error: String(e && e.message || e) }); } };
+(async () => {
+  post('env', { href: location.href, secureContext: window.isSecureContext, caches: typeof caches, indexedDB: typeof indexedDB, subtle: typeof (crypto && crypto.subtle), Worker: typeof Worker, WebAssembly: typeof WebAssembly, SharedArrayBuffer: typeof SharedArrayBuffer, ua: navigator.userAgent });
+  await t('mime', async () => { const r = []; for (const f of ['vendor/ort/ort-wasm-simd-threaded.mjs', 'vendor/ort/ort-wasm-simd-threaded.wasm', WORKER]) { const x = await fetch(f); r.push(f.split('/').pop() + ' → ' + x.status + ' ' + x.headers.get('content-type')); } return r; });
+  await t('cache-api', async () => { const c = await caches.open('probe'); await c.put(new Request('https://huggingface.co/probe/resolve/x/a.bin'), new Response(new Uint8Array(1000))); const m = await c.match('https://huggingface.co/probe/resolve/x/a.bin'); return (await m.blob()).size; });
+  await t('indexeddb', async () => new Promise((res, rej) => { const q = indexedDB.open('probe', 1); q.onupgradeneeded = () => q.result.createObjectStore('s'); q.onsuccess = () => res('open ok'); q.onerror = () => rej(q.error); }));
+  await t('wasm-compile', async () => { const b = await (await fetch('vendor/ort/ort-wasm-simd-threaded.wasm')).arrayBuffer(); await WebAssembly.compile(b); return b.byteLength; });
+  await t('sha256', async () => { const d = await crypto.subtle.digest('SHA-256', new Uint8Array([1, 2, 3])); return d.byteLength; });
+  let w;
+  await t('module-worker', async () => new Promise((res, rej) => {
+    w = new Worker(WORKER, { type: 'module' });
+    w.onerror = (e) => rej(new Error('worker error: ' + (e.message || 'blocked')));
+    w.onmessage = (e) => (e.data.type === 'done' ? res('init ok') : rej(new Error(JSON.stringify(e.data))));
+    w.postMessage({ id: 1, op: 'init', wasmBase: new URL('vendor/ort/', location.href).href });
+    setTimeout(() => rej(new Error('timeout 20s')), 20000);
+  }));
+  if (w && out['module-worker'].ok) {
+    const spec = { id: 'local-opus-mt-en-vi', repo: 'Xenova/opus-mt-en-vi', revision: '30bcd461c0d7338ad106b36314d3eedc2d4e998c', dtype: 'q8' };
+    await t('model-download-and-load', async () => new Promise((res, rej) => {
+      w.onmessage = (e) => { if (e.data.id === 2) { if (e.data.type === 'done') res('loaded'); else if (e.data.type === 'error') rej(new Error(e.data.message)); } };
+      w.postMessage({ id: 2, op: 'prepare', model: spec });
+      setTimeout(() => rej(new Error('timeout 300s')), 300000);
+    }));
+    if (out['model-download-and-load'].ok) {
+      await t('model-translate', async () => new Promise((res, rej) => {
+        w.onmessage = (e) => { if (e.data.id === 3) { if (e.data.type === 'done') res(e.data.text); else rej(new Error(e.data.message)); } };
+        w.postMessage({ id: 3, op: 'translate', model: spec, text: 'Where is the nearest train station?' });
+        setTimeout(() => rej(new Error('timeout 120s')), 120000);
+      }));
+    }
+  }
+  await t('apple-translation-status-en-vi', async () => JSON.stringify(await webkit.messageHandlers.ml.postMessage({ cmd: 'mtStatus' })));
+  await t('apple-translation-status-vi-en', async () => JSON.stringify(await webkit.messageHandlers.ml.postMessage({ cmd: 'mtStatus', pair: 'vi>en' })));
+  post('done', true);
+  document.body.textContent = 'probe done';
+})();
+</script>

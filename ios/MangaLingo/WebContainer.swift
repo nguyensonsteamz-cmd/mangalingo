@@ -33,7 +33,9 @@ struct WebContainer: UIViewRepresentable {
         if #available(iOS 16.4, *) { web.isInspectable = true }
         context.coordinator.web = web
         MainWebHub.shared.web = web // the Web Reader asks this page's engine to translate
-        if let url = URL(string: "app://local/index.html#home") { web.load(URLRequest(url: url)) }
+        // CI only: `-lingolensProbe` opens the runtime probe page (Worker / Cache API / WASM / model on the app:// scheme)
+        let page = ProcessInfo.processInfo.arguments.contains("-lingolensProbe") ? "ios-probe.html" : "index.html#home"
+        if let url = URL(string: "app://local/(page)") { web.load(URLRequest(url: url)) }
         return web
     }
 
@@ -76,6 +78,10 @@ struct WebContainer: UIViewRepresentable {
                 return
             }
             switch cmd {
+            case "probe":
+                // evidence line for the CI simulator job (see scripts/assets/ios-probe.html)
+                NSLog("LINGOLENS_PROBE %@ %@", body["key"] as? String ?? "?", body["value"] as? String ?? "")
+                replyHandler(true, nil)
             case "pendingScan":
                 replyHandler(["stamp": PendingScan.stamp], nil)
             case "voiceInfo":

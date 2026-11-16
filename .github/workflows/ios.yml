@@ -11,6 +11,7 @@ on:
       - 'src/**'
       - 'data/**'
       - 'scripts/build-mobile.mjs'
+      - 'scripts/assets/**'
       - 'scripts/build-data.mjs'
       - 'package.json'
       - 'package-lock.json'
@@ -70,3 +71,47 @@ jobs:
           name: LingoLens-ipa
           path: LingoLens.ipa
           retention-days: 30
+
+  # Runtime evidence for the iOS WebView: does the app:// page support Workers, the Cache API, WASM and the downloaded
+  # translation model? The result is recorded, not asserted: a negative answer is information (the model stays disabled on iPhone).
+  simulator-probe:
+    name: iOS simulator runtime probe
+    runs-on: macos-latest
+    timeout-minutes: 30
+    env:
+      npm_config_cache: /tmp/mangalingo-npm-cache
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci --no-audit --no-fund
+      - name: Build the web UI (+ probe page) into the app
+        run: npm run build:ios-web
+      - name: Generate the Xcode project
+        run: |
+          brew install xcodegen
+          cd ios && xcodegen generate
+      - name: Build for the simulator
+        run: |
+          set -o pipefail
+          xcodebuild -project ios/MangaLingo.xcodeproj -target MangaLingo -configuration Debug -sdk iphonesimulator \
+            SYMROOT="$PWD/ios/build-sim" CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build | tail -n 15
+      - name: Boot a simulator, launch with -lingolensProbe, collect the evidence
+        run: |
+          xcrun simctl list devices available | head -30
+          UDID=$(xcrun simctl list -j devices available | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const j=JSON.parse(s).devices;const rts=Object.keys(j).filter(k=>/iOS/.test(k)).sort();for(const r of rts.reverse()){const d=j[r].find(x=>/iPhone/.test(x.name));if(d){console.log(d.udid);return}}})")
+          echo "simulator: $UDID"
+          xcrun simctl boot "$UDID" && xcrun simctl bootstatus "$UDID" -b
+          xcrun simctl install "$UDID" ios/build-sim/Debug-iphonesimulator/MangaLingo.app
+          xcrun simctl launch --console-pty --terminate-running-process "$UDID" app.mangalingo.ios -lingolensProbe > probe.log 2>&1 &
+          for i in $(seq 1 120); do grep -q "LINGOLENS_PROBE done" probe.log 2>/dev/null && break; sleep 5; done
+          echo "=== probe evidence ==="
+          grep "LINGOLENS_PROBE" probe.log || (echo "no probe output"; cat probe.log; exit 1)
+          grep -q "LINGOLENS_PROBE done" probe.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ios-simulator-probe
+          path: probe.log
+          retention-days: 14
