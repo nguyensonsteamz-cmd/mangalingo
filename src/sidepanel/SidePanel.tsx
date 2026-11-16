@@ -9,7 +9,7 @@ import { MachineTranslation } from '@/ui/MachineTranslation';
 import { Badge, Button, Empty, GlassIndicator, IconButton, Notice, SectionTitle, Spinner, cx, fastTap } from '@/ui/components';
 import { IconBookmark, IconCompact, IconEdit, IconEraser, IconExpand, IconGear, IconInfo, IconLayers, IconLogo, IconPanel, IconScan, IconSearch, IconVolume } from '@/ui/icons';
 import {
-  ChunksView, GlossBlock, GrammarView, NotesView, PosBadge, SourceLine, VocabHints, WordContextView, WordExamples, WordGrammar, WordMeaning,
+  ChunksView, GrammarView, NotesView, PosBadge, SourceLine, VocabHints, WordContextView, WordExamples, WordGrammar, WordMeaning,
   primaryMeaning,
 } from '@/ui/views';
 import { VocabManager, useVocab, vocabStore } from '@/ui/VocabManager';
@@ -386,9 +386,6 @@ function EntryView({ s, entry, tab, compact, onLookup, onBackToOcr }: { s: Setti
           {sentences.map((x, i) => (
             <div key={i} className="space-y-1.5">
               {r.kind === 'paragraph' && <div className="text-[13px] font-medium text-text">{i + 1}. {x.text}</div>}
-              {/* the phone apps show just the translation; the word-by-word gloss stays in the extension (its fallback without machine translation) */}
-              {!IN_APP && <GlossBlock gloss={x.gloss} coverage={x.coverage} />}
-              {!IN_APP && !compact && <ChunksView chunks={x.chunks} onLookup={(t) => onLookup(t, x.text)} />}
             </div>
           ))}
         </div>

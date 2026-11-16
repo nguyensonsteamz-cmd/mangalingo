@@ -239,7 +239,7 @@ try {
     await page.evaluate(`document.activeElement.blur()`);
   });
 
-  await step('Select a sentence → Sentence mode with gloss + grammar (passive)', async () => {
+  await step('Select a sentence → Sentence mode (no word-by-word gloss) + grammar (passive)', async () => {
     const a = await wordPos('p1', 'The', 'start');
     const b = await wordPos('p1', 'demon.', 'end');
     await drag({ x: a.x, y: a.y }, { x: b.x, y: b.y });
@@ -247,7 +247,7 @@ try {
       const t = await popupText();
       return t && /Câu/.test(t) && !t.includes('Đang tra cứu') ? t : null;
     }, { label: 'sentence popup' });
-    assert(text.includes('bị/được') && text.includes('phá hủy'), 'gloss should contain "bị/được phá hủy"');
+    assert(!text.includes('bị/được phá hủy'), 'the word-by-word gloss must not be shown');
     const tabs = await page.evaluate(`[...${shadowQ('[data-ml-popup]')}.querySelectorAll('[role=tab]')].map(t => t.textContent)`);
     assert(tabs.some((t) => t.startsWith('Ngữ pháp')), 'sentence popup must have a grammar tab');
     await page.evaluate(`[...${shadowQ('[data-ml-popup]')}.querySelectorAll('[role=tab]')].find(t => t.textContent.startsWith('Ngữ pháp')).click()`);
@@ -255,7 +255,7 @@ try {
     assert(g.includes('Quá khứ đơn'), 'grammar should detect past simple');
     await snap(page, 'popup-sentence');
     await closePopup();
-    return 'gloss "ngôi làng bị/được phá hủy bởi ác quỷ", passive + past simple';
+    return 'passive + past simple';
   });
 
   await step('Select a phrase → Phrase mode ("piece of cake")', async () => {
@@ -614,7 +614,7 @@ try {
     await panel.evaluate(`chrome.runtime.sendMessage({ type: 'sidebar:push', payload: { type: 'lookup', text: 'I gave up on my dream.' } })`);
     const t = await waitFor(async () => {
       const x = await panel.evaluate('document.body.innerText');
-      return x.includes('bỏ cuộc') ? x : null;
+      return x.includes('I gave up on my dream.') ? x : null;
     }, { label: 'panel content', timeout: 10000 });
     assert(/văn bản gốc/i.test(t), 'original text section');
     const stored = await sw.evaluate(`chrome.storage.session.get('sidebar:current').then(r => r['sidebar:current']?.text)`);

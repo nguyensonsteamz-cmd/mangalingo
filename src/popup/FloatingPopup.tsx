@@ -4,7 +4,7 @@ import type { Settings } from '@/shared/settings';
 import { Badge, Button, IconButton, Notice, SectionTitle, Spinner, Tabs, cx } from '@/ui/components';
 import { IconBack, IconBookmark, IconCheck, IconCopy, IconEdit, IconGear, IconPanel, IconVolume, IconX } from '@/ui/icons';
 import {
-  ChunksView, GlossBlock, GrammarView, NotesView, PosBadge, SourceLine, TagBadges, VocabHints, WordContextView, WordExamples, WordGrammar,
+  ChunksView, GrammarView, NotesView, PosBadge, SourceLine, TagBadges, VocabHints, WordContextView, WordExamples, WordGrammar,
   WordMeaning,
 } from '@/ui/views';
 import { canSpeak, speak } from '@/ui/speech';
@@ -377,9 +377,6 @@ function SentenceView({ r, s, canBack, tab }: { r: SentenceAnalysis; s: Settings
         {active === 'translation' && (
           <div className="space-y-2.5">
             <MachineTranslation text={r.text} s={s} />
-            <GlossBlock gloss={r.gloss} coverage={r.coverage} />
-            <SectionTitle>Từng cụm · click để tra</SectionTitle>
-            <ChunksView chunks={r.chunks} onLookup={(t) => A.drillDown(t, r.text)} />
           </div>
         )}
         {active === 'context' && <NotesView notes={r.notes} empty={<Notice>Không phát hiện slang, thành ngữ hay sắc thái đặc biệt.</Notice>} />}

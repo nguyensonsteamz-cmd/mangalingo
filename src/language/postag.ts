@@ -48,6 +48,10 @@ const STRICT_ADVERBS = new Set([
   'definitely', 'actually', 'literally', 'seriously', 'totally', 'almost', 'nearly', 'ever', 'again', 'together',
   'alone', 'anyway', 'somehow', 'anymore', 'ago', 'instead', 'today', 'tomorrow', 'tonight', 'yesterday',
 ]);
+// irregular verbs whose past form equals the base form ("Let me go!", "Put it down.")
+const SAME_FORM_VERBS = new Set(['let', 'put', 'cut', 'set', 'hit', 'read', 'shut', 'hurt', 'quit', 'spread', 'beat', 'cast', 'burst', 'run', 'come', 'become']);
+// words that, right after a sentence-initial verb/noun word, mean it is a command ("Look at…", "Wait for…")
+const IMPERATIVE_NEXT = new Set(['me', 'him', 'her', 'them', 'us', 'it', 'at', 'for']);
 const CLAUSE_WH = new Set(['when', 'where', 'whenever', 'wherever', 'while']);
 
 function verbForm(w: string): VerbForm {
@@ -205,6 +209,10 @@ export function tagSentence(text: string, lexicon: PosLexicon): Tagged[] {
           tag = 'ADV';
         } else if (canAdv && !canVerb && !canNoun && !canAdj) {
           tag = 'ADV';
+        } else if (u.sentenceStart && canVerb && (vf === 'base' || SAME_FORM_VERBS.has(w)) && next && (next.type === 'punct' ? next.text === '!' : IMPERATIVE_NEXT.has(next.norm) || next.norm === 'being' || PARTICLES.has(next.norm) || STRICT_ADVERBS.has(next.norm))) {
+          // "Go now!" "Stop being a coward." "Run away!" "Help!" – command, not a noun
+          tag = 'VERB';
+          form = 'base';
         } else if (u.sentenceStart && canVerb && vf === 'base' && !canNoun) {
           tag = 'VERB';
           form = 'base';

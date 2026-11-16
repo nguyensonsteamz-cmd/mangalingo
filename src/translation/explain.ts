@@ -54,6 +54,9 @@ export function toneNotes(text: string, tagged: Tagged[], chunks: Chunk[]): Cont
   }
   for (const ch of chunks) {
     if (ch.kind !== 'phrase' || !ch.phraseType) continue;
+    // not worth a note: "going to + verb" is the future, not "go to"; "Do you know what…" is a question, not the filler "you know"
+    if (ch.lemma === 'go to' || ch.lemma === 'be to') continue;
+    if (ch.lemma === 'you know' && /\b(do|did|does|would|could|can|will)\s+you\s+know\b/i.test(text)) continue;
     const kind = ch.phraseType === 'phrasal' ? 'phrasal' : ch.phraseType === 'slang' ? 'slang' : ch.phraseType === 'idiom' ? 'idiom' : 'expression';
     const title = { phrasal: 'Cụm động từ', slang: 'Tiếng lóng', idiom: 'Thành ngữ', expression: 'Cách diễn đạt cố định' }[kind];
     const meaning = ch.vi ? `Nghĩa: ${ch.vi}.` : ch.en ? `English: ${ch.en}` : 'Có trong từ điển như một cụm cố định.';

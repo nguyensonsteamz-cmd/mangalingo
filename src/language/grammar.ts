@@ -185,6 +185,12 @@ export function analyzeGrammar(text: string, tags: Tagged[]): GrammarReport {
     const outside = findings.find((x) => x.g.startIdx < subIdx || (commaAfter > 0 && x.g.startIdx > commaAfter));
     if (outside) main = outside;
   }
+  // "The man who lives next door is a doctor": the verb inside the relative clause is not the main verb
+  const relIdx = tags.findIndex((t, i) => i > 0 && RELATIVES.has(t.norm) && t.tag === 'PRON' && ['NOUN', 'PROPN', 'PRON'].includes(tags[i - 1].tag));
+  if (relIdx >= 0 && main && main.g.startIdx > relIdx) {
+    const later = findings.find((x) => x.g.startIdx > main!.g.endIdx && x.g.startIdx > relIdx);
+    if (later && later !== main) main = later;
+  }
   let tense: GrammarReport['tense'];
   if (main?.f && sentenceType !== 'imperative') {
     const t = TENSES[main.f.id];
@@ -285,14 +291,17 @@ export function analyzeGrammar(text: string, tags: Tagged[]): GrammarReport {
     let s = mainG.startIdx - 1;
     const subj: number[] = [];
     while (s >= 0 && ['PRON', 'NOUN', 'PROPN', 'DET', 'ADJ', 'NUM'].includes(tags[s].tag)) subj.unshift(s--);
-    if (subj.length) roles.subject = textOf(tags, subj[0], subj[subj.length - 1], text);
+    if (relIdx >= 0 && relIdx < mainG.startIdx && leadSub >= 0 && leadSub < relIdx) roles.subject = textOf(tags, leadSub, mainG.startIdx - 1, text);
+    else if (subj.length && sentenceType === 'wh-question' && subj[0] === 1 && tags[0].tag === 'WH' && ['what', 'who', 'which'].includes(tags[0].norm)) roles.subject = textOf(tags, 0, subj[subj.length - 1], text);
+    else if (subj.length) roles.subject = textOf(tags, subj[0], subj[subj.length - 1], text);
     else if (sentenceType === 'yes-no-question' || sentenceType === 'wh-question') {
       const inv = tags.slice(mainG.startIdx, mainG.endIdx + 1).find((t) => t.tag === 'PRON' || t.tag === 'PROPN');
       if (inv) roles.subject = inv.text;
     }
     roles.verb = textOf(tags, mainG.startIdx, mainG.endIdx, text);
     const mainVerb = [...mainG.units].reverse().find((u) => u.tag === 'VERB' || u.tag === 'AUX');
-    const linking = mainVerb && LINKING_VERBS.has(lemmaOf(mainVerb)) && !(main?.f?.passive);
+    // "looked" → candidates looke / look: any verb candidate that is a linking verb counts
+    const linking = mainVerb && (LINKING_VERBS.has(lemmaOf(mainVerb)) || lemmaCandidates(mainVerb.norm).some((c) => c.pos === 'verb' && LINKING_VERBS.has(c.lemma))) && !(main?.f?.passive);
     let o = mainG.endIdx + 1;
     // Inverted question without a subject before the verb: "Are you out of your mind?"
     if (!roles.subject && (sentenceType === 'yes-no-question' || sentenceType === 'wh-question') && tags[o] && ['PRON', 'PROPN'].includes(tags[o].tag)) {
@@ -310,6 +319,15 @@ export function analyzeGrammar(text: string, tags: Tagged[]): GrammarReport {
       else if (!main?.f?.passive) roles.object = phrase;
     }
     if (!roles.subject && sentenceType === 'imperative') roles.subject = '(you – hiểu ngầm)';
+  }
+
+  // a relative clause inside the subject: the main clause is the whole sentence, the relative clause is just "who lives next door"
+  if (mainG && relIdx >= 0 && relIdx < mainG.startIdx && leadSub >= 0 && leadSub < relIdx) {
+    const relText = textOf(tags, relIdx, mainG.startIdx - 1, text);
+    const relFirst = clauses.findIndex((c) => c.type === 'relative');
+    if (relFirst >= 0 && clauses.length === 2) {
+      clauses.splice(0, clauses.length, { text: text.trim(), type: 'main' }, { text: relText, type: 'relative', marker: tags[relIdx].norm });
+    }
   }
 
   // ---- other notable features
