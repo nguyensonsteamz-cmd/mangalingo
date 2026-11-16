@@ -226,7 +226,10 @@ final class BundleSchemeHandler: NSObject, WKURLSchemeHandler {
             notFound(task, url)
             return
         }
-        respond(task, url, data, UTType(filenameExtension: file.pathExtension)?.preferredMIMEType ?? "application/octet-stream")
+        // explicit types for the local-model runtime: module scripts need a JavaScript type, WebAssembly.instantiateStreaming needs application/wasm
+        let ext = file.pathExtension.lowercased()
+        let explicit: [String: String] = ["js": "text/javascript", "mjs": "text/javascript", "wasm": "application/wasm"]
+        respond(task, url, data, explicit[ext] ?? UTType(filenameExtension: ext)?.preferredMIMEType ?? "application/octet-stream")
     }
 
     func webView(_ webView: WKWebView, stop task: WKURLSchemeTask) {}

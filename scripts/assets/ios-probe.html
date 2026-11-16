@@ -12,6 +12,7 @@ const t = async (name, fn) => { const t0 = performance.now(); try { const detail
 (async () => {
   post('env', { href: location.href, secureContext: window.isSecureContext, caches: typeof caches, indexedDB: typeof indexedDB, subtle: typeof (crypto && crypto.subtle), Worker: typeof Worker, WebAssembly: typeof WebAssembly, SharedArrayBuffer: typeof SharedArrayBuffer, ua: navigator.userAgent });
   await t('mime', async () => { const r = []; for (const f of ['vendor/ort/ort-wasm-simd-threaded.mjs', 'vendor/ort/ort-wasm-simd-threaded.wasm', WORKER]) { const x = await fetch(f); r.push(f.split('/').pop() + ' → ' + x.status + ' ' + x.headers.get('content-type')); } return r; });
+  await t('persisted-model-cache-entries-at-start', async () => { const c = await caches.open('transformers-cache'); return (await c.keys()).map((r) => r.url.split('/').pop()); });
   await t('cache-api', async () => { const c = await caches.open('probe'); await c.put(new Request('https://huggingface.co/probe/resolve/x/a.bin'), new Response(new Uint8Array(1000))); const m = await c.match('https://huggingface.co/probe/resolve/x/a.bin'); return (await m.blob()).size; });
   await t('indexeddb', async () => new Promise((res, rej) => { const q = indexedDB.open('probe', 1); q.onupgradeneeded = () => q.result.createObjectStore('s'); q.onsuccess = () => res('open ok'); q.onerror = () => rej(q.error); }));
   await t('wasm-compile', async () => { const b = await (await fetch('vendor/ort/ort-wasm-simd-threaded.wasm')).arrayBuffer(); await WebAssembly.compile(b); return b.byteLength; });
@@ -32,6 +33,13 @@ const t = async (name, fn) => { const t0 = performance.now(); try { const detail
       setTimeout(() => rej(new Error('timeout 300s')), 300000);
     }));
     if (out['model-download-and-load'].ok) {
+      await t('model-sha256-verify', async () => {
+        const want = { 'encoder_model_quantized.onnx': 'dfcd7a32be3fdd21cbcf5d354520d626f1768fd6e205ca62a6a11a4641d31f36', 'decoder_model_merged_quantized.onnx': '1cfc6a84f9c189e6928c9710b281fae3f1f42d4ffbba109e7b4ec8e31ceb06dd' };
+        const c = await caches.open('transformers-cache'); const res = {};
+        for (const r of await c.keys()) { const n = r.url.split('/').pop(); if (want[n]) { const b = await (await c.match(r)).arrayBuffer(); const h = [...new Uint8Array(await crypto.subtle.digest('SHA-256', b))].map((x) => x.toString(16).padStart(2, '0')).join(''); res[n] = h === want[n] ? 'ok' : 'MISMATCH'; } }
+        if (Object.keys(res).length !== 2 || Object.values(res).some((v) => v !== 'ok')) throw new Error(JSON.stringify(res));
+        return res;
+      });
       await t('model-translate', async () => new Promise((res, rej) => {
         w.onmessage = (e) => { if (e.data.id === 3) { if (e.data.type === 'done') res(e.data.text); else rej(new Error(e.data.message)); } };
         w.postMessage({ id: 3, op: 'translate', model: spec, text: 'Where is the nearest train station?' });

@@ -109,6 +109,12 @@ jobs:
           echo "data container: $DATA"
           for i in $(seq 1 100); do grep -q "LINGOLENS_PROBE done" "$DATA/Documents/probe.log" 2>/dev/null && break; sleep 5; done
           cp "$DATA/Documents/probe.log" probe.log 2>/dev/null || true
+          echo "=== second launch (after terminating the app): is the model still on the device? ==="
+          xcrun simctl terminate "$UDID" app.mangalingo.ios || true
+          sleep 3
+          xcrun simctl launch "$UDID" app.mangalingo.ios -lingolensProbe
+          for i in $(seq 1 60); do [ "$(grep -c "LINGOLENS_PROBE done" "$DATA/Documents/probe.log" 2>/dev/null)" -ge 2 ] && break; sleep 5; done
+          cp "$DATA/Documents/probe.log" probe.log 2>/dev/null || true
           echo "=== probe evidence ==="
           cat probe.log || true
           if ! grep -q "LINGOLENS_PROBE done" probe.log 2>/dev/null; then
