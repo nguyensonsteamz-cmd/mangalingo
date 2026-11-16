@@ -671,3 +671,86 @@ html[data-app='mobile'] body::before {
 html[data-app='mobile'] .sticky.top-0 {
   top: env(safe-area-inset-top);
 }
+
+/* ======================================================================================================
+   "Hiệu ứng kính" OFF (Settings → Giao diện, or popup material "Đặc"): data-glass="off" is set wherever the theme is
+   applied (page <html>, popup, sidebar, previews, in-page UI). EVERY Liquid Glass surface – panels, cards, bars, the tab
+   bar and its hill, selection pills, primary buttons, the settings pages, the status-bar strip – becomes a flat, opaque
+   panel: no blur, no lens gloss / specular edge / sheen / ripple, a plain shadow.
+   (Specificity is raised on purpose so these beat the per-class gloss definitions above.)
+   ====================================================================================================== */
+[data-glass='off'][data-glass='off'][data-glass='off'],
+[data-glass='off'][data-glass='off'][data-glass='off'] .ml-glass,
+[data-glass='off'][data-glass='off'][data-glass='off'] .ml-btn-primary,
+[data-glass='off'][data-glass='off'] .ml-glass,
+[data-glass='off'][data-glass='off'] .ml-btn-primary,
+[data-glass='off'] .ml-glass,
+[data-glass='off'] .ml-btn-primary {
+  --ml-lens-dome: none;
+  --ml-lens-floor: none;
+  --ml-lens-edge: 0 0 0 0 transparent;
+  --ml-glass-hi: 0;
+  --ml-gloss: 0;
+  --ml-glass-off: 1;
+  --ml-glass-k: 1;
+  --ml-glass-a: 1;
+  --ml-glass-card-a: 1;
+  --ml-glass-blur-on: 0px;
+  --ml-glass-shadow: 0 10px 28px -12px rgb(0 0 0 / 0.4), 0 1px 3px rgb(0 0 0 / 0.2);
+  --ml-glass-card-shadow: 0 1px 2px rgb(0 0 0 / 0.12);
+}
+[data-glass='off'] .ml-glass,
+[data-glass='off'].ml-glass,
+[data-glass='off'] .ml-glass-bar,
+[data-glass='off'] .ml-glass-shape,
+[data-glass='off'] .ml-glass-card,
+[data-glass='off'] .ml-glass-select,
+[data-glass='off'] .ml-btn-primary,
+[data-glass='off'].ml-btn-primary {
+  background-image: none !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+[data-glass='off'] .ml-glass::before,
+[data-glass='off'].ml-glass::before,
+[data-glass='off'] .ml-press::before,
+[data-glass='off'] .ml-sheen::after,
+[data-glass='off'] .ml-ripple-wave {
+  display: none !important;
+}
+[data-glass='off'] .ml-glass-bar {
+  background-color: rgb(var(--ml-bg)) !important;
+}
+[data-glass='off'] .ml-glass-select {
+  background-color: rgb(var(--ml-sel) / 0.2) !important;
+  box-shadow: inset 0 0 0 1px rgb(var(--ml-sel) / 0.45) !important;
+}
+[data-glass='off'] .ml-glass-field {
+  box-shadow: inset 0 1px 2px rgb(0 0 0 / 0.1);
+}
+/* the phone's status-bar strip is glass too */
+html[data-app='mobile'][data-glass='off'] body::before {
+  background-color: rgb(var(--ml-bg));
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+/* Lingolens Smart Setup: a light sweeping across the progress bar while Google Cloud is being configured */
+@keyframes ml-setup-sweep {
+  from {
+    background-position: -200% 0;
+  }
+  to {
+    background-position: 200% 0;
+  }
+}
+.ml-setup-busy {
+  background-image: linear-gradient(90deg, rgb(52 81 209 / 0.2), rgb(139 92 246 / 0.9), rgb(52 81 209 / 0.2));
+  background-size: 200% 100%;
+  animation: ml-setup-sweep 1.4s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ml-setup-busy {
+    animation: none;
+  }
+}

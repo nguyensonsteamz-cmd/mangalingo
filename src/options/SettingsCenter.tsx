@@ -13,6 +13,9 @@ import { VocabManager } from '@/ui/VocabManager';
 import { chromeLocal } from '@/storage/kv';
 import { OcrCache } from '@/storage/ocr-cache';
 import { UsageSection } from './UsageSection';
+import { SmartSetupSection } from './SmartSetupSection';
+import { BillingSection } from './BillingSection';
+import { AccountSection } from './AccountSection';
 
 type Update = (p: DeepPartial<Settings>) => void;
 
@@ -23,7 +26,10 @@ const SECTIONS = [
   { id: 'typography', label: 'Chữ' },
   { id: 'dictionary', label: 'Từ điển' },
   { id: 'reading', label: 'Hành vi đọc' },
+  { id: 'account', label: 'Tài khoản' },
+  { id: 'setup', label: 'Smart Setup' },
   { id: 'usage', label: 'Hạn mức dịch' },
+  { id: 'billing', label: 'Billing' },
   { id: 'ocr', label: 'OCR' },
   { id: 'shortcuts', label: 'Phím tắt' },
   { id: 'vocab', label: 'Sổ từ vựng' },
@@ -37,8 +43,22 @@ const ACCENTS = ['#7c9cff', '#5cc78c', '#e8b356', '#f06c6c', '#b48cff', '#4cc3d9
 /** `hidden`: sections that do not apply to the host (e.g. keyboard shortcuts in the Android app). */
 export function SettingsCenter({ hidden = [], topBar }: { hidden?: string[]; topBar?: ReactNode } = {}) {
   const { settings: s, update, reset, loaded, saveState } = useSettings('page');
-  const initial = (decodeURIComponent(location.hash.slice(1)) as SectionId) || 'appearance';
+  // a section can be requested from elsewhere in the phone app (e.g. "Cho phép dịch có phí" without billing → Billing)
+  const requested = (globalThis as { __mlNextSettingsSection?: string }).__mlNextSettingsSection as SectionId | undefined;
+  const initial = (requested ?? decodeURIComponent(location.hash.slice(1))) as SectionId || 'appearance';
   const [section, setSection] = useState<SectionId>(SECTIONS.some((x) => x.id === initial) ? initial : 'appearance');
+
+  useEffect(() => {
+    const g = globalThis as { __mlNextSettingsSection?: string };
+    g.__mlNextSettingsSection = undefined;
+    const onRequest = () => {
+      const r = g.__mlNextSettingsSection as SectionId | undefined;
+      g.__mlNextSettingsSection = undefined;
+      if (r && SECTIONS.some((x) => x.id === r)) setSection(r);
+    };
+    window.addEventListener('ml-settings-section', onRequest);
+    return () => window.removeEventListener('ml-settings-section', onRequest);
+  }, []);
 
   useEffect(() => {
     const on = () => {
@@ -103,7 +123,10 @@ export function SettingsCenter({ hidden = [], topBar }: { hidden?: string[]; top
             {section === 'typography' && <Typography s={s} update={update} />}
             {section === 'dictionary' && <DictionarySettings s={s} update={update} />}
             {section === 'reading' && <Reading s={s} update={update} />}
+            {section === 'account' && <AccountSection />}
+            {section === 'setup' && <SmartSetupSection />}
             {section === 'usage' && <UsageSection />}
+            {section === 'billing' && <BillingSection />}
             {section === 'ocr' && <OcrSettings s={s} update={update} />}
             {section === 'shortcuts' && <Shortcuts s={s} update={update} />}
             {section === 'vocab' && (

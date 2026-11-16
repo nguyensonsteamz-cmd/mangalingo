@@ -7,7 +7,9 @@ export type OffscreenRequest =
   | { target: 'offscreen'; type: 'recognize'; jobId: string; lang: string; layout: 'sparse' | 'auto' | 'block'; refine?: boolean }
   | { target: 'offscreen'; type: 'warmup'; lang: string }
   | { target: 'offscreen'; type: 'discard'; jobId: string }
-  | { target: 'offscreen'; type: 'cancel'; jobId: string };
+  | { target: 'offscreen'; type: 'cancel'; jobId: string }
+  /** local translation model (OPUS-MT in an ONNX Runtime Web worker) */
+  | { target: 'offscreen'; type: 'mt-local'; op: 'cached' | 'start' | 'status' | 'translate' | 'release' | 'remove' | 'cancel' | 'verify'; modelId?: string; text?: string };
 
 export interface PrepareResult {
   pixelKey: string;

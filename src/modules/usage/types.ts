@@ -1,12 +1,13 @@
-/** Shared types of the translation quota / cost protection module. All numbers are LOCAL estimates. */
+/** Shared types of the translation usage module. All numbers are LOCAL estimates kept on this device (BYOK only). */
 
 export type TranslationProvider = 'device' | 'google';
 
 export interface UsageSettings {
-  /** 'device' (default): on-device translation, never metered. 'google': Google Cloud Translation, metered + protected. */
+  /** 'device' (default): on-device translation. 'google': Google Cloud Translation with the user's own key (BYOK). */
   provider: TranslationProvider;
   /** Free monthly quota in characters (Google Cloud Translation Basic: 500,000). */
   freeQuotaChars: number;
+  /** warning thresholds (share of the quota): approaching / high usage / reached */
   warnRatio: number;
   criticalRatio: number;
   hardStopRatio: number;
@@ -21,54 +22,87 @@ export interface UsageSettings {
   maxPaidRequestsPerDay: number;
 }
 
+/**
+ * One ledger = one provider + one credential in one billing month (UTC). Different providers and different API
+ * credentials never share a ledger. Counts SOURCE characters of successfully processed text only, each chunk once.
+ */
 export interface MonthlyUsage {
-  /** Calendar month, local time: "YYYY-MM". */
+  /** Billing month, UTC: "YYYY-MM". */
   month: string;
-  /** Characters submitted to the API this month (code points of the normalised text). */
+  provider: string;
+  /** Smart Setup project id, or a short hash of a manually entered key, or "local" for on-device providers. */
+  credentialId: string;
+  /** Ownership of the credential. Only BYOK exists: LingoLens has no shared key and no server-side counter. */
+  mode: 'byok';
+  /** characters of SUCCESSFULLY processed source text (code points of the text sent) */
   chars: number;
+  /** completed translation operations (one per finished job) */
+  operations: number;
+  /** successful provider requests (one per chunk / text) */
   requests: number;
   cachedRequests: number;
   cachedChars: number;
+  /** failed attempts: informational only, never part of `chars` */
   failedRequests: number;
-  /** Characters / requests that went beyond the free quota. */
+  /** characters / requests that went beyond the free quota */
   paidChars: number;
   paidRequests: number;
+  languagePair: string;
+  /** first / last successful use (ms since epoch) */
+  firstAt: number;
+  lastAt: number;
 }
 
 export interface RequestLogEntry {
   t: number;
   chars: number;
-  kind: 'billed' | 'cached' | 'failed' | 'blocked';
+  kind: 'success' | 'cached' | 'failed' | 'blocked';
+  provider?: string;
   paid?: boolean;
 }
 
 export interface UsageState {
-  version: 1;
+  version: 2;
+  /** Billing month in UTC ("YYYY-MM"). The display period resets at 00:00 UTC on the 1st. */
   month: string;
-  /** First day of the current month ("YYYY-MM-DD"): when the counters were last reset. */
+  /** First day of the current month (UTC, "YYYY-MM-DD"). */
   lastReset: string;
-  monthly: MonthlyUsage;
+  /** current month, one ledger per provider + credential */
+  ledgers: Record<string, MonthlyUsage>;
   day: { date: string; paidRequests: number };
-  /** Finished months (oldest first). */
+  /** finished months (oldest first), one entry per ledger */
   history: MonthlyUsage[];
-  /** Recent requests (newest first, capped). */
+  /** recent requests (newest first, capped) */
   log: RequestLogEntry[];
+  /** idempotency keys already counted (newest first, capped): a retry with the same key is never counted again */
+  committed: string[];
 }
 
 export type WarningLevel = 'ok' | 'notice' | 'critical' | 'blocked';
 
 export interface UsageSnapshot {
   settings: UsageSettings;
+  /** active ledger */
+  provider: string;
+  credentialId: string;
+  mode: 'byok';
+  languagePair: string;
+  /** billing month (UTC) and the next reset */
   month: string;
   lastReset: string;
   nextReset: string;
+  /** "2026-12-01T00:00:00Z" */
+  nextResetAt: string;
   usedChars: number;
   freeQuota: number;
   remainingFree: number;
-  /** used / free quota, 0..infinity (1 = 100 %). */
+  /** used / free quota, 0..infinity (1 = 100 %) */
   ratio: number;
   billableChars: number;
   estimatedCostUsd: number;
+  /** is the cost estimate backed by a metered provider and a configured price? */
+  costReliable: boolean;
+  operations: number;
   requests: number;
   cachedRequests: number;
   cachedChars: number;
@@ -80,6 +114,8 @@ export interface UsageSnapshot {
   hasKey: boolean;
   /** Last 4 characters of the saved key (never the key itself). */
   keyHint: string;
+  /** this month, every provider / credential */
+  ledgers: MonthlyUsage[];
   history: MonthlyUsage[];
   log: RequestLogEntry[];
 }
@@ -101,3 +137,11 @@ export type TranslateOutcome =
   | { source: 'device' }
   | { source: 'google'; text: string; cached: boolean; chars: number; paid: boolean }
   | { source: 'blocked'; decision: BlockedDecision };
+
+export interface TranslateOptions {
+  /** stable key of this chunk: a retry with the same key is counted once */
+  idempotencyKey?: string;
+  /** keep the line breaks inside the text (long-text chunks) */
+  keepBreaks?: boolean;
+  languagePair?: string;
+}

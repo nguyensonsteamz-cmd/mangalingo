@@ -15,6 +15,10 @@ import {
 import { VocabManager, useVocab, vocabStore } from '@/ui/VocabManager';
 import { canSpeak, speak } from '@/ui/speech';
 import { NotesDrawer } from '@/ui/NotesDrawer';
+import { DEFAULT_MAX_TOTAL } from '@/modules/translation';
+import { MonthlyUsageCard } from '@/ui/MonthlyUsageCard';
+import { UsageNotice } from '@/ui/UsageNotice';
+import { useUsage } from '@/ui/usage-client';
 
 const SIDEBAR_KEY = 'sidebar:current';
 
@@ -30,6 +34,7 @@ export function SidePanel({ topBar }: { topBar?: ReactNode } = {}) {
   const [tab, setTab] = useState<SidebarTab>('translation');
   const [compact, setCompact] = useState(false);
   const [notesOpen, setNotesOpen] = useState(false);
+  const { snap: usageSnap } = useUsage();
   const [entry, setEntry] = useState<Entry | null>(null);
   const requestedTab = useRef(false);
   // the phone's scan screen can ask for a tab ("Phân tích câu · từng từ" → Từ vựng)
@@ -144,8 +149,13 @@ export function SidePanel({ topBar }: { topBar?: ReactNode } = {}) {
                   e.target.value = '';
                   if (!f) return;
                   void f.text().then((t) => {
-                    const text = t.replace(/^\uFEFF/, '').trim().slice(0, 6000);
+                    const text = t.replace(/^\uFEFF/, '').trim();
                     if (!text) return;
+                    // no silent cut: the whole file is translated in chunks; only the application safety limit stops it, with a message
+                    if (Array.from(text).length > DEFAULT_MAX_TOTAL) {
+                      window.alert(`Tệp dài hơn giới hạn an toàn ${DEFAULT_MAX_TOTAL.toLocaleString('vi-VN')} ký tự, nên không được dịch. Hãy chia nhỏ tệp.`);
+                      return;
+                    }
                     setInput(text);
                     setOcr(null);
                     void runLookup(text);
@@ -202,6 +212,13 @@ export function SidePanel({ topBar }: { topBar?: ReactNode } = {}) {
           </div>
         </form>
         <SidebarTabs value={tab} onChange={setTab} />
+        {/* Google (BYOK) translation: this month's usage + the warnings, the same card as in Settings and on the phone Home */}
+        {usageSnap?.settings.provider === 'google' && (
+          <div className="space-y-1.5 px-3 pb-2" data-ml-sidebar-usage="">
+            <UsageNotice snap={usageSnap} />
+            <MonthlyUsageCard snap={usageSnap} compact />
+          </div>
+        )}
       </header>
       <main className={cx('ml-scroll flex-1 px-3 py-3', crossfadeClass(`${tab}|${entry?.text ?? ''}|${ocr ? 1 : 0}`, fade.current))}>
         {tab === 'saved' ? (
@@ -388,7 +405,11 @@ function EntryView({ s, entry, tab, compact, onLookup, onBackToOcr }: { s: Setti
       <Original />
       {tab === 'translation' && (
         <div className="space-y-3">
-          <MachineTranslation text={r.text} s={s} />
+          {/* the FULL text the user gave (the analysis below is limited to its first ~6,000 characters; the translation is not) */}
+          <MachineTranslation text={r.fullText ?? r.text} s={s} />
+          {r.fullText && (
+            <div className="text-[11.5px] text-subtle" data-ml-analysis-limit="">Phân tích chi tiết (từ vựng, ngữ pháp) áp dụng cho {r.text.length.toLocaleString('vi-VN')} ký tự đầu; bản dịch bao gồm toàn bộ {r.fullText.length.toLocaleString('vi-VN')} ký tự.</div>
+          )}
           {r.kind === 'paragraph' && <div className="text-[11.5px] text-subtle">{sentences.length} câu · {Math.round(r.coverage * 100)}% từ/cụm có nghĩa tiếng Việt</div>}
           {sentences.map((x, i) => (
             <div key={i} className="space-y-1.5">

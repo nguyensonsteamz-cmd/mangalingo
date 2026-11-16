@@ -5,7 +5,7 @@
  */
 import { useEffect, useState, type CSSProperties } from 'react';
 import type { Settings } from '@/shared/settings';
-import { popupSurface, prefersDark, resolveTheme, sidebarSurface, themeVars } from '@/ui/theme';
+import { glassAttr, popupSurface, prefersDark, resolveTheme, sidebarSurface, themeVars } from '@/ui/theme';
 import { cx } from '@/ui/components';
 import { IconBookmark, IconEdit, IconGear, IconInfo, IconLayers, IconLogo, IconPanel, IconSearch, IconVolume, IconX } from '@/ui/icons';
 
@@ -65,6 +65,7 @@ export function SettingsPreview({ s, kind }: { s: Settings; kind: PreviewKind })
           <div
             key={tick}
             data-theme={surface.theme}
+            {...glassAttr(s, 'popup')}
             className={cx('ml-glass overflow-hidden rounded-[20px] text-text', s.popup.animation && 'animate-ml-in')}
             style={{ ...(surface.vars as CSSProperties), width: s.popup.width, opacity: s.popup.opacity }}
             data-ml-preview-popup=""
@@ -139,6 +140,7 @@ function SidebarPreview({ s }: { s: Settings }) {
       <div className="flex justify-center">
         <div
           data-theme={surface.theme}
+          {...glassAttr(s, 'sidebar')}
           style={vars}
           className="ml-glass w-[300px] overflow-hidden rounded-[20px] text-text"
           data-ml-preview-sidebar=""

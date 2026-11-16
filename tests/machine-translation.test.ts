@@ -56,4 +56,33 @@ describe('machine translation (Chrome Translator API, opt-in)', () => {
     fail = false;
     await expect(mt.machineTranslate('hi')).resolves.toBe('ok');
   });
+
+  it('translates Vietnamese → English with its own translator instance; en→vi stays the default and the cache is per direction', async () => {
+    const mt = await load();
+    const { EN_VI, VI_EN } = await import('@/modules/mt');
+    const seen: Array<{ sourceLanguage: string; targetLanguage: string }> = [];
+    const create = vi.fn(async (o: { sourceLanguage: string; targetLanguage: string }) => {
+      seen.push({ sourceLanguage: o.sourceLanguage, targetLanguage: o.targetLanguage });
+      return { translate: async (t: string) => `${o.sourceLanguage}>${o.targetLanguage}(${t})` };
+    });
+    const availability = vi.fn(async () => 'available');
+    (globalThis as { Translator?: unknown }).Translator = { availability, create };
+    expect(await mt.mtAvailability(VI_EN)).toBe('available');
+    expect(availability).toHaveBeenLastCalledWith({ sourceLanguage: 'vi', targetLanguage: 'en' });
+    expect(await mt.machineTranslate('Xin chào', VI_EN)).toBe('vi>en(Xin chào)');
+    expect(await mt.machineTranslate('Xin chào')).toBe('en>vi(Xin chào)'); // same text, other direction: not served from the vi→en cache
+    expect(await mt.machineTranslate('Xin chào', EN_VI)).toBe('en>vi(Xin chào)');
+    expect(seen).toEqual([
+      { sourceLanguage: 'vi', targetLanguage: 'en' },
+      { sourceLanguage: 'en', targetLanguage: 'vi' },
+    ]);
+  });
+
+  it('reports which provider translates (transparency label)', async () => {
+    const mt = await load();
+    const { VI_EN } = await import('@/modules/mt');
+    (globalThis as { Translator?: unknown }).Translator = { availability: async () => 'available', create: async () => ({ translate: async (t: string) => t }) };
+    expect(await mt.activeProviderLabel()).toContain('Chrome Translator');
+    expect(await mt.activeProviderLabel(VI_EN)).toContain('Việt → Anh');
+  });
 });

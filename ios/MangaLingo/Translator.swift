@@ -3,7 +3,9 @@ import SwiftUI
 import Translation
 #endif
 
-/// English → Vietnamese machine translation with Apple's on-device Translation framework (iOS 18+).
+/// English ↔ Vietnamese machine translation with Apple's on-device Translation framework (iOS 18+).
+/// English → Vietnamese is the default; the optional field `pair: "vi>en"` of every command below selects Vietnamese → English
+/// (its own queue and session, see `TranslationQueue.viEn`).
 /// The web UI asks through the bridge:
 ///   {cmd: "translateBatch", texts} → {texts}   (all bubbles of a page in one request)
 ///   {cmd: "translate", text}       → {text}
@@ -14,7 +16,21 @@ import Translation
 /// `.translationTask` whose closure never returns, it waits for jobs and handles them as they come.
 /// So the language model is loaded once, not for every bubble.
 final class TranslationQueue: ObservableObject {
-    static let shared = TranslationQueue()
+    static let shared = TranslationQueue(source: "en", target: "vi")
+    static let viEn = TranslationQueue(source: "vi", target: "en")
+
+    let source: String
+    let target: String
+
+    init(source: String, target: String) {
+        self.source = source
+        self.target = target
+    }
+
+    /// The queue of a bridge request: `pair == "vi>en"` → Vietnamese → English, anything else → English → Vietnamese.
+    static func queue(for pair: Any?) -> TranslationQueue {
+        (pair as? String) == "vi>en" ? viEn : shared
+    }
 
     typealias Reply = (Any?, String?) -> Void
     enum Job {
@@ -49,12 +65,14 @@ final class TranslationQueue: ObservableObject {
         return items
     }
 
-    /// Is the EN→VI pack installed, downloadable or unsupported?
-    static func status(_ reply: @escaping (String) -> Void) {
+    /// Is the language pack of this queue's pair installed, downloadable or unsupported?
+    func status(_ reply: @escaping (String) -> Void) {
         #if canImport(Translation)
         if #available(iOS 18.0, *) {
+            let source = self.source
+            let target = self.target
             Task {
-                let s = await LanguageAvailability().status(from: Locale.Language(identifier: "en"), to: Locale.Language(identifier: "vi"))
+                let s = await LanguageAvailability().status(from: Locale.Language(identifier: source), to: Locale.Language(identifier: target))
                 let value: String
                 switch s {
                 case .installed: value = "installed"
@@ -74,9 +92,15 @@ final class TranslationQueue: ObservableObject {
 #if canImport(Translation)
 @available(iOS 18.0, *)
 struct TranslationBridge: View {
+    let queue: TranslationQueue
     // created at launch: the session (and the language model) is ready before the first scan
-    @State private var config: TranslationSession.Configuration? = TranslationSession.Configuration(
-        source: Locale.Language(identifier: "en"), target: Locale.Language(identifier: "vi"))
+    @State private var config: TranslationSession.Configuration?
+
+    init(queue: TranslationQueue) {
+        self.queue = queue
+        _config = State(initialValue: TranslationSession.Configuration(
+            source: Locale.Language(identifier: queue.source), target: Locale.Language(identifier: queue.target)))
+    }
 
     var body: some View {
         Color.clear
@@ -85,7 +109,7 @@ struct TranslationBridge: View {
             .translationTask(config) { session in
                 // long-lived worker: one session for the whole app run
                 while !Task.isCancelled {
-                    let jobs = await TranslationQueue.shared.next()
+                    let jobs = await queue.next()
                     for job in jobs {
                         switch job {
                         case let .translate(texts, reply):
@@ -120,7 +144,7 @@ struct TranslationHost: ViewModifier {
     func body(content: Content) -> some View {
         #if canImport(Translation)
         if #available(iOS 18.0, *) {
-            content.background(TranslationBridge())
+            content.background(TranslationBridge(queue: .shared)).background(TranslationBridge(queue: .viEn))
         } else {
             content
         }

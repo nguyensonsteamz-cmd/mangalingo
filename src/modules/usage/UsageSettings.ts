@@ -4,7 +4,7 @@ export const DEFAULT_USAGE_SETTINGS: UsageSettings = {
   provider: 'device',
   freeQuotaChars: 500_000,
   warnRatio: 0.8,
-  criticalRatio: 0.95,
+  criticalRatio: 0.9,
   hardStopRatio: 1,
   pricePerMillionUsd: 20,
   paidEnabled: false,

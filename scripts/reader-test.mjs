@@ -261,8 +261,10 @@ try {
       await cfg({ popupSize: size });
       const w = await posOf('p1', 'village');
       await click(w.x, w.y);
+      await sleep(300); // the popup grows in over 160 ms: measure after the entry animation
       const width = await p.evaluateMain(`window.__mlrTest.root.querySelector('.card').getBoundingClientRect().width`);
-      assert(Math.abs(width - Math.min(px, 390 - 16)) < 1, `${size} width ${width}`);
+      const vw = await p.evaluateMain('innerWidth'); // can be a little under 390 when the page shows a scrollbar
+      assert(Math.abs(width - Math.min(px, vw - 16)) < 1, `${size} width ${width} (viewport ${vw})`);
     }
     return out.slice(0, 3).join(' ');
   });

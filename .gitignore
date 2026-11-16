@@ -19,3 +19,9 @@ ios/build/
 ios/*.xcodeproj/
 ios-build/
 demo-anh/
+
+# Translation Benchmark Lab: dependencies and third-party evaluation data (not redistributed); aggregated results stay
+benchmarks/mt/node_modules/
+benchmarks/mt/data/iwslt.jsonl
+benchmarks/mt/data/alt.jsonl
+benchmarks/mt/results/*__*.json

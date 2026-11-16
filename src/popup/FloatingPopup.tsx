@@ -11,7 +11,7 @@ import { canSpeak, speak } from '@/ui/speech';
 import { computePopupPosition } from './position';
 import { OcrMeaning } from './OcrMeaning';
 import { MachineTranslation } from '@/ui/MachineTranslation';
-import { popupSurface, prefersDark, resolveTheme } from '@/ui/theme';
+import { glassAttr, popupSurface, prefersDark, resolveTheme } from '@/ui/theme';
 import { crossfadeClass } from '@/ui/motion';
 import { findBlock, useStore, type PopupView } from '@/content/store';
 import * as A from '@/content/actions';
@@ -65,6 +65,7 @@ export function FloatingPopup({ shadow }: { shadow: ShadowRoot }) {
       aria-label="LingoLens"
       {...(leaving ? { 'data-ml-popup-leaving': '', 'aria-hidden': true } : { 'data-ml-popup': '' })}
       data-theme={surface.theme}
+      {...glassAttr(s, 'popup')}
       data-placement={pos.placement}
       className={cx('ml-glass pointer-events-auto fixed flex flex-col overflow-hidden rounded-[20px] text-text', leaving ? 'ml-out' : s.popup.animation && 'animate-ml-in')}
       style={{ ...(surface.vars as React.CSSProperties), left: pos.left, top: pos.top, width: pos.width, maxHeight: Math.min(pos.maxHeight, 640), opacity: s.popup.opacity }}
@@ -376,7 +377,7 @@ function SentenceView({ r, s, canBack, tab }: { r: SentenceAnalysis; s: Settings
       <Body>
         {active === 'translation' && (
           <div className="space-y-2.5">
-            <MachineTranslation text={r.text} s={s} />
+            <MachineTranslation text={r.fullText ?? r.text} s={s} />
             <SectionTitle>Từng cụm · click để tra</SectionTitle>
             <ChunksView chunks={r.chunks} onLookup={(t) => A.drillDown(t, r.text)} />
           </div>
@@ -414,7 +415,7 @@ function ParagraphView({ r, s, canBack, tab }: { r: ParagraphAnalysis; s: Settin
       <Body>
         {active === 'translation' && (
           <div className="space-y-2.5">
-            <MachineTranslation text={r.text} s={s} />
+            <MachineTranslation text={r.fullText ?? r.text} s={s} />
             <div className="text-[11px] text-subtle">Ghép nghĩa từng cụm theo câu (Dictionary Mode) – không phải bản dịch tự nhiên. {Math.round(r.coverage * 100)}% từ/cụm có nghĩa tiếng Việt.</div>
             <ol className="space-y-2">
               {r.sentences.map((x, i) => (

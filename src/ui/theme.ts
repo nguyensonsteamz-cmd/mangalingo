@@ -55,7 +55,7 @@ export function popupMaterialVars(material: Settings['popup']['material'], alpha
  */
 export function popupSurface(s: Settings, pageTheme: 'dark' | 'light'): { theme: 'dark' | 'light'; vars: Record<string, string> } {
   const bg = s.popup.background;
-  const material = popupMaterialVars(s.popup.material, s.popup.glassAlpha);
+  const material = { ...popupMaterialVars(s.popup.material, s.popup.glassAlpha), ...(!s.appearance.glass ? { '--ml-glass-off': '1' } : {}) };
   if (!/^#[0-9a-f]{6}$/i.test(bg)) return { theme: s.popup.theme === 'follow' ? pageTheme : s.popup.theme, vars: material };
   const rgb = hexToRgb(bg);
   const light = luminance(rgb) > 0.4;
@@ -87,6 +87,15 @@ function selectionText(sel: [number, number, number]): string {
   return sel.join(' ');
 }
 
+/** "Hiệu ứng kính" off (global switch), or the popup material "solid": everything flat and opaque. */
+export function glassIsOff(s: Settings, surface: 'popup' | 'sidebar' | 'page' = 'page'): boolean {
+  return !s.appearance.glass || (surface === 'popup' && s.popup.material === 'solid');
+}
+/** Attribute to spread on every element that sets the theme (drives the flat styles in styles.css). */
+export function glassAttr(s: Settings, surface: 'popup' | 'sidebar' | 'page' = 'page'): { 'data-glass'?: 'off' } {
+  return glassIsOff(s, surface) ? { 'data-glass': 'off' } : {};
+}
+
 export function themeVars(s: Settings, surface: 'popup' | 'sidebar' | 'page'): Record<string, string> {
   const rgb = hexToRgb(s.appearance.accent);
   const sel = /^#[0-9a-f]{6}$/i.test(s.appearance.selectColor) ? hexToRgb(s.appearance.selectColor) : rgb;
@@ -107,6 +116,8 @@ export function themeVars(s: Settings, surface: 'popup' | 'sidebar' | 'page'): R
     '--ml-sel-text': selectionText(sel),
     // in-page floating bits (toast, OCR pills, selection button) follow the popup material
     ...(surface === 'popup' ? popupMaterialVars(s.popup.material, s.popup.glassAlpha) : {}),
+    // the global switch always wins (a "clear" popup material must not bring the glass back)
+    ...(!s.appearance.glass ? { '--ml-glass-off': '1' } : {}),
   };
 }
 
@@ -140,6 +151,8 @@ export function applyPageTheme(s: Settings, surface: 'sidebar' | 'page') {
   const sb = surface === 'sidebar' ? sidebarSurface(s, pageTheme) : { theme: pageTheme, vars: {} as Record<string, string> };
   root.dataset.theme = sb.theme;
   root.dataset.bg = s.appearance.background;
+  if (glassIsOff(s, surface)) root.dataset.glass = 'off';
+  else delete root.dataset.glass;
   for (const k of SURFACE_KEYS) root.style.removeProperty(k);
   for (const [k, v] of Object.entries({ ...themeVars(s, surface), ...sb.vars })) root.style.setProperty(k, v);
 }

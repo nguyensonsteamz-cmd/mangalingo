@@ -1,0 +1,99 @@
+{
+ "minimums": {
+  "peakRssMb": 1000,
+  "diskMb": 150,
+  "p95s": 3,
+  "repetitionPct": 2
+ },
+ "scored": [
+  {
+   "model": "opus-mt",
+   "license": {
+    "eligible": true,
+    "weights": "apache-2.0 (model card of Helsinki-NLP/opus-mt-en-vi and -vi-en)",
+    "note": "training data is OPUS/Tatoeba (mixed per-corpus licences); weights are published under Apache-2.0"
+   },
+   "quality": 49.05,
+   "qualityBleu": 29.53,
+   "p50": 0.5914253500000002,
+   "p95": 1.4253842000000003,
+   "peakRssMb": 604,
+   "diskMb": 204,
+   "long": 63.534000000000006,
+   "repetition": 0.72,
+   "fitsMin": true,
+   "parts": {
+    "quality": 0,
+    "latency": 1,
+    "ram": 1,
+    "size": 1,
+    "compat": 1,
+    "long": 1
+   },
+   "score": 65
+  },
+  {
+   "model": "m2m100-418m",
+   "license": {
+    "eligible": true,
+    "weights": "mit (model card of facebook/m2m100_418M)",
+    "note": "training data CCMatrix/CCAligned (web-crawled)"
+   },
+   "quality": 52.11,
+   "qualityBleu": 31.39,
+   "p50": 3.08865,
+   "p95": 8.9171,
+   "peakRssMb": 2696,
+   "diskMb": 610,
+   "long": 61.13000000000001,
+   "repetition": 0.73,
+   "fitsMin": false,
+   "parts": {
+    "quality": 1,
+    "latency": 0,
+    "ram": 0,
+    "size": 0,
+    "compat": 0.3333333333333333,
+    "long": 0
+   },
+   "score": 38.3
+  }
+ ],
+ "ineligible": [
+  {
+   "model": "chrome-translator",
+   "license": {
+    "eligible": null,
+    "weights": "not a distributable model: Chrome built-in, already integrated",
+    "note": "reference only"
+   },
+   "quality": 55.620000000000005,
+   "qualityBleu": 36.205,
+   "p50": 0.0228,
+   "p95": 0.0484,
+   "peakRssMb": null,
+   "diskMb": null,
+   "long": 81.036,
+   "repetition": 0.38,
+   "fitsMin": false
+  },
+  {
+   "model": "envit5",
+   "license": {
+    "eligible": false,
+    "weights": "openrail (VietAI/envit5-translation)",
+    "note": "trained on PhoMT, whose terms allow \"research or educational purposes only\" and forbid redistribution → commercial use not established; OpenRAIL adds use restrictions"
+   },
+   "quality": 57.785,
+   "qualityBleu": 38.3,
+   "p50": 0.25375000000000003,
+   "p95": 0.6206,
+   "peakRssMb": 1202,
+   "diskMb": 305,
+   "long": 84.22899999999998,
+   "repetition": 0.3,
+   "fitsMin": false
+  }
+ ],
+ "winner": "opus-mt"
+}

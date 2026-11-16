@@ -36,7 +36,10 @@ export class LookupService {
   }
 
   async lookup(req: LookupRequest): Promise<LookupResult> {
-    const text = (req.text ?? '').replace(/ /g, ' ').trim().slice(0, MAX_LOOKUP_CHARS);
+    const text0 = (req.text ?? '').replace(/ /g, ' ').trim();
+    // the dictionary / grammar analysis is capped (MAX_LOOKUP_CHARS); the translation is NOT: `fullText` carries the whole input
+    const full = text0;
+    const text = full.slice(0, MAX_LOOKUP_CHARS);
     if (!text) throw new Error('Không có văn bản để tra cứu.');
     const language = detectLanguage(text);
     if (!req.assumeEnglish && !isEnglishLike(language)) return { kind: 'unsupported', text, language };
@@ -53,8 +56,9 @@ export class LookupService {
       if (words >= 2) return this.translator.translateSentence(text);
       return phrase;
     }
-    if (mode === 'paragraph') return this.translator.translateParagraph(text);
-    return this.translator.translateSentence(text);
+    const result = mode === 'paragraph' ? await this.translator.translateParagraph(text) : await this.translator.translateSentence(text);
+    if (full.length > result.text.length) result.fullText = full;
+    return result;
   }
 
   /** Whole-text phrase lookup ("gave up", "lost my mind", "what the hell"). */

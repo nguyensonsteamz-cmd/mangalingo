@@ -71,8 +71,8 @@ describe('thresholds (free quota 500,000)', () => {
     [395_000, 'ok'], // 79 %
     [399_999, 'ok'],
     [400_000, 'notice'], // 80 %
-    [474_999, 'notice'],
-    [475_000, 'critical'], // 95 %
+    [449_999, 'notice'],
+    [450_000, 'critical'], // 90 %
     [495_000, 'critical'], // 99 %
     [499_999, 'critical'],
     [500_000, 'blocked'], // 100 %
@@ -87,8 +87,8 @@ describe('thresholds (free quota 500,000)', () => {
     expect(meter.levelOf(700, custom)).toBe('critical');
     expect(meter.levelOf(900, custom)).toBe('blocked');
   });
-  it('defaults: 500,000 free, 80/95/100 %, paid translation OFF', () => {
-    expect(DEFAULT_USAGE_SETTINGS).toMatchObject({ provider: 'device', freeQuotaChars: 500_000, warnRatio: 0.8, criticalRatio: 0.95, hardStopRatio: 1, paidEnabled: false });
+  it('defaults: 500,000 free, 80/90/100 %, paid translation OFF', () => {
+    expect(DEFAULT_USAGE_SETTINGS).toMatchObject({ provider: 'device', freeQuotaChars: 500_000, warnRatio: 0.8, criticalRatio: 0.9, hardStopRatio: 1, paidEnabled: false });
   });
   it('limits can never be 0 or unlimited', () => {
     const z = sanitizeUsageSettings({ maxPaidCharsPerMonth: 0, maxMonthlyCostUsd: 0, maxCharsPerRequest: Infinity, maxPaidRequestsPerDay: -5 });
@@ -208,7 +208,7 @@ describe('quota enforcement', () => {
     expect(s.usedChars).toBe(1000);
     expect(s.billableChars).toBe(0);
   });
-  it('a failed request keeps its characters counted (conservative) and does not jam the lock', async () => {
+  it('a failed request is NOT counted, releases its reservation and does not jam the lock', async () => {
     let calls = 0;
     const fetchImpl: FetchLike = async (_u, init) => {
       calls++;
@@ -216,13 +216,15 @@ describe('quota enforcement', () => {
       const q = (JSON.parse(init.body) as { q: string }).q;
       return { ok: true, status: 200, json: async () => ({ data: { translations: [{ translatedText: q }] } }) };
     };
-    const { svc } = await setup({}, { fetchImpl });
+    const { svc } = await setup({ freeQuotaChars: 20 }, { fetchImpl });
     await expect(svc.translate('this one fails')).rejects.toThrow(/500/);
+    let s = await svc.snapshot();
+    expect(s).toMatchObject({ usedChars: 0, requests: 0, failedRequests: 1 }); // nothing counted
     await expect(svc.translate('this one fails')).resolves.toMatchObject({ source: 'google' }); // not cached after a failure
-    const s = await svc.snapshot();
-    expect(s.failedRequests).toBe(1);
-    expect(s.requests).toBe(2);
-    expect(s.usedChars).toBe(28);
+    s = await svc.snapshot();
+    expect(s).toMatchObject({ usedChars: 14, requests: 1, failedRequests: 1 }); // counted ONCE, on success
+    // the failed attempt did not keep any of the 20-character quota reserved
+    expect((await svc.translate('five!')).source).toBe('google');
   });
   it('error messages never contain the API key', async () => {
     const fetchImpl: FetchLike = async () => ({ ok: false, status: 403, json: async () => ({ error: { message: `key ${KEY} is not allowed` } }) });
@@ -292,12 +294,12 @@ describe('paid translation authorisation', () => {
 
 describe('monthly reset (calendar boundary)', () => {
   it('resets on the first day of the new month and keeps the finished month in the history', async () => {
-    let now = new Date(2026, 0, 31, 23, 59, 0); // 31 Jan, local time
+    let now = new Date(Date.UTC(2026, 0, 31, 23, 59, 0)); // 31 Jan, UTC
     const a = await setup({ freeQuotaChars: 1000 }, { now: () => now });
     await a.svc.translate(text(400, 'j'));
     let s = await a.svc.snapshot();
     expect(s).toMatchObject({ usedChars: 400, month: '2026-01', lastReset: '2026-01-01', nextReset: '2026-02-01' });
-    now = new Date(2026, 1, 1, 0, 0, 5); // 1 Feb
+    now = new Date(Date.UTC(2026, 1, 1, 0, 0, 5)); // 1 Feb
     s = await a.svc.snapshot();
     expect(s).toMatchObject({ usedChars: 0, month: '2026-02', lastReset: '2026-02-01', nextReset: '2026-03-01', level: 'ok' });
     expect(s.history).toHaveLength(1);
@@ -306,38 +308,38 @@ describe('monthly reset (calendar boundary)', () => {
     expect((await a.svc.snapshot()).usedChars).toBe(100);
   });
   it('December rolls into January of the next year', async () => {
-    let now = new Date(2026, 11, 20, 10, 0, 0);
+    let now = new Date(Date.UTC(2026, 11, 20, 10, 0, 0));
     const a = await setup({}, { now: () => now });
     await a.svc.translate('hello');
     expect((await a.svc.snapshot()).nextReset).toBe('2027-01-01');
-    now = new Date(2027, 0, 1, 0, 0, 1);
+    now = new Date(Date.UTC(2027, 0, 1, 0, 0, 1));
     expect(await a.svc.snapshot()).toMatchObject({ usedChars: 0, month: '2027-01' });
   });
   it('a restart alone never resets the counters (stored state, not a timer)', async () => {
-    const now = () => new Date(2026, 5, 10, 12, 0, 0);
+    const now = () => new Date(Date.UTC(2026, 5, 10, 12, 0, 0));
     const a = await setup({}, { now });
     await a.svc.translate('persist me');
     const b = new UsageService(a.kv, { clock: now }); // "browser restart"
     expect(await b.snapshot()).toMatchObject({ usedChars: 10, requests: 1, month: '2026-06' });
   });
   it('a clock / time-zone change that moves backwards does not reset or lose usage', async () => {
-    let now = new Date(2026, 5, 1, 0, 30, 0);
+    let now = new Date(Date.UTC(2026, 5, 1, 0, 30, 0));
     const a = await setup({}, { now: () => now });
     await a.svc.translate('hello there');
-    now = new Date(2026, 4, 31, 23, 30, 0); // an hour back across the boundary
+    now = new Date(Date.UTC(2026, 4, 31, 23, 30, 0)); // an hour back across the boundary
     const s = await a.svc.snapshot();
     expect(s.usedChars).toBe(11);
     expect(s.month).toBe('2026-06');
-    now = new Date(2026, 5, 1, 0, 40, 0); // forward again
+    now = new Date(Date.UTC(2026, 5, 1, 0, 40, 0)); // forward again
     expect((await a.svc.snapshot()).usedChars).toBe(11);
   });
   it('the daily paid-request counter starts again on a new day', async () => {
-    let now = new Date(2026, 5, 10, 12, 0, 0);
+    let now = new Date(Date.UTC(2026, 5, 10, 12, 0, 0));
     const { svc } = await setup({ freeQuotaChars: 10, paidEnabled: true, maxPaidRequestsPerDay: 1 }, { now: () => now });
     await svc.translate(text(10, 'a'));
     expect((await svc.translate(text(5, 'b'))).source).toBe('google');
     expect((await svc.translate(text(5, 'c'))).source).toBe('blocked');
-    now = new Date(2026, 5, 11, 8, 0, 0);
+    now = new Date(Date.UTC(2026, 5, 11, 8, 0, 0));
     expect((await svc.translate(text(5, 'd'))).source).toBe('google');
   });
 });
@@ -352,10 +354,10 @@ describe('persistence, history and reset', () => {
     expect(s.settings.provider).toBe('google');
   });
   it('clear history keeps the current month; reset wipes the local usage data (settings stay)', async () => {
-    let now = new Date(2026, 0, 15);
+    let now = new Date(Date.UTC(2026, 0, 15));
     const a = await setup({ freeQuotaChars: 1000 }, { now: () => now });
     await a.svc.translate(text(100, 'a'));
-    now = new Date(2026, 1, 3);
+    now = new Date(Date.UTC(2026, 1, 3));
     await a.svc.translate(text(40, 'b'));
     expect((await a.svc.snapshot()).history).toHaveLength(1);
     await a.svc.clearHistory();
@@ -377,7 +379,7 @@ describe('persistence, history and reset', () => {
     expect(json).toContain('KHÔNG phải dữ liệu thanh toán của Google Cloud');
     expect(JSON.parse(json).currentMonth.usedChars).toBe(9);
     const csv = await svc.exportReport('csv');
-    expect(csv.split('\n')[0]).toContain('month,characters');
+    expect(csv.split('\n')[0]).toContain('month,provider,credential');
     expect(csv).not.toContain(KEY);
   });
   it('the snapshot exposes only a hint of the key', async () => {

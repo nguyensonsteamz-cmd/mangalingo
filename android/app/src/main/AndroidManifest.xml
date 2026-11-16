@@ -23,7 +23,15 @@
             android:exported="true"
             android:launchMode="singleTask"
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|uiMode"
-            android:windowSoftInputMode="adjustResize" />
+            android:windowSoftInputMode="adjustResize">
+            <!-- Google sign-in redirect of Smart Setup (reverse client id scheme, injected at build time) -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="${googleRedirectScheme}" android:path="/oauth2redirect" />
+            </intent-filter>
+        </activity>
 
         <!-- One launcher entry per logo (Settings → Giao diện → Logo); exactly one is enabled. -->
         <activity-alias android:name=".LauncherGlass" android:targetActivity=".MainActivity" android:exported="true" android:enabled="true" android:icon="@mipmap/ic_launcher_glass" android:roundIcon="@mipmap/ic_launcher_glass">

@@ -6,7 +6,7 @@ import { useState } from 'react';
 import type { BlockedDecision, UsageSnapshot, WarningLevel } from '@/modules/usage/types';
 import { UsageWarningManager } from '@/modules/usage/UsageWarningManager';
 import { Button, cx } from './components';
-import { fmtInt, fmtPct, fmtUsd, usageActions } from './usage-client';
+import { authorizePaid, fmtInt, fmtPct, fmtUsd, usageActions } from './usage-client';
 
 const warnings = new UsageWarningManager();
 
@@ -82,7 +82,7 @@ export function UsageNotice({ snap, onChanged }: { snap: UsageSnapshot | null; o
             Tắt dịch có phí
           </Button>
         ) : (
-          <Button size="sm" variant="primary" disabled={busy} onClick={() => void run(() => usageActions.authorize(true))} data-ml-usage-authorize="">
+          <Button size="sm" variant="primary" disabled={busy} onClick={() => void run(() => authorizePaid())} data-ml-usage-authorize="">
             Cho phép dịch có phí
           </Button>
         )}
@@ -130,8 +130,9 @@ export function UsageConsent({ decision, onAuthorized, onStop }: { decision: Blo
               onClick={async () => {
                 setBusy(true);
                 try {
-                  await usageActions.authorize(true);
-                  onAuthorized();
+                  // checks billing first: not set up -> the Billing page opens instead
+                  const r = await authorizePaid();
+                  if (r.authorized) onAuthorized();
                 } finally {
                   setBusy(false);
                 }

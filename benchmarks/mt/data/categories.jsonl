@@ -1,0 +1,36 @@
+{"id":"c01","cat":"short","dir":"en-vi","src":"Where is the nearest train station?","ref":"Ga tàu gần nhất ở đâu?"}
+{"id":"c02","cat":"short","dir":"en-vi","src":"I don't understand what you mean.","ref":"Tôi không hiểu bạn muốn nói gì."}
+{"id":"c03","cat":"short","dir":"en-vi","src":"The meeting has been postponed until Friday.","ref":"Cuộc họp đã bị hoãn đến thứ Sáu."}
+{"id":"c04","cat":"short","dir":"en-vi","src":"Please turn off your phone during the performance.","ref":"Vui lòng tắt điện thoại trong suốt buổi biểu diễn."}
+{"id":"c05","cat":"conversation","dir":"en-vi","src":"\"Are you coming tonight?\" \"I can't, I have to finish this report first.\"","ref":"\"Tối nay bạn có đến không?\" \"Mình không đi được, mình phải hoàn thành báo cáo này trước.\""}
+{"id":"c06","cat":"conversation","dir":"en-vi","src":"Hey, long time no see! How have you been?","ref":"Này, lâu rồi không gặp! Dạo này bạn thế nào?"}
+{"id":"c07","cat":"conversation","dir":"en-vi","src":"Could you tell me how to get to the airport from here?","ref":"Bạn có thể chỉ cho tôi cách đi từ đây đến sân bay không?"}
+{"id":"c08","cat":"idiom","dir":"en-vi","src":"It's raining cats and dogs outside.","ref":"Ngoài trời đang mưa như trút nước."}
+{"id":"c09","cat":"idiom","dir":"en-vi","src":"Don't worry, it's a piece of cake.","ref":"Đừng lo, việc này dễ như ăn bánh."}
+{"id":"c10","cat":"idiom","dir":"en-vi","src":"He kicked the bucket last winter.","ref":"Ông ấy đã qua đời vào mùa đông năm ngoái."}
+{"id":"c11","cat":"idiom","dir":"en-vi","src":"She spilled the beans about the surprise party.","ref":"Cô ấy đã lỡ tiết lộ chuyện về bữa tiệc bất ngờ."}
+{"id":"c12","cat":"technical","dir":"en-vi","src":"The function returns a null pointer if the memory allocation fails.","ref":"Hàm trả về con trỏ null nếu việc cấp phát bộ nhớ thất bại."}
+{"id":"c13","cat":"technical","dir":"en-vi","src":"Restart the server after changing the configuration file.","ref":"Hãy khởi động lại máy chủ sau khi thay đổi tệp cấu hình."}
+{"id":"c14","cat":"technical","dir":"en-vi","src":"The API enforces rate limiting to prevent denial-of-service attacks.","ref":"API áp dụng giới hạn tốc độ để ngăn chặn các cuộc tấn công từ chối dịch vụ."}
+{"id":"c15","cat":"academic","dir":"en-vi","src":"The results suggest a statistically significant correlation between sleep duration and academic performance.","ref":"Kết quả cho thấy có mối tương quan có ý nghĩa thống kê giữa thời lượng giấc ngủ và thành tích học tập."}
+{"id":"c16","cat":"academic","dir":"en-vi","src":"This paper proposes a novel framework for evaluating machine translation quality.","ref":"Bài báo này đề xuất một khung mới để đánh giá chất lượng dịch máy."}
+{"id":"c17","cat":"context","dir":"en-vi","src":"The bank was closed, so we sat on the bank of the river and waited.","ref":"Ngân hàng đã đóng cửa nên chúng tôi ngồi chờ bên bờ sông."}
+{"id":"c18","cat":"context","dir":"en-vi","src":"She gave him the book. He thanked her and put it in his bag.","ref":"Cô ấy đưa cho anh ta quyển sách. Anh ta cảm ơn cô ấy và bỏ nó vào túi."}
+{"id":"c19","cat":"format","dir":"en-vi","src":"Price: $1,250.50 (incl. 10% VAT) — call 0901-234-567 before 5:30 p.m.!","ref":"Giá: 1.250,50 đô la (đã gồm 10% VAT) — hãy gọi 0901-234-567 trước 5:30 chiều!"}
+{"id":"c20","cat":"format","dir":"en-vi","src":"Step 1: Open \"Settings\".\nStep 2: Tap [Privacy] > Camera.\nStep 3: Enable access.","ref":"Bước 1: Mở \"Cài đặt\".\nBước 2: Chọn [Quyền riêng tư] > Camera.\nBước 3: Bật quyền truy cập."}
+{"id":"c21","cat":"short","dir":"vi-en","src":"Nhà vệ sinh ở đâu vậy?","ref":"Where is the restroom?"}
+{"id":"c22","cat":"short","dir":"vi-en","src":"Tôi muốn đặt một bàn cho bốn người.","ref":"I would like to reserve a table for four."}
+{"id":"c23","cat":"short","dir":"vi-en","src":"Hôm nay trời rất nóng.","ref":"It is very hot today."}
+{"id":"c24","cat":"conversation","dir":"vi-en","src":"\"Cuối tuần này bạn có rảnh không?\" \"Có, mình định đi xem phim.\"","ref":"\"Are you free this weekend?\" \"Yes, I'm planning to go see a movie.\""}
+{"id":"c25","cat":"conversation","dir":"vi-en","src":"Xin lỗi, bạn có thể nói chậm hơn một chút được không?","ref":"Sorry, could you speak a little more slowly?"}
+{"id":"c26","cat":"idiom","dir":"vi-en","src":"Anh ấy nói như đúng rồi nhưng thật ra chẳng biết gì.","ref":"He talks as if he were certain, but actually he knows nothing."}
+{"id":"c27","cat":"idiom","dir":"vi-en","src":"Có công mài sắt có ngày nên kim.","ref":"With perseverance, you can grind an iron bar into a needle. (Persistence pays off.)"}
+{"id":"c28","cat":"idiom","dir":"vi-en","src":"Đừng đổ dầu vào lửa nữa.","ref":"Don't add fuel to the fire anymore."}
+{"id":"c29","cat":"technical","dir":"vi-en","src":"Hệ thống sẽ tự động sao lưu dữ liệu mỗi đêm vào lúc 2 giờ sáng.","ref":"The system automatically backs up data every night at 2 a.m."}
+{"id":"c30","cat":"technical","dir":"vi-en","src":"Vui lòng cập nhật phần mềm lên phiên bản mới nhất để khắc phục lỗi bảo mật.","ref":"Please update the software to the latest version to fix the security vulnerability."}
+{"id":"c31","cat":"academic","dir":"vi-en","src":"Nghiên cứu này khảo sát ảnh hưởng của biến đổi khí hậu đến sản lượng lúa ở đồng bằng sông Cửu Long.","ref":"This study investigates the impact of climate change on rice yields in the Mekong Delta."}
+{"id":"c32","cat":"academic","dir":"vi-en","src":"Kết quả thực nghiệm cho thấy phương pháp đề xuất vượt trội so với các phương pháp hiện có.","ref":"The experimental results show that the proposed method outperforms existing methods."}
+{"id":"c33","cat":"context","dir":"vi-en","src":"Cô ấy mở cửa. Bên ngoài trời đang mưa, nên cô ấy lấy ô rồi đi ra.","ref":"She opened the door. It was raining outside, so she took an umbrella and went out."}
+{"id":"c34","cat":"context","dir":"vi-en","src":"Mẹ bảo con ở nhà vì bà ấy lo con bị ốm.","ref":"Mom told me to stay home because she was worried I would get sick."}
+{"id":"c35","cat":"format","dir":"vi-en","src":"Giá: 2.500.000 đồng (đã bao gồm VAT 10%) — liên hệ 0912-345-678 trước 17:30!","ref":"Price: 2,500,000 VND (including 10% VAT) — contact 0912-345-678 before 5:30 p.m.!"}
+{"id":"c36","cat":"format","dir":"vi-en","src":"Bước 1: Mở \"Cài đặt\".\nBước 2: Chọn [Mạng] > Wi-Fi.\nBước 3: Nhập mật khẩu.","ref":"Step 1: Open \"Settings\".\nStep 2: Select [Network] > Wi-Fi.\nStep 3: Enter the password."}

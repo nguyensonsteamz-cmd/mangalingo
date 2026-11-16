@@ -727,6 +727,54 @@ try {
     await opt.evaluate(`location.hash = 'appearance'`);
   });
 
+  await step('Settings → Mô hình dịch tải về: both directions listed with size + licence, NOTHING downloaded, "prefer model" locked until a model exists, never preferred by default', async () => {
+    await opt.evaluate(`location.hash = 'usage'`);
+    const txt = await waitFor(() => opt.evaluate(`(() => { const t = document.querySelector('[data-ml-local-section]')?.innerText ?? ''; return t.includes('Tải về (~') ? t : null; })()`), { label: 'local model section (buttons ready)' });
+    assert(/OPUS-MT Anh → Việt/.test(txt) && /OPUS-MT Việt → Anh/.test(txt), 'both directions');
+    assert(txt.includes('apache-2.0') && txt.includes('Tải về (~102 MB)'), 'licence and size on the button: ' + txt.slice(0, 300));
+    assert(/Mặc định tắt/.test(txt) && /thấp hơn Chrome Translator/.test(txt), 'honest quality note');
+    const cached = await opt.evaluate(`chrome.runtime.sendMessage({ type: 'mtlocal:cached', modelId: 'local-opus-mt-en-vi' })`);
+    assert(cached.ok && cached.data === false, 'nothing downloaded before the user presses the button');
+    const locked = await opt.evaluate(`document.querySelector('[data-ml-local-section] button[role=switch]').disabled`);
+    assert(locked, 'preference switch locked while no model is downloaded');
+    const prefs = await sw.evaluate(`chrome.storage.local.get('mt.prefs').then((r) => r['mt.prefs'] ?? null)`);
+    assert(!prefs || prefs.preferred !== 'local', 'default provider unchanged');
+    await opt.evaluate(`location.hash = 'appearance'`);
+  });
+
+  await step('Smart Setup (Chrome): section + connect screen render, "not configured" without an OAuth client id, API key stored ENCRYPTED (no plaintext)', async () => {
+    const perms = await sw.evaluate(`chrome.runtime.getManifest().permissions.includes('identity') && !chrome.runtime.getManifest().oauth2`);
+    assert(perms, 'manifest: identity permission, no oauth2 block without a client id');
+    await opt.evaluate(`location.hash = 'setup'`);
+    const txt = await waitFor(() => opt.evaluate(`document.querySelector('[data-ml-setup-section]')?.innerText ?? null`), { label: 'smart setup section' });
+    assert(txt.includes('Lingolens Smart Setup') && txt.includes('Lingolens không làm việc đó thay bạn'), 'intro screen: Billing is the user’s job');
+    await opt.evaluate(`document.querySelector('[data-ml-setup-start]').click()`);
+    const c = await waitFor(() => opt.evaluate(`document.querySelector('[data-ml-setup-connect]') ? document.querySelector('[data-ml-setup-section]').innerText : null`), { label: 'connect screen' });
+    assert(/chưa được cấu hình đăng nhập Google/.test(c), 'not-configured notice');
+    assert(await opt.evaluate(`document.querySelector('[data-ml-setup-connect]').disabled`), 'connect button disabled without a client id');
+    assert(/cloud-platform/.test(c) && /Không truy cập Gmail/.test(c), 'permissions are listed');
+    // the API key goes to the secure store
+    const KEY = 'AIza' + 's'.repeat(35);
+    const r = await opt.evaluate(`chrome.runtime.sendMessage({ type: 'usage:settings', apiKey: ${JSON.stringify(KEY)} })`);
+    assert(r.ok && r.data.hasKey && r.data.keyHint === 'ssss', 'key saved, only the last 4 characters exposed');
+    const stored = await sw.evaluate(`chrome.storage.local.get(null).then((all) => ({ plain: JSON.stringify(all).includes(${JSON.stringify(KEY)}), sealed: !!all['secret:translate-api-key'], legacy: 'usage:apikey:v1' in all }))`);
+    assert(!stored.plain && stored.sealed && !stored.legacy, `key must be ciphertext only: ${JSON.stringify(stored)}`);
+    // a plaintext key left by an old version is migrated
+    await sw.evaluate(`chrome.storage.local.remove('secret:translate-api-key').then(() => chrome.storage.local.set({ 'usage:apikey:v1': ${JSON.stringify(KEY)} }))`);
+    await opt.evaluate(`chrome.runtime.sendMessage({ type: 'usage:activate', key: ${JSON.stringify(KEY)} })`);
+    const migrated = await sw.evaluate(`chrome.storage.local.get(null).then((all) => !JSON.stringify(all).includes(${JSON.stringify(KEY)}) && !!all['secret:translate-api-key'])`);
+    assert(migrated, 'plaintext copy removed');
+    await opt.evaluate(`chrome.runtime.sendMessage({ type: 'usage:deactivate' })`);
+    const gone = await sw.evaluate(`chrome.storage.local.get(null).then((all) => !all['secret:translate-api-key'] && !('usage:apikey:v1' in all))`);
+    assert(gone, 'disconnect removes the key');
+    const snap = await opt.evaluate(`chrome.runtime.sendMessage({ type: 'usage:snapshot' })`);
+    assert(snap.data.settings.provider === 'device', 'back to on-device translation');
+    await opt.evaluate(`location.hash = 'account'`);
+    const acc = await waitFor(() => opt.evaluate(`document.querySelector('[data-ml-account-empty]') ? document.querySelector('[data-ml-account-section]').innerText : null`), { label: 'account section (not connected)' });
+    assert(/Chưa kết nối tài khoản Google Cloud/.test(acc) && /không có tài khoản riêng/.test(acc), 'account page: not connected + no Lingolens account system');
+    await opt.evaluate(`location.hash = 'appearance'`);
+  });
+
   await step('Settings live preview: changing the OCR box colour / popup width updates the preview block at once', async () => {
     await opt.evaluate(`location.hash = 'ocr'; dispatchEvent(new HashChangeEvent('hashchange'))`);
     await waitFor(() => opt.evaluate(`!!document.querySelector('[data-ml-preview-box]') && !!document.querySelector('button[aria-label="#22c55e"]')`), { label: 'OCR settings + preview' });

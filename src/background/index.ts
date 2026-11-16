@@ -7,6 +7,7 @@ import { drawLogo } from '@/ui/logo-data';
 import { lemmaCandidates } from '@/language/morphology';
 import { isSiteEnabled, type Settings } from '@/shared/settings';
 import { callOffscreen } from './offscreen-client';
+import type { LocalHost } from '@/modules/mt/local/host';
 import { createDictionary } from '@/dictionary/create';
 import { parseDictionaryImport } from '@/dictionary/import';
 import { UserDictProvider } from '@/storage/user-dict';
@@ -18,6 +19,7 @@ import { OcrService } from './ocr-service';
 import { SidebarState } from './sidebar';
 import { createRouter } from './router';
 import { UsageService } from '@/modules/usage';
+import { WebCryptoSecretStore, idbKeyStorage } from '@/modules/smart-setup/secrets';
 
 const kv = chromeLocal();
 const settings = new SettingsStore(kv);
@@ -108,10 +110,28 @@ function openSidePanel(tab: { id?: number; windowId?: number; url?: string }): P
   return Promise.reject(new Error('Không xác định được tab để mở sidebar.'));
 }
 
-const usage = new UsageService(chromeLocal());
+// the API key lives only as AES-GCM ciphertext; the (non-extractable) key is in IndexedDB
+const usage = new UsageService(chromeLocal(), { secrets: new WebCryptoSecretStore(chromeLocal(), idbKeyStorage()) });
+
+/** The local translation model lives in the offscreen document (a service worker cannot run ONNX Runtime Web). */
+const mtLocal: LocalHost = {
+  cached: (modelId) => callOffscreen<boolean>({ target: 'offscreen', type: 'mt-local', op: 'cached', modelId }),
+  start: (modelId) => callOffscreen({ target: 'offscreen', type: 'mt-local', op: 'start', modelId }),
+  status: (modelId) => callOffscreen({ target: 'offscreen', type: 'mt-local', op: 'status', modelId }),
+  translate: (modelId, text) => callOffscreen<string>({ target: 'offscreen', type: 'mt-local', op: 'translate', modelId, text }),
+  cancel: (modelId) => callOffscreen({ target: 'offscreen', type: 'mt-local', op: 'cancel', modelId }),
+  verify: (modelId) => callOffscreen({ target: 'offscreen', type: 'mt-local', op: 'verify', modelId }),
+  remove: async (modelId) => {
+    await callOffscreen({ target: 'offscreen', type: 'mt-local', op: 'remove', modelId });
+  },
+  release: async () => {
+    await callOffscreen({ target: 'offscreen', type: 'mt-local', op: 'release' }).catch(() => {});
+  },
+};
 
 const route = createRouter({
   usage,
+  mtLocal,
   lookup: async (req) => {
     if (!req.assumeEnglish) {
       const s = await settings.load();

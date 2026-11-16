@@ -10,6 +10,8 @@ interface Handler {
 const handler = (): Handler | undefined => (globalThis as { webkit?: { messageHandlers?: { ml?: Handler } } }).webkit?.messageHandlers?.ml;
 
 export const iosBridge = () => !!handler();
+/** Raw message to the iPhone shell (Smart Setup: Keychain, Google sign-in, Safari). */
+export const iosPost = (msg: unknown): Promise<unknown> => handler()?.postMessage(msg) ?? Promise.reject(new Error('no ios bridge'));
 
 /** Seconds-since-1970 stamp of the latest image sent by the Shortcuts action (0 = none). */
 export async function pendingScanStamp(): Promise<number> {
@@ -31,11 +33,11 @@ export async function recognize(imageBase64: string, region?: { x: number; y: nu
  * English → Vietnamese with Apple Translation on the iPhone (iOS 18+, on the device). null when
  * unavailable (older iOS, outside the app); throws on a translation error.
  */
-export async function translateOnDevice(text: string): Promise<string | null> {
+export async function translateOnDevice(text: string, pair = 'en>vi'): Promise<string | null> {
   const h = handler();
   if (!h) return null;
   try {
-    const r = (await h.postMessage({ cmd: 'translate', text })) as { text?: string } | null;
+    const r = (await h.postMessage({ cmd: 'translate', text, ...(pair === 'vi>en' ? { pair } : {}) })) as { text?: string } | null;
     return r?.text ?? null;
   } catch (e) {
     if (String((e as Error)?.message ?? e).includes('unavailable')) return null;
@@ -97,19 +99,19 @@ export async function voiceInfo(): Promise<{ name: string; quality: 'premium' | 
 }
 
 /** Is the Vietnamese translation pack on the phone? ('unavailable' = older iOS / not the iPhone app) */
-export async function translationPackStatus(): Promise<'installed' | 'download' | 'unsupported' | 'unavailable'> {
+export async function translationPackStatus(pair = 'en>vi'): Promise<'installed' | 'download' | 'unsupported' | 'unavailable'> {
   const h = handler();
   if (!h) return 'unavailable';
-  const r = (await h.postMessage({ cmd: 'mtStatus' }).catch(() => null)) as { status?: string } | null;
+  const r = (await h.postMessage({ cmd: 'mtStatus', ...(pair === 'vi>en' ? { pair } : {}) }).catch(() => null)) as { status?: string } | null;
   const s = r?.status;
   return s === 'installed' || s === 'download' || s === 'unsupported' ? s : 'unavailable';
 }
 
 /** Downloads the Vietnamese pack now (iOS shows its own download sheet). */
-export async function prepareTranslationPack(): Promise<boolean> {
+export async function prepareTranslationPack(pair = 'en>vi'): Promise<boolean> {
   const h = handler();
   if (!h) return false;
-  return h.postMessage({ cmd: 'mtPrepare' }).then(() => true, () => false);
+  return h.postMessage({ cmd: 'mtPrepare', ...(pair === 'vi>en' ? { pair } : {}) }).then(() => true, () => false);
 }
 
 /** The image the Shortcuts action delivered (served by the app at app://local/__scan/latest). */
@@ -128,28 +130,32 @@ export async function setAppIcon(logo: string): Promise<void> {
  * machine-translates (sentence translation, single words in the vocabulary list…) works in the app.
  * No-op outside the iPhone app.
  */
+/** 'vi>en' for a Vietnamese → English request of the Translator API, otherwise the default 'en>vi'. */
+const pairOf = (o?: { sourceLanguage?: string; targetLanguage?: string }) => (o?.sourceLanguage === 'vi' && o?.targetLanguage === 'en' ? 'vi>en' : 'en>vi');
+
 export function installTranslatorShim(): void {
   const h = handler();
   const g = globalThis as { Translator?: unknown };
   if (!h) return;
   g.Translator = {
-    async availability() {
-      const s = await translationPackStatus();
+    async availability(o?: { sourceLanguage?: string; targetLanguage?: string }) {
+      const s = await translationPackStatus(pairOf(o));
       return s === 'installed' ? 'available' : s === 'download' ? 'downloadable' : 'unavailable';
     },
-    async create(o?: { monitor?: (m: { addEventListener: (t: string, cb: (e: { loaded: number }) => void) => void }) => void }) {
-      const s = await translationPackStatus();
+    async create(o?: { sourceLanguage?: string; targetLanguage?: string; monitor?: (m: { addEventListener: (t: string, cb: (e: { loaded: number }) => void) => void }) => void }) {
+      const pair = pairOf(o);
+      const s = await translationPackStatus(pair);
       if (s === 'unsupported' || s === 'unavailable') throw new Error('Bản dịch trên máy cần iOS 18 trở lên.');
       if (s === 'download') {
         const cbs: Array<(e: { loaded: number }) => void> = [];
         o?.monitor?.({ addEventListener: (_t, cb) => cbs.push(cb) });
         cbs.forEach((cb) => cb({ loaded: 0 }));
-        if (!(await prepareTranslationPack())) throw new Error('Chưa tải được gói dịch Anh → Việt.');
+        if (!(await prepareTranslationPack(pair))) throw new Error('Chưa tải được gói dịch Anh ↔ Việt.');
         cbs.forEach((cb) => cb({ loaded: 1 }));
       }
       return {
         async translate(text: string) {
-          const out = await translateOnDevice(text);
+          const out = await translateOnDevice(text, pair);
           if (out === null) throw new Error('Bản dịch trên máy không khả dụng.');
           return out;
         },

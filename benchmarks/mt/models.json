@@ -1,0 +1,49 @@
+{
+  "opus-mt": {
+    "label": "OPUS-MT (Marian, Helsinki-NLP)",
+    "family": "marian",
+    "repos": {
+      "en-vi": "Xenova/opus-mt-en-vi",
+      "vi-en": "Xenova/opus-mt-vi-en"
+    },
+    "upstream": {
+      "en-vi": "Helsinki-NLP/opus-mt-en-vi",
+      "vi-en": "Helsinki-NLP/opus-mt-vi-en"
+    },
+    "dtypes": [
+      "q8"
+    ]
+  },
+  "m2m100-418m": {
+    "label": "M2M-100 418M (Meta)",
+    "family": "m2m100",
+    "repos": {
+      "both": "Xenova/m2m100_418M"
+    },
+    "upstream": {
+      "both": "facebook/m2m100_418M"
+    },
+    "dtypes": [
+      "q8"
+    ]
+  },
+  "envit5": {
+    "label": "EnViT5-translation (VietAI)",
+    "family": "t5",
+    "repos": {
+      "both": "huuquyet/envit5-translation"
+    },
+    "upstream": {
+      "both": "VietAI/envit5-translation"
+    },
+    "prefix": {
+      "en-vi": "en: ",
+      "vi-en": "vi: "
+    },
+    "stripLangPrefix": true,
+    "dtypes": [
+      "q8"
+    ],
+    "eligibility": "reference only: see license analysis"
+  }
+}

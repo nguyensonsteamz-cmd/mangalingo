@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { FloatingPopup } from '@/popup/FloatingPopup';
 import { computePopupPosition } from '@/popup/position';
-import { popupSurface, resolveTheme, prefersDark, themeVars } from '@/ui/theme';
+import { glassAttr, popupSurface, resolveTheme, prefersDark, themeVars } from '@/ui/theme';
 import { cx } from '@/ui/components';
 import { IconSearch } from '@/ui/icons';
 import { useStore } from './store';
@@ -14,7 +14,7 @@ export function App({ shadow }: { shadow: ShadowRoot }) {
   // in-page UI (toast, OCR pills, selection button) uses the popup colour scheme, like the popup
   const theme = popupSurface(s, resolveTheme(s.appearance.theme, prefersDark())).theme;
   return (
-    <div className="ml-root" data-theme={theme} style={{ ...(themeVars(s, 'popup') as React.CSSProperties), visibility: capturing ? 'hidden' : 'visible' }}>
+    <div className="ml-root" data-theme={theme} {...glassAttr(s, 'popup')} style={{ ...(themeVars(s, 'popup') as React.CSSProperties), visibility: capturing ? 'hidden' : 'visible' }}>
       <OcrLayer />
       <SelectionTrigger />
       <FloatingPopup shadow={shadow} />

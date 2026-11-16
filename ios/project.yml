@@ -25,11 +25,14 @@ targets:
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
         UISupportedInterfaceOrientations~ipad: [UIInterfaceOrientationPortrait, UIInterfaceOrientationPortraitUpsideDown, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
         ITSAppUsesNonExemptEncryption: false
+        # Smart Setup (Google sign-in): a PUBLIC OAuth client id (iOS-type, no secret), supplied at build time
+        LingoLensGoogleClientID: "$(LINGOLENS_GOOGLE_IOS_CLIENT_ID)"
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: app.mangalingo.ios
         TARGETED_DEVICE_FAMILY: "1,2"
         SWIFT_VERSION: "5.0"
+        LINGOLENS_GOOGLE_IOS_CLIENT_ID: ""
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS: YES
         ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES: "AppIcon-Clear AppIcon-Oil AppIcon-Sunset AppIcon-Clay AppIcon-Ink"

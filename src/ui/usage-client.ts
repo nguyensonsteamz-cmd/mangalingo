@@ -48,3 +48,27 @@ export const fmtUsd = (n: number) => `$${n.toLocaleString('en-US', { minimumFrac
 export const fmtPct = (r: number) => `${(r * 100).toLocaleString('vi-VN', { maximumFractionDigits: 1 })}%`;
 /** "2026-03-01" -> "01/03/2026" */
 export const fmtDate = (iso: string) => iso.split('-').reverse().join('/');
+
+import { authorizePaidWithBillingCheck } from './billing-gate';
+
+/** Opens Settings → Billing wherever the caller lives (options page, side panel / in-page popup, phone app). */
+export function openBillingPage() {
+  const loc = globalThis.location;
+  if (document.documentElement.dataset.app === 'mobile') {
+    (globalThis as { __mlNextSettingsSection?: string }).__mlNextSettingsSection = 'billing';
+    window.dispatchEvent(new Event('ml-settings-section'));
+    loc.hash = 'settings';
+  } else if (loc.protocol === 'chrome-extension:' && loc.pathname.includes('/options/')) {
+    loc.hash = 'billing';
+  } else {
+    void send({ type: 'options:open', section: 'billing' }).catch(() => {});
+  }
+}
+
+/** Authorises paid translation after checking billing; sends the user to the Billing page when it is not set up. */
+export const authorizePaid = () =>
+  authorizePaidWithBillingCheck({
+    validateSaved: () => send({ type: 'usage:validate-saved' }),
+    authorize: () => usageActions.authorize(true),
+    openBilling: openBillingPage,
+  });

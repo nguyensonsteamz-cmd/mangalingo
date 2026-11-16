@@ -36,6 +36,9 @@ jobs:
       - name: Install dependencies
         run: npm ci --no-audit --no-fund
 
+      - name: TypeScript check
+        run: npm run typecheck
+
       - name: Unit tests (generates the dictionary data first)
         run: npm test
 
@@ -51,7 +54,7 @@ jobs:
         run: |
           set -o pipefail  # a failed compile must fail the job (the output is piped to tail)
           xcodebuild -project ios/MangaLingo.xcodeproj -target MangaLingo -configuration Release -sdk iphoneos \
-            SYMROOT="$PWD/ios/build" CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build | tail -n 40
+            SYMROOT="$PWD/ios/build" CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=""             LINGOLENS_GOOGLE_IOS_CLIENT_ID="${{ vars.LINGOLENS_GOOGLE_IOS_CLIENT_ID }}" build | tail -n 40
 
       - name: Package LingoLens.ipa
         run: |

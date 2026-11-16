@@ -36,6 +36,9 @@ const nested = join(out, 'src/mobile/index.html');
 const html = (await readFile(nested, 'utf8')).replace(/(src|href)="(\.\.\/)+assets\//g, '$1="./assets/');
 await writeFile(join(out, 'index.html'), html);
 await rm(join(out, 'src'), { recursive: true, force: true });
+// Local translation model runtime (ONNX Runtime Web WASM); the model itself is downloaded on demand
+await mkdir(join(out, 'vendor/ort'), { recursive: true });
+for (const f of ['ort-wasm-simd-threaded.mjs', 'ort-wasm-simd-threaded.wasm']) await cp(resolve(root, 'node_modules/onnxruntime-web/dist', f), join(out, 'vendor/ort', f));
 await mkdir(join(out, 'data'), { recursive: true });
 await cp(data, join(out, 'data'), { recursive: true });
 console.log('[mobile] web UI →', out);

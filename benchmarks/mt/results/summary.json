@@ -1,0 +1,819 @@
+[
+ {
+  "id": "chrome-translator__n/a__en-vi",
+  "model": "chrome-translator",
+  "dtype": "n/a",
+  "direction": "en-vi",
+  "status": "ok",
+  "quality": {
+   "categories": {
+    "n": 20,
+    "bleu": 53.13,
+    "chrfpp": 65,
+    "repetition_pct": 0,
+    "len_ratio": 0.981
+   },
+   "by_category": {
+    "short": {
+     "n": 4,
+     "chrfpp": 63.27
+    },
+    "conversation": {
+     "n": 3,
+     "chrfpp": 61.62
+    },
+    "idiom": {
+     "n": 4,
+     "chrfpp": 43.34
+    },
+    "technical": {
+     "n": 3,
+     "chrfpp": 78.63
+    },
+    "academic": {
+     "n": 2,
+     "chrfpp": 76.84
+    },
+    "context": {
+     "n": 2,
+     "chrfpp": 62.58
+    },
+    "format": {
+     "n": 2,
+     "chrfpp": 63.56
+    }
+   },
+   "iwslt": {
+    "n": 100,
+    "bleu": 35,
+    "chrfpp": 52.71,
+    "repetition_pct": 0.38,
+    "len_ratio": 0.986
+   },
+   "alt": {
+    "n": 60,
+    "bleu": 41.86,
+    "chrfpp": 59.32,
+    "repetition_pct": 0,
+    "len_ratio": 0.967
+   },
+   "verified_refs": {
+    "n": 160,
+    "bleu": 37.97,
+    "chrfpp": 55.61
+   },
+   "long": {
+    "src_chars": 1530,
+    "chunked": {
+     "chrfpp": 71.86,
+     "bleu": 56.12,
+     "term_recall_pct": 85.7,
+     "seconds": 0.26,
+     "chars_per_s": 5824.2
+    },
+    "whole": {
+     "chrfpp": 71.86,
+     "out_chars": 1539,
+     "ref_chars": 1486,
+     "ratio": 1.04,
+     "seconds": 0.21
+    }
+   }
+  },
+  "perf": {
+   "cold_start_s": 14,
+   "disk_mb": null,
+   "rss_after_load_mb": null,
+   "peak_rss_mb": null,
+   "cpu_util_pct": null,
+   "latency_s": {
+    "n": 180,
+    "avg": 0.0255,
+    "p50": 0.023,
+    "p95": 0.0477
+   },
+   "throughput_chars_per_s": 4033.8
+  },
+  "adequacy_labse": {
+   "mean": 0.9493,
+   "reference_ceiling": 0.9344,
+   "n": 180
+  }
+ },
+ {
+  "id": "chrome-translator__n/a__vi-en",
+  "model": "chrome-translator",
+  "dtype": "n/a",
+  "direction": "vi-en",
+  "status": "ok",
+  "quality": {
+   "categories": {
+    "n": 16,
+    "bleu": 53.63,
+    "chrfpp": 67.1,
+    "repetition_pct": 0,
+    "len_ratio": 0.946
+   },
+   "by_category": {
+    "short": {
+     "n": 3,
+     "chrfpp": 66.91
+    },
+    "conversation": {
+     "n": 2,
+     "chrfpp": 67.12
+    },
+    "idiom": {
+     "n": 3,
+     "chrfpp": 25.71
+    },
+    "technical": {
+     "n": 2,
+     "chrfpp": 80.93
+    },
+    "academic": {
+     "n": 2,
+     "chrfpp": 69.56
+    },
+    "context": {
+     "n": 2,
+     "chrfpp": 77.44
+    },
+    "format": {
+     "n": 2,
+     "chrfpp": 86.26
+    }
+   },
+   "iwslt": {
+    "n": 100,
+    "bleu": 33.25,
+    "chrfpp": 53.94,
+    "repetition_pct": 0,
+    "len_ratio": 1.01
+   },
+   "alt": {
+    "n": 60,
+    "bleu": 35.72,
+    "chrfpp": 57.66,
+    "repetition_pct": 0,
+    "len_ratio": 0.967
+   },
+   "verified_refs": {
+    "n": 160,
+    "bleu": 34.44,
+    "chrfpp": 55.63
+   },
+   "long": {
+    "src_chars": 1486,
+    "chunked": {
+     "chrfpp": 74.46,
+     "bleu": 55.53,
+     "term_recall_pct": 100,
+     "seconds": 0.27,
+     "chars_per_s": 5429.7
+    },
+    "whole": {
+     "chrfpp": 74.46,
+     "out_chars": 1516,
+     "ref_chars": 1530,
+     "ratio": 0.99,
+     "seconds": 0.22
+    }
+   }
+  },
+  "perf": {
+   "cold_start_s": 6.7,
+   "disk_mb": null,
+   "rss_after_load_mb": null,
+   "peak_rss_mb": null,
+   "cpu_util_pct": null,
+   "latency_s": {
+    "n": 176,
+    "avg": 0.0249,
+    "p50": 0.0226,
+    "p95": 0.0484
+   },
+   "throughput_chars_per_s": 4501.7
+  },
+  "adequacy_labse": {
+   "mean": 0.95,
+   "reference_ceiling": 0.9354,
+   "n": 176
+  }
+ },
+ {
+  "id": "envit5__q8__en-vi",
+  "model": "envit5",
+  "dtype": "q8",
+  "direction": "en-vi",
+  "status": "ok",
+  "quality": {
+   "categories": {
+    "n": 20,
+    "bleu": 48.77,
+    "chrfpp": 62.18,
+    "repetition_pct": 0,
+    "len_ratio": 1.009
+   },
+   "by_category": {
+    "short": {
+     "n": 4,
+     "chrfpp": 75.35
+    },
+    "conversation": {
+     "n": 3,
+     "chrfpp": 53.66
+    },
+    "idiom": {
+     "n": 4,
+     "chrfpp": 53.64
+    },
+    "technical": {
+     "n": 3,
+     "chrfpp": 64.08
+    },
+    "academic": {
+     "n": 2,
+     "chrfpp": 81.84
+    },
+    "context": {
+     "n": 2,
+     "chrfpp": 57.25
+    },
+    "format": {
+     "n": 2,
+     "chrfpp": 50.82
+    }
+   },
+   "iwslt": {
+    "n": 100,
+    "bleu": 35.13,
+    "chrfpp": 52.46,
+    "repetition_pct": 0.3,
+    "len_ratio": 0.935
+   },
+   "alt": {
+    "n": 60,
+    "bleu": 42.04,
+    "chrfpp": 60.07,
+    "repetition_pct": 0.13,
+    "len_ratio": 0.952
+   },
+   "verified_refs": {
+    "n": 160,
+    "bleu": 38.11,
+    "chrfpp": 55.8
+   },
+   "long": {
+    "src_chars": 1530,
+    "chunked": {
+     "chrfpp": 70.38,
+     "bleu": 52.66,
+     "term_recall_pct": 100,
+     "seconds": 4.52,
+     "chars_per_s": 338.4
+    },
+    "whole": {
+     "chrfpp": 71.86,
+     "out_chars": 1557,
+     "ref_chars": 1486,
+     "ratio": 1.05,
+     "seconds": 7.19
+    }
+   }
+  },
+  "perf": {
+   "cold_start_s": 1.56,
+   "disk_mb": 305,
+   "download_s": 19.7,
+   "rss_after_load_mb": 731,
+   "peak_rss_mb": 1202,
+   "cpu_util_pct": 58,
+   "latency_s": {
+    "n": 180,
+    "avg": 0.3141,
+    "p50": 0.2659,
+    "p95": 0.6206
+   },
+   "throughput_chars_per_s": 327
+  },
+  "adequacy_labse": {
+   "mean": 0.9432,
+   "reference_ceiling": 0.9344,
+   "n": 180
+  }
+ },
+ {
+  "id": "envit5__q8__vi-en",
+  "model": "envit5",
+  "dtype": "q8",
+  "direction": "vi-en",
+  "status": "ok",
+  "quality": {
+   "categories": {
+    "n": 16,
+    "bleu": 41.26,
+    "chrfpp": 57.12,
+    "repetition_pct": 0,
+    "len_ratio": 0.906
+   },
+   "by_category": {
+    "short": {
+     "n": 3,
+     "chrfpp": 49.87
+    },
+    "conversation": {
+     "n": 2,
+     "chrfpp": 57.04
+    },
+    "idiom": {
+     "n": 3,
+     "chrfpp": 15.58
+    },
+    "technical": {
+     "n": 2,
+     "chrfpp": 77.64
+    },
+    "academic": {
+     "n": 2,
+     "chrfpp": 69.56
+    },
+    "context": {
+     "n": 2,
+     "chrfpp": 77.71
+    },
+    "format": {
+     "n": 2,
+     "chrfpp": 53.29
+    }
+   },
+   "iwslt": {
+    "n": 100,
+    "bleu": 38.78,
+    "chrfpp": 58.83,
+    "repetition_pct": 0.14,
+    "len_ratio": 0.988
+   },
+   "alt": {
+    "n": 60,
+    "bleu": 38.09,
+    "chrfpp": 60.86,
+    "repetition_pct": 0,
+    "len_ratio": 1.007
+   },
+   "verified_refs": {
+    "n": 160,
+    "bleu": 38.49,
+    "chrfpp": 59.77
+   },
+   "long": {
+    "src_chars": 1486,
+    "chunked": {
+     "chrfpp": 77.05,
+     "bleu": 60.78,
+     "term_recall_pct": 100,
+     "seconds": 3.85,
+     "chars_per_s": 385.6
+    },
+    "whole": {
+     "chrfpp": 76.26,
+     "out_chars": 1519,
+     "ref_chars": 1530,
+     "ratio": 0.99,
+     "seconds": 5.98
+    }
+   }
+  },
+  "perf": {
+   "cold_start_s": 1.52,
+   "disk_mb": 305,
+   "download_s": 1.5,
+   "rss_after_load_mb": 730,
+   "peak_rss_mb": 1140,
+   "cpu_util_pct": 58.7,
+   "latency_s": {
+    "n": 176,
+    "avg": 0.2764,
+    "p50": 0.2416,
+    "p95": 0.556
+   },
+   "throughput_chars_per_s": 406.1
+  },
+  "adequacy_labse": {
+   "mean": 0.9421,
+   "reference_ceiling": 0.9354,
+   "n": 176
+  }
+ },
+ {
+  "id": "m2m100-418m__q8__en-vi",
+  "model": "m2m100-418m",
+  "dtype": "q8",
+  "direction": "en-vi",
+  "status": "ok",
+  "quality": {
+   "categories": {
+    "n": 20,
+    "bleu": 44.66,
+    "chrfpp": 57.02,
+    "repetition_pct": 0,
+    "len_ratio": 1.019
+   },
+   "by_category": {
+    "short": {
+     "n": 4,
+     "chrfpp": 64.02
+    },
+    "conversation": {
+     "n": 3,
+     "chrfpp": 48.84
+    },
+    "idiom": {
+     "n": 4,
+     "chrfpp": 33.47
+    },
+    "technical": {
+     "n": 3,
+     "chrfpp": 77.27
+    },
+    "academic": {
+     "n": 2,
+     "chrfpp": 70.31
+    },
+    "context": {
+     "n": 2,
+     "chrfpp": 45.78
+    },
+    "format": {
+     "n": 2,
+     "chrfpp": 53.64
+    }
+   },
+   "iwslt": {
+    "n": 100,
+    "bleu": 30.04,
+    "chrfpp": 48.05,
+    "repetition_pct": 0.73,
+    "len_ratio": 0.96
+   },
+   "alt": {
+    "n": 60,
+    "bleu": 34.83,
+    "chrfpp": 54.51,
+    "repetition_pct": 0.07,
+    "len_ratio": 0.955
+   },
+   "verified_refs": {
+    "n": 160,
+    "bleu": 32.11,
+    "chrfpp": 50.89
+   },
+   "long": {
+    "src_chars": 1530,
+    "chunked": {
+     "chrfpp": 55.32,
+     "bleu": 33.53,
+     "term_recall_pct": 57.1,
+     "seconds": 50.98,
+     "chars_per_s": 30
+    },
+    "whole": {
+     "chrfpp": 32.95,
+     "out_chars": 791,
+     "ref_chars": 1486,
+     "ratio": 0.53,
+     "seconds": 27.87
+    }
+   }
+  },
+  "perf": {
+   "cold_start_s": 5.35,
+   "disk_mb": 610,
+   "download_s": 575.3,
+   "rss_after_load_mb": 2041,
+   "peak_rss_mb": 2696,
+   "cpu_util_pct": 47.3,
+   "latency_s": {
+    "n": 180,
+    "avg": 4.2523,
+    "p50": 3.9067,
+    "p95": 8.9171
+   },
+   "throughput_chars_per_s": 24.2
+  },
+  "adequacy_labse": {
+   "mean": 0.949,
+   "reference_ceiling": 0.9344,
+   "n": 180
+  }
+ },
+ {
+  "id": "m2m100-418m__q8__vi-en",
+  "model": "m2m100-418m",
+  "dtype": "q8",
+  "direction": "vi-en",
+  "status": "ok",
+  "quality": {
+   "categories": {
+    "n": 16,
+    "bleu": 42.88,
+    "chrfpp": 57.28,
+    "repetition_pct": 0,
+    "len_ratio": 0.937
+   },
+   "by_category": {
+    "short": {
+     "n": 3,
+     "chrfpp": 60.23
+    },
+    "conversation": {
+     "n": 2,
+     "chrfpp": 40.64
+    },
+    "idiom": {
+     "n": 3,
+     "chrfpp": 23.05
+    },
+    "technical": {
+     "n": 2,
+     "chrfpp": 79.57
+    },
+    "academic": {
+     "n": 2,
+     "chrfpp": 68
+    },
+    "context": {
+     "n": 2,
+     "chrfpp": 58.32
+    },
+    "format": {
+     "n": 2,
+     "chrfpp": 70.3
+    }
+   },
+   "iwslt": {
+    "n": 100,
+    "bleu": 28.51,
+    "chrfpp": 50.05,
+    "repetition_pct": 0,
+    "len_ratio": 1.016
+   },
+   "alt": {
+    "n": 60,
+    "bleu": 33.39,
+    "chrfpp": 57.27,
+    "repetition_pct": 0,
+    "len_ratio": 1.004
+   },
+   "verified_refs": {
+    "n": 160,
+    "bleu": 30.67,
+    "chrfpp": 53.33
+   },
+   "long": {
+    "src_chars": 1486,
+    "chunked": {
+     "chrfpp": 62.78,
+     "bleu": 38.68,
+     "term_recall_pct": 71.4,
+     "seconds": 37.19,
+     "chars_per_s": 40
+    },
+    "whole": {
+     "chrfpp": 41.39,
+     "out_chars": 1147,
+     "ref_chars": 1530,
+     "ratio": 0.75,
+     "seconds": 30.15
+    }
+   }
+  },
+  "perf": {
+   "cold_start_s": 3.82,
+   "disk_mb": 610,
+   "download_s": 3.6,
+   "rss_after_load_mb": 2046,
+   "peak_rss_mb": 2679,
+   "cpu_util_pct": 48.6,
+   "latency_s": {
+    "n": 176,
+    "avg": 2.6266,
+    "p50": 2.2706,
+    "p95": 5.1752
+   },
+   "throughput_chars_per_s": 42.7
+  },
+  "adequacy_labse": {
+   "mean": 0.9476,
+   "reference_ceiling": 0.9354,
+   "n": 176
+  }
+ },
+ {
+  "id": "opus-mt__q8__en-vi",
+  "model": "opus-mt",
+  "dtype": "q8",
+  "direction": "en-vi",
+  "status": "ok",
+  "quality": {
+   "categories": {
+    "n": 20,
+    "bleu": 19.82,
+    "chrfpp": 36.78,
+    "repetition_pct": 0,
+    "len_ratio": 0.846
+   },
+   "by_category": {
+    "short": {
+     "n": 4,
+     "chrfpp": 44.44
+    },
+    "conversation": {
+     "n": 3,
+     "chrfpp": 53.02
+    },
+    "idiom": {
+     "n": 4,
+     "chrfpp": 31.21
+    },
+    "technical": {
+     "n": 3,
+     "chrfpp": 26.55
+    },
+    "academic": {
+     "n": 2,
+     "chrfpp": 26.81
+    },
+    "context": {
+     "n": 2,
+     "chrfpp": 59.05
+    },
+    "format": {
+     "n": 2,
+     "chrfpp": 19.89
+    }
+   },
+   "iwslt": {
+    "n": 100,
+    "bleu": 28.64,
+    "chrfpp": 46.43,
+    "repetition_pct": 0.72,
+    "len_ratio": 0.907
+   },
+   "alt": {
+    "n": 60,
+    "bleu": 24.2,
+    "chrfpp": 41.89,
+    "repetition_pct": 0.68,
+    "len_ratio": 0.893
+   },
+   "verified_refs": {
+    "n": 160,
+    "bleu": 26.75,
+    "chrfpp": 44.45
+   },
+   "long": {
+    "src_chars": 1530,
+    "chunked": {
+     "chrfpp": 51.59,
+     "bleu": 29.71,
+     "term_recall_pct": 57.1,
+     "seconds": 9.45,
+     "chars_per_s": 161.8
+    },
+    "whole": {
+     "chrfpp": 22.24,
+     "out_chars": 650,
+     "ref_chars": 1486,
+     "ratio": 0.44,
+     "seconds": 4.35
+    }
+   }
+  },
+  "perf": {
+   "cold_start_s": 1.28,
+   "disk_mb": 102,
+   "download_s": 121.8,
+   "rss_after_load_mb": 483,
+   "peak_rss_mb": 604,
+   "cpu_util_pct": 52.6,
+   "latency_s": {
+    "n": 180,
+    "avg": 0.706,
+    "p50": 0.6262507000000005,
+    "p95": 1.4253842000000003
+   },
+   "throughput_chars_per_s": 145.5
+  },
+  "adequacy_labse": {
+   "mean": 0.922,
+   "reference_ceiling": 0.9344,
+   "n": 180
+  }
+ },
+ {
+  "id": "opus-mt__q8__vi-en",
+  "model": "opus-mt",
+  "dtype": "q8",
+  "direction": "vi-en",
+  "status": "ok",
+  "quality": {
+   "categories": {
+    "n": 16,
+    "bleu": 39.7,
+    "chrfpp": 52.8,
+    "repetition_pct": 0,
+    "len_ratio": 0.899
+   },
+   "by_category": {
+    "short": {
+     "n": 3,
+     "chrfpp": 41.63
+    },
+    "conversation": {
+     "n": 2,
+     "chrfpp": 58.8
+    },
+    "idiom": {
+     "n": 3,
+     "chrfpp": 15.53
+    },
+    "technical": {
+     "n": 2,
+     "chrfpp": 73.64
+    },
+    "academic": {
+     "n": 2,
+     "chrfpp": 55.71
+    },
+    "context": {
+     "n": 2,
+     "chrfpp": 75.47
+    },
+    "format": {
+     "n": 2,
+     "chrfpp": 49.97
+    }
+   },
+   "iwslt": {
+    "n": 100,
+    "bleu": 35.9,
+    "chrfpp": 55.79,
+    "repetition_pct": 0,
+    "len_ratio": 0.973
+   },
+   "alt": {
+    "n": 60,
+    "bleu": 26.94,
+    "chrfpp": 51.05,
+    "repetition_pct": 4.75,
+    "len_ratio": 0.998
+   },
+   "verified_refs": {
+    "n": 160,
+    "bleu": 32.31,
+    "chrfpp": 53.65
+   },
+   "long": {
+    "src_chars": 1486,
+    "chunked": {
+     "chrfpp": 64.99,
+     "bleu": 41.7,
+     "term_recall_pct": 85.7,
+     "seconds": 8.7,
+     "chars_per_s": 170.7
+    },
+    "whole": {
+     "chrfpp": 13.48,
+     "out_chars": 239,
+     "ref_chars": 1530,
+     "ratio": 0.16,
+     "seconds": 1.52
+    }
+   }
+  },
+  "perf": {
+   "cold_start_s": 1.24,
+   "disk_mb": 102,
+   "download_s": 99,
+   "rss_after_load_mb": 481,
+   "peak_rss_mb": 592,
+   "cpu_util_pct": 52.6,
+   "latency_s": {
+    "n": 176,
+    "avg": 0.6524,
+    "p50": 0.5566,
+    "p95": 1.3154
+   },
+   "throughput_chars_per_s": 172.1
+  },
+  "adequacy_labse": {
+   "mean": 0.94,
+   "reference_ceiling": 0.9354,
+   "n": 176
+  }
+ },
+ {
+  "id": "undefined__undefined__undefined"
+ }
+]

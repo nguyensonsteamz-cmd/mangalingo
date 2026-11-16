@@ -7,6 +7,11 @@ import { MessageError } from '@/shared/messages';
 import type { LookupResult, OcrResult } from '@/shared/types';
 import type { SidebarState } from './sidebar';
 import type { UsageService } from '@/modules/usage';
+import type { LocalHost } from '@/modules/mt/local/host';
+
+const noLocal = (): never => {
+  throw new MessageError('Mô hình dịch trên máy không khả dụng ở bản này.', 'mtlocal-unavailable');
+};
 
 export interface RouterDeps {
   lookup(req: Extract<Request, { type: 'lookup' }>['req']): Promise<LookupResult>;
@@ -25,6 +30,8 @@ export interface RouterDeps {
   dictClearUser(): Promise<void>;
   /** Translation quota / cost protection (see src/modules/usage). */
   usage: UsageService;
+  /** Local translation model (offscreen document in the extension, in-page worker in the phone apps). Absent = not available. */
+  mtLocal?: LocalHost;
 }
 
 type Handler<K extends Request['type']> = (msg: Extract<Request, { type: K }>, sender: chrome.runtime.MessageSender) => Promise<ResponseMap[K]>;
@@ -52,6 +59,20 @@ export function createRouter(d: RouterDeps) {
       await d.openOptions(m.section);
       return true;
     },
+    'mtlocal:cached': async (m) => (d.mtLocal ? d.mtLocal.cached(String(m.modelId)) : false),
+    'mtlocal:start': (m) => (d.mtLocal ? d.mtLocal.start(String(m.modelId)) : noLocal()),
+    'mtlocal:status': (m) => (d.mtLocal ? d.mtLocal.status(String(m.modelId)) : noLocal()),
+    'mtlocal:translate': (m) => (d.mtLocal ? d.mtLocal.translate(String(m.modelId), String(m.text ?? '').slice(0, 4000)) : noLocal()),
+    'mtlocal:cancel': (m) => (d.mtLocal ? d.mtLocal.cancel(String(m.modelId)) : noLocal()),
+    'mtlocal:verify': async (m) => (d.mtLocal ? d.mtLocal.verify(String(m.modelId)) : 'missing'),
+    'mtlocal:remove': async (m) => {
+      await d.mtLocal?.remove(String(m.modelId));
+      return true;
+    },
+    'mtlocal:release': async () => {
+      await d.mtLocal?.release();
+      return true;
+    },
     'shortcuts:open': async () => {
       await d.openShortcuts();
       return true;
@@ -65,7 +86,16 @@ export function createRouter(d: RouterDeps) {
       await d.dictClearUser();
       return true;
     },
-    'usage:translate': (m) => d.usage.translate(String(m.text ?? '').slice(0, 20000)),
+    // one chunk (≤ 5,000 characters): longer texts are split BEFORE this call, never cut here
+    'usage:translate': (m) => d.usage.translate(String(m.text ?? ''), { idempotencyKey: m.idempotencyKey, keepBreaks: m.keepBreaks, languagePair: m.languagePair }),
+    'usage:operation': async (m) => {
+      await d.usage.completeOperation(String(m.jobId));
+      return true;
+    },
+    'usage:device-processed': async (m) => {
+      await d.usage.recordDeviceProcessed(String(m.provider), Number(m.chars) || 0, m.idempotencyKey);
+      return true;
+    },
     'usage:snapshot': () => d.usage.snapshot(),
     'usage:settings': async (m) => {
       if (m.patch) await d.usage.updateSettings(m.patch);
@@ -76,6 +106,15 @@ export function createRouter(d: RouterDeps) {
       await d.usage.setPaidAuthorized(!!m.enable);
       return d.usage.snapshot();
     },
+    'usage:activate': async (m) => {
+      await d.usage.activateGoogle(String(m.key ?? ''), m.credential);
+      return d.usage.snapshot();
+    },
+    'usage:deactivate': async () => {
+      await d.usage.deactivateGoogle();
+      return d.usage.snapshot();
+    },
+    'usage:validate-saved': () => d.usage.validateSaved(),
     'usage:clear-history': async () => {
       await d.usage.clearHistory();
       return true;

@@ -4,6 +4,7 @@
  */
 import type { LookupRequest, LookupResult, OcrProgress, OcrResult } from './types';
 import type { TranslateOutcome, UsageSettings, UsageSnapshot } from '@/modules/usage/types';
+import type { LocalStatus } from '@/modules/mt/local/host';
 
 export interface ScanTarget {
   /** Image URL to fetch at full resolution (optional). */
@@ -39,13 +40,31 @@ export type Request =
   | { type: 'dict:import'; name: string; format: 'json' | 'csv'; text: string }
   | { type: 'dict:clear-user' }
   | { type: 'shortcuts:open' }
+  /** the downloaded local translation model (OPUS-MT): see src/modules/mt/local */
+  | { type: 'mtlocal:cached'; modelId: string }
+  | { type: 'mtlocal:start'; modelId: string }
+  | { type: 'mtlocal:status'; modelId: string }
+  | { type: 'mtlocal:translate'; modelId: string; text: string }
+  | { type: 'mtlocal:release' }
+  | { type: 'mtlocal:remove'; modelId: string }
+  | { type: 'mtlocal:cancel'; modelId: string }
+  | { type: 'mtlocal:verify'; modelId: string }
   /** Machine translation through the quota guard: tells the caller to use the device, or returns Google's text, or a block. */
-  | { type: 'usage:translate'; text: string }
+  | { type: 'usage:translate'; text: string; /** stable key of a chunk: a retry is counted once */ idempotencyKey?: string; keepBreaks?: boolean; languagePair?: string }
+  /** a finished translation job (any number of chunks) = one operation */
+  | { type: 'usage:operation'; jobId: string }
+  /** an on-device provider processed this many characters (informational ledger, not metered) */
+  | { type: 'usage:device-processed'; provider: string; chars: number; idempotencyKey?: string }
   | { type: 'usage:snapshot' }
   /** Update the usage settings and / or the API key (null removes it); answers with a fresh snapshot. */
   | { type: 'usage:settings'; patch?: Partial<UsageSettings>; apiKey?: string | null }
   /** The user's explicit consent to paid translation (or its withdrawal). */
   | { type: 'usage:authorize'; enable: boolean }
+  /** Smart Setup finished: save the (validated) key in the secure store and switch to Google translation. */
+  | { type: 'usage:activate'; key: string; /** usage ledger id (the Smart Setup project) */ credential?: string }
+  | { type: 'usage:deactivate' }
+  /** One real translation with the SAVED key (health check); rejects with the Smart Setup error code. */
+  | { type: 'usage:validate-saved' }
   | { type: 'usage:clear-history' }
   | { type: 'usage:reset' }
   | { type: 'usage:export'; format?: 'json' | 'csv' }
@@ -77,9 +96,22 @@ export interface ResponseMap {
   'dict:clear-user': boolean;
   'shortcuts:open': boolean;
   'usage:translate': TranslateOutcome;
+  'mtlocal:cached': boolean;
+  'mtlocal:start': LocalStatus;
+  'mtlocal:status': LocalStatus;
+  'mtlocal:translate': string;
+  'mtlocal:release': boolean;
+  'mtlocal:remove': boolean;
+  'mtlocal:cancel': LocalStatus;
+  'mtlocal:verify': 'ok' | 'missing' | 'corrupt';
+  'usage:operation': boolean;
+  'usage:device-processed': boolean;
   'usage:snapshot': UsageSnapshot;
   'usage:settings': UsageSnapshot;
   'usage:authorize': UsageSnapshot;
+  'usage:activate': UsageSnapshot;
+  'usage:deactivate': UsageSnapshot;
+  'usage:validate-saved': { ok: boolean; code?: string; detail?: string };
   'usage:clear-history': boolean;
   'usage:reset': boolean;
   'usage:export': string;

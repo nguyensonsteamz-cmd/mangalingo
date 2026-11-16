@@ -17,13 +17,16 @@ const decode = (s: string) =>
 
 export type FetchLike = (url: string, init: { method: string; headers: Record<string, string>; body: string }) => Promise<{ ok: boolean; status: number; json(): Promise<unknown> }>;
 
-export async function googleTranslate(text: string, apiKey: string, fetchImpl: FetchLike = fetch as unknown as FetchLike): Promise<string> {
+/** `pair` is 'en>vi' (default, the original behaviour) or 'vi>en'. */
+export async function googleTranslate(text: string, apiKey: string, fetchImpl: FetchLike = fetch as unknown as FetchLike, pair = 'en>vi'): Promise<string> {
+  const [source, target] = pair.split('>');
+  if (!['en>vi', 'vi>en'].includes(pair)) throw new MessageError('Cặp ngôn ngữ không được hỗ trợ.', 'google-bad-pair');
   let res;
   try {
     res = await fetchImpl(`${ENDPOINT}?key=${encodeURIComponent(apiKey)}`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ q: text, source: 'en', target: 'vi', format: 'text' }),
+      body: JSON.stringify({ q: text, source, target, format: 'text' }),
     });
   } catch {
     // never echo the URL (it carries the key)

@@ -205,6 +205,8 @@ export interface LanguageResult {
 export interface SentenceAnalysis {
   kind: 'sentence';
   text: string;
+  /** the user's FULL text when the analysis above was limited to its first part (translation always uses the full text) */
+  fullText?: string;
   language: LanguageResult;
   chunks: Chunk[];
   gloss: string;
@@ -218,6 +220,8 @@ export interface SentenceAnalysis {
 export interface ParagraphAnalysis {
   kind: 'paragraph';
   text: string;
+  /** the user's FULL text when the analysis above was limited to its first part (translation always uses the full text) */
+  fullText?: string;
   language: LanguageResult;
   sentences: SentenceAnalysis[];
   vocabulary: VocabHint[];

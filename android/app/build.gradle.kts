@@ -3,6 +3,12 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
+// Smart Setup (Google sign-in): the OAuth client id is a PUBLIC identifier (Android-type client, no secret), supplied at
+// build time: -PLINGOLENS_OAUTH_ANDROID_CLIENT_ID=... or the environment variable of the same name. Empty = not configured.
+val googleClientId: String = (project.findProperty("LINGOLENS_OAUTH_ANDROID_CLIENT_ID") as String?) ?: System.getenv("LINGOLENS_OAUTH_ANDROID_CLIENT_ID") ?: ""
+val googleSuffix = ".apps.googleusercontent.com"
+val googleRedirectScheme = if (googleClientId.endsWith(googleSuffix)) "com.googleusercontent.apps." + googleClientId.removeSuffix(googleSuffix) else "lingolens.oauth.unconfigured"
+
 android {
     namespace = "app.mangalingo"
     compileSdk = 35
@@ -13,6 +19,11 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "0.1.0"
+        buildConfigField("String", "GOOGLE_CLIENT_ID", "\"$googleClientId\"")
+        manifestPlaceholders["googleRedirectScheme"] = googleRedirectScheme
+    }
+    buildFeatures {
+        buildConfig = true
     }
 
     buildTypes {

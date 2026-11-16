@@ -103,7 +103,7 @@ struct WebContainer: UIViewRepresentable {
                     replyHandler(nil, "unavailable")
                     return
                 }
-                TranslationQueue.shared.enqueue(.translate([text]) { result, error in
+                TranslationQueue.queue(for: body["pair"]).enqueue(.translate([text]) { result, error in
                     let first = (result as? [String])?.first
                     replyHandler(first.map { ["text": $0] }, error)
                 })
@@ -113,7 +113,7 @@ struct WebContainer: UIViewRepresentable {
                     replyHandler(nil, "unavailable")
                     return
                 }
-                TranslationQueue.shared.enqueue(.translate(texts) { result, error in
+                TranslationQueue.queue(for: body["pair"]).enqueue(.translate(texts) { result, error in
                     replyHandler((result as? [String]).map { ["texts": $0] }, error)
                 })
             case "openReader":
@@ -121,14 +121,43 @@ struct WebContainer: UIViewRepresentable {
                 let address = (body["url"] as? String).flatMap { URL(string: $0) }
                 DispatchQueue.main.async { ReaderPresenter.shared.present(address) }
                 replyHandler(true, nil)
+            // ---- Smart Setup: Keychain, Google sign-in (ASWebAuthenticationSession + PKCE), Safari for Console links
+            case "secretGet":
+                if let value = KeychainStore.get(body["name"] as? String ?? "") {
+                    replyHandler(["value": value], nil)
+                } else {
+                    replyHandler(["value": NSNull()], nil)
+                }
+            case "secretSet":
+                replyHandler(KeychainStore.set(body["name"] as? String ?? "", body["value"] as? String ?? ""), nil)
+            case "secretRemove":
+                KeychainStore.remove(body["name"] as? String ?? "")
+                replyHandler(true, nil)
+            case "oauthConfigured":
+                replyHandler(["configured": GoogleOAuth.isConfigured], nil)
+            case "oauthStart":
+                DispatchQueue.main.async {
+                    GoogleOAuth.shared.start(scopes: body["scopes"] as? [String] ?? []) { result in
+                        switch result {
+                        case .success(let token): replyHandler(token, nil)
+                        case .failure(let error): replyHandler(nil, error.localizedDescription)
+                        }
+                    }
+                }
+            case "oauthRevoke":
+                if let token = body["token"] as? String { GoogleOAuth.shared.revoke(token) }
+                replyHandler(true, nil)
+            case "openUrl":
+                DispatchQueue.main.async { SafariPresenter.present(body["url"] as? String ?? "") }
+                replyHandler(true, nil)
             case "mtStatus":
-                TranslationQueue.status { replyHandler(["status": $0], nil) }
+                TranslationQueue.queue(for: body["pair"]).status { replyHandler(["status": $0], nil) }
             case "mtPrepare":
                 guard TranslationQueue.isAvailable else {
                     replyHandler(nil, "unavailable")
                     return
                 }
-                TranslationQueue.shared.enqueue(.prepare { ok, error in replyHandler(ok, error) })
+                TranslationQueue.queue(for: body["pair"]).enqueue(.prepare { ok, error in replyHandler(ok, error) })
             case "ocr":
                 guard let b64 = body["image"] as? String, let data = Data(base64Encoded: b64) else {
                     replyHandler(nil, "Không đọc được ảnh.")

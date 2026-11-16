@@ -42,11 +42,19 @@ class MainActivity : Activity() {
 
     private lateinit var web: WebView
 
-    /** On-device EN → VI translator (ML Kit). */
-    private val translator by lazy {
-        Translation.getClient(
-            TranslatorOptions.Builder().setSourceLanguage(TranslateLanguage.ENGLISH).setTargetLanguage(TranslateLanguage.VIETNAMESE).build(),
-        )
+    /** On-device translators (ML Kit), one per direction, created on first use: "en>vi" (default) and "vi>en". */
+    private val translators = HashMap<String, com.google.mlkit.nl.translate.Translator>()
+
+    private fun translatorFor(pair: String): com.google.mlkit.nl.translate.Translator = synchronized(translators) {
+        translators.getOrPut(pair) {
+            val vi2en = pair == "vi>en"
+            Translation.getClient(
+                TranslatorOptions.Builder()
+                    .setSourceLanguage(if (vi2en) TranslateLanguage.VIETNAMESE else TranslateLanguage.ENGLISH)
+                    .setTargetLanguage(if (vi2en) TranslateLanguage.ENGLISH else TranslateLanguage.VIETNAMESE)
+                    .build(),
+            )
+        }
     }
 
     /** Answers a machine-translation request of the page (see src/mobile/native.ts). */
@@ -60,6 +68,8 @@ class MainActivity : Activity() {
         val loader = WebViewAssetLoader.Builder()
             .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(this))
             .build()
+        // remote debugging only in debuggable (debug) builds: lets the test scripts drive the page; never in a release build
+        if (applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0) WebView.setWebContentsDebuggingEnabled(true)
         web = WebView(this).apply {
             settings.javaScriptEnabled = true
             settings.domStorageEnabled = true // vocabulary + settings live in localStorage
@@ -96,10 +106,23 @@ class MainActivity : Activity() {
             insets
         }
         web.loadUrl("$INDEX#${tabOf(intent)}")
+        handleOAuthRedirect(intent)
+    }
+
+    /** Answer of the Google sign-in (Smart Setup) to the web UI: window.__mlOAuth(id, ok, payload). */
+    private fun oauthReply(id: Int, ok: Boolean, payload: String) {
+        runOnUiThread { web.evaluateJavascript("window.__mlOAuth && window.__mlOAuth($id, $ok, ${JSONObject.quote(payload)});", null) }
+    }
+
+    private fun handleOAuthRedirect(i: Intent?) {
+        val data = i?.data
+        if (GoogleAuth.isRedirect(data)) GoogleAuth.handleRedirect(this, data!!) { id, ok, payload -> oauthReply(id, ok, payload) }
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        handleOAuthRedirect(intent)
+        if (GoogleAuth.isRedirect(intent.data)) return
         setIntent(intent)
         val tab = tabOf(intent)
         web.evaluateJavascript("location.hash = '$tab';", null)
@@ -168,8 +191,13 @@ class MainActivity : Activity() {
 
         /** Machine translation. op: "status" → installed | download, "prepare" → downloads the model, "translate". Answer comes through window.__mlMt(id, ok, text). */
         @JavascriptInterface
-        fun mt(id: Int, op: String, text: String) {
-            val model = TranslateRemoteModel.Builder(TranslateLanguage.VIETNAMESE).build()
+        fun mt(id: Int, opWithPair: String, text: String) {
+            // op may carry the direction: "translate:vi>en" (no suffix = en>vi, the original behaviour)
+            val op = opWithPair.substringBefore(':')
+            val pair = opWithPair.substringAfter(':', "en>vi")
+            if (pair != "en>vi" && pair != "vi>en") return mtReply(id, false, "unsupported pair")
+            val translator = translatorFor(pair)
+            val model = TranslateRemoteModel.Builder(TranslateLanguage.VIETNAMESE).build() // the Vietnamese pack serves both directions
             when (op) {
                 "status" -> RemoteModelManager.getInstance().isModelDownloaded(model)
                     .addOnSuccessListener { mtReply(id, true, if (it) "installed" else "download") }
@@ -183,6 +211,36 @@ class MainActivity : Activity() {
                     .addOnFailureListener { mtReply(id, false, it.message ?: "translate") }
                 else -> mtReply(id, false, "unknown op")
             }
+        }
+
+        // ---- Smart Setup: secure storage of the API key (Android Keystore) and Google sign-in (system browser, PKCE)
+        @JavascriptInterface
+        fun secretGet(name: String): String = SecretVault.get(this@MainActivity, name)
+
+        @JavascriptInterface
+        fun secretSet(name: String, value: String) = SecretVault.put(this@MainActivity, name, value)
+
+        @JavascriptInterface
+        fun secretRemove(name: String) = SecretVault.remove(this@MainActivity, name)
+
+        @JavascriptInterface
+        fun oauthConfigured(): Boolean = GoogleAuth.isConfigured
+
+        @JavascriptInterface
+        fun oauthStart(id: Int, scopes: String) {
+            if (!GoogleAuth.isConfigured) return oauthReply(id, false, "Smart Setup chưa được cấu hình đăng nhập Google.")
+            runOnUiThread { runCatching { GoogleAuth.start(this@MainActivity, id, scopes) }.onFailure { oauthReply(id, false, "Không mở được trình duyệt.") } }
+        }
+
+        @JavascriptInterface
+        fun oauthRevoke(token: String) = GoogleAuth.revoke(token)
+
+        /** Google Cloud Console pages open in the system browser, never in this WebView. */
+        @JavascriptInterface
+        fun openUrl(url: String) {
+            val u = Uri.parse(url)
+            if (u.scheme != "https") return
+            runOnUiThread { runCatching { startActivity(Intent(Intent.ACTION_VIEW, u)) } }
         }
 
         @JavascriptInterface

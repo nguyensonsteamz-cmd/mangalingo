@@ -5,11 +5,13 @@
  */
 import { useEffect, useState, type ReactNode } from 'react';
 import { Badge, Button, Field, Notice, Segmented, Toggle, cx } from '@/ui/components';
-import { UsageNotice, LEVEL_TONE } from '@/ui/UsageNotice';
-import { fmtDate, fmtInt, fmtPct, fmtUsd, usageActions, useUsage } from '@/ui/usage-client';
+import { UsageNotice } from '@/ui/UsageNotice';
+import { MonthlyUsageCard } from '@/ui/MonthlyUsageCard';
+import { authorizePaid, fmtDate, fmtInt, fmtPct, fmtUsd, usageActions, useUsage } from '@/ui/usage-client';
 import { USAGE_DISCLAIMER } from '@/modules/usage/disclaimer';
-import type { UsageSettings, UsageSnapshot } from '@/modules/usage/types';
+import type { UsageSettings } from '@/modules/usage/types';
 import { copyText } from '@/mobile/ios';
+import { LocalModelSection } from './LocalModelSection';
 
 function Card({ title, desc, children }: { title: string; desc?: string; children: ReactNode }) {
   return (
@@ -57,33 +59,6 @@ function Stat({ label, value, sub, testId }: { label: string; value: string; sub
       <div className="text-[11.5px] text-muted">{label}</div>
       <div className="text-[16px] font-bold tabular-nums text-text">{value}</div>
       {sub && <div className="text-[11px] text-subtle">{sub}</div>}
-    </div>
-  );
-}
-
-function UsageBar({ snap }: { snap: UsageSnapshot }) {
-  const pct = Math.min(100, snap.ratio * 100);
-  const s = snap.settings;
-  return (
-    <div data-ml-usage-bar={snap.level}>
-      <div className="mb-1.5 flex items-baseline justify-between">
-        <div className="text-[22px] font-bold tabular-nums text-text">{fmtPct(snap.ratio)}</div>
-        <div className="text-[12.5px] text-muted">
-          {fmtInt(snap.usedChars)} / {fmtInt(snap.freeQuota)} ký tự
-        </div>
-      </div>
-      <div className="relative h-3 w-full overflow-hidden rounded-full bg-text/[0.09]" role="progressbar" aria-valuenow={Math.round(pct)} aria-valuemin={0} aria-valuemax={100} aria-label="Mức dùng hạn mức miễn phí">
-        <div className={cx('h-full rounded-full transition-[width] duration-300', LEVEL_TONE[snap.level])} style={{ width: `${Math.max(pct > 0 ? 1.5 : 0, pct)}%` }} />
-        {[s.warnRatio, s.criticalRatio].map((r) => (
-          <span key={r} className="absolute top-0 h-full w-px bg-text/40" style={{ left: `${r * 100}%` }} aria-hidden="true" />
-        ))}
-      </div>
-      <div className="mt-1 flex justify-between text-[10.5px] text-subtle">
-        <span>0</span>
-        <span>cảnh báo {Math.round(s.warnRatio * 100)}%</span>
-        <span>nghiêm trọng {Math.round(s.criticalRatio * 100)}%</span>
-        <span>dừng {Math.round(s.hardStopRatio * 100)}%</span>
-      </div>
     </div>
   );
 }
@@ -201,6 +176,9 @@ export function UsageSection() {
           </Field>
         )}
         {!google && <div className="py-3 text-[12px] text-muted">Chọn “Google Cloud” để nhập khoá API và bật theo dõi hạn mức. Mặc định không có gì được gửi đi và không có gì bị tính phí.</div>}
+        <div className="py-3 text-[12px] text-muted">
+          Không muốn tự tạo khoá? <button type="button" className="font-semibold text-accent underline" onClick={() => (location.hash = 'setup')}>Dùng Lingolens Smart Setup</button> để thiết lập Google Cloud ngay trong ứng dụng.
+        </div>
         {google && (
         <div className="py-3">
           <Notice tone="warn" title="Bảo mật khoá API">
@@ -215,9 +193,9 @@ export function UsageSection() {
         )}
       </Card>
 
-      <Card title="Mức dùng tháng này" desc={google ? undefined : 'Chỉ đếm khi bạn dùng Google Cloud. Dịch trên máy không được đo.'}>
+      <Card title="Mức dùng tháng này (UTC)" desc={google ? undefined : 'Chỉ đếm khi bạn dùng Google Cloud. Dịch trên máy không được đo.'}>
         <div className="py-3">
-          <UsageBar snap={snap} />
+          <MonthlyUsageCard snap={snap} />
         </div>
         <div className="grid grid-cols-2 gap-2 py-3 sm:grid-cols-3">
           <Stat testId="used" label="Ký tự đã dùng" value={fmtInt(snap.usedChars)} />
@@ -251,7 +229,7 @@ export function UsageSection() {
         <Field label="Ngưỡng cảnh báo">
           <NumField testId="warn" value={Math.round(s.warnRatio * 100)} min={1} suffix="%" width="w-24" onCommit={(n) => void save({ warnRatio: n / 100 })} />
         </Field>
-        <Field label="Ngưỡng nghiêm trọng">
+        <Field label="Ngưỡng mức dùng cao">
           <NumField testId="critical" value={Math.round(s.criticalRatio * 100)} min={1} suffix="%" width="w-24" onCommit={(n) => void save({ criticalRatio: n / 100 })} />
         </Field>
         <Field label="Ngưỡng dừng" description="Từ ngưỡng này, yêu cầu có thể tính phí bị chặn nếu bạn chưa cho phép.">
@@ -267,7 +245,7 @@ export function UsageSection() {
           label="Cho phép dịch có phí khi hết hạn mức miễn phí"
           description={s.paidEnabled ? 'Đang bật: yêu cầu vượt hạn mức sẽ được gửi (trong các giới hạn bên dưới) và có thể bị Google tính phí.' : 'Đang tắt: khi hết hạn mức miễn phí, mọi yêu cầu có thể tính phí bị chặn và bạn sẽ được hỏi.'}
           checked={s.paidEnabled}
-          onChange={(v) => void usageActions.authorize(v).then(() => refresh())}
+          onChange={(v) => void (v ? authorizePaid() : usageActions.authorize(false)).then(() => refresh())}
         />
         <Field label="Ký tự trả phí tối đa mỗi tháng">
           <NumField testId="maxPaidChars" value={s.maxPaidCharsPerMonth} min={1} step={1000} suffix="ký tự" width="w-36" onCommit={(n) => void save({ maxPaidCharsPerMonth: n })} />
@@ -347,6 +325,8 @@ export function UsageSection() {
           </div>
         )}
       </Card>
+
+      <LocalModelSection />
 
       {msg && <Notice tone={msg.tone}>{msg.text}</Notice>}
     </div>

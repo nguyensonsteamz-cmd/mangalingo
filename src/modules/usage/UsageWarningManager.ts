@@ -8,8 +8,8 @@ export interface UsageWarning {
 
 const MESSAGES: Record<WarningLevel, UsageWarning> = {
   ok: { level: 'ok', severity: 'none', message: '' },
-  notice: { level: 'notice', severity: 'info', message: 'Lượng dịch đang gần hạn mức miễn phí hằng tháng.' },
-  critical: { level: 'critical', severity: 'warn', message: 'Chỉ còn rất ít hạn mức dịch miễn phí.' },
+  notice: { level: 'notice', severity: 'info', message: 'Lượng dịch đang gần hạn mức hằng tháng.' },
+  critical: { level: 'critical', severity: 'warn', message: 'Mức sử dụng cao: chỉ còn rất ít hạn mức dịch.' },
   blocked: { level: 'blocked', severity: 'danger', message: 'Bạn đã đạt hạn mức dịch miễn phí đã cấu hình. Tiếp tục có thể phát sinh phí Google Cloud.' },
 };
 

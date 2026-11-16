@@ -8,7 +8,21 @@ export function countChars(text: string): number {
   return n;
 }
 
-/** What is sent (and counted): NFC, whitespace collapsed, trimmed. */
+/** What is sent (and counted) for a short text: NFC, whitespace collapsed, trimmed. */
 export function normalizeText(text: string): string {
   return text.normalize('NFC').replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * What is sent (and counted) for a chunk of a long text: NFC, spaces / tabs collapsed, line breaks kept (3+ in a row become
+ * a paragraph break), trimmed. Keeping the breaks keeps the paragraph structure of the translation.
+ */
+export function normalizeChunk(text: string): string {
+  return text
+    .normalize('NFC')
+    .replace(/\r\n?/g, '\n')
+    .replace(/[^\S\n]+/g, ' ')
+    .replace(/ ?\n ?/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 }

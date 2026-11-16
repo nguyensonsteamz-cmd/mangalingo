@@ -1,0 +1,1 @@
+{"name":"lingolens-mt-bench","private":true,"type":"module","version":"1.0.0","dependencies":{"@huggingface/transformers":"3.7.6","hyparquet":"^1.33.0"}}
