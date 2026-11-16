@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reader test article</title>
+<style>
+  body { font: 20px/1.5 Georgia, serif; margin: 0; padding: 24px; background: #fff; color: #111; }
+  p { margin: 0 0 24px; }
+  .spacer { height: 1800px; }
+</style>
+</head>
+<body>
+  <h1 id="title">The Last Village</h1>
+  <p id="p1">The village was destroyed by the demon. Nobody survived the night, and the hero never came back.</p>
+  <p id="p2">"Run!" he shouted. It's a well-known fact that she doesn't give up easily.</p>
+  <p id="p3">Read the <a id="link" href="#next">next chapter</a> or press <button id="btn" type="button">Continue</button>.</p>
+  <p id="p4">Xin chào, đây là một đoạn văn hoàn toàn bằng tiếng Việt.</p>
+  <form onsubmit="return false"><label>Comment <input id="field" value="type here words" size="24"></label> <textarea id="area">some textarea words</textarea></form>
+  <p id="p5" contenteditable="true">Editable paragraph with words.</p>
+  <div class="spacer"></div>
+  <p id="bottom">The end of the long page.</p>
+  <script>
+    // the site's own click handler must keep working (the reader never stops propagation)
+    window.siteClicks = 0;
+    document.body.addEventListener('click', function () { window.siteClicks++; });
+  </script>
+</body>
+</html>

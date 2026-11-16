@@ -10,6 +10,7 @@ import WebKit
 ///   {cmd: "setIcon", name?}             → switches the app icon (alternate icons)
 ///   {cmd: "translate", text}            → {text} Vietnamese translation (Apple Translation, iOS 18+)
 ///   {cmd: "translateBatch", texts}      → {texts} several at once (see Translator.swift)
+///   {cmd: "openReader", url?}           → opens the Web Reader (WebReader/) above the app
 struct WebContainer: UIViewRepresentable {
     static let background = UIColor(red: 16 / 255, green: 18 / 255, blue: 24 / 255, alpha: 1)
 
@@ -31,6 +32,7 @@ struct WebContainer: UIViewRepresentable {
         web.navigationDelegate = context.coordinator
         if #available(iOS 16.4, *) { web.isInspectable = true }
         context.coordinator.web = web
+        MainWebHub.shared.web = web // the Web Reader asks this page's engine to translate
         if let url = URL(string: "app://local/index.html#home") { web.load(URLRequest(url: url)) }
         return web
     }
@@ -114,6 +116,11 @@ struct WebContainer: UIViewRepresentable {
                 TranslationQueue.shared.enqueue(.translate(texts) { result, error in
                     replyHandler((result as? [String]).map { ["texts": $0] }, error)
                 })
+            case "openReader":
+                // the in-app Web Reader (optionally with an address); this page keeps running underneath and answers its look-ups
+                let address = (body["url"] as? String).flatMap { URL(string: $0) }
+                DispatchQueue.main.async { ReaderPresenter.shared.present(address) }
+                replyHandler(true, nil)
             case "mtStatus":
                 TranslationQueue.status { replyHandler(["status": $0], nil) }
             case "mtPrepare":

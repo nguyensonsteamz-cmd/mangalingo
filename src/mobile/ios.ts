@@ -157,3 +157,10 @@ export function installTranslatorShim(): void {
     },
   };
 }
+
+/** Opens the in-app Web Reader (a native browser that translates while you read). iPhone app only. */
+export async function openReader(url?: string): Promise<boolean> {
+  const h = handler();
+  if (!h) return false;
+  return h.postMessage({ cmd: 'openReader', url }).then(() => true, () => false);
+}

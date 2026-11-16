@@ -12,7 +12,7 @@ import { useSettings } from '@/ui/hooks';
 import { cx, fastTap, GlassIndicator, Notice } from '@/ui/components';
 import { IconBack, IconBookmark, IconGear, IconLogo, IconScan, IconSearch } from '@/ui/icons';
 import { native, onResume } from './native';
-import { latestScanUrl, pendingScanStamp, prepareTranslationPack, setAppIcon, translationPackStatus } from './ios';
+import { latestScanUrl, openReader, pendingScanStamp, prepareTranslationPack, setAppIcon, translationPackStatus } from './ios';
 import { Scan, type HlBox } from './Scan';
 import { Assist, type AssistItem } from './Assist';
 import { NotesDrawer } from '@/ui/NotesDrawer';
@@ -397,6 +397,16 @@ function IosHome({ onOpen, pack }: { onOpen: (t: Tab) => void; pack: ReturnType<
         </div>
       )}
 
+
+      {/* the in-app browser: open a manga / English site and translate while reading */}
+      <button type="button" onClick={() => void openReader()} className="ml-glass-card ml-press ml-sheen flex w-full items-center gap-3 rounded-[24px] px-4 py-3.5 text-left" data-ml-open-reader="">
+        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-accent/15 text-[22px]">🌐</span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-[15px] font-bold">Trình đọc web</span>
+          <span className="block text-[12.5px] leading-snug text-muted">Mở trang truyện ngay trong ứng dụng, chạm từ hoặc chọn câu để dịch, quét chữ trong ảnh.</span>
+        </span>
+        <span className="text-[20px] text-muted">›</span>
+      </button>
 
       <IosGuide />
 

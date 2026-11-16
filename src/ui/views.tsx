@@ -13,7 +13,7 @@ export const POS_VI: Record<Pos, string> = {
   noun: 'danh từ', verb: 'động từ', adj: 'tính từ', adv: 'trạng từ', pron: 'đại từ', det: 'hạn định từ', prep: 'giới từ',
   conj: 'liên từ', interj: 'thán từ', num: 'số từ', aux: 'trợ động từ', modal: 'động từ khuyết thiếu', part: 'tiểu từ', phrase: 'cụm từ', other: 'khác',
 };
-const POS_EN: Partial<Record<Pos, string>> = { noun: 'n.', verb: 'v.', adj: 'adj.', adv: 'adv.', pron: 'pron.', det: 'det.', prep: 'prep.', conj: 'conj.', interj: 'interj.', num: 'num.', aux: 'aux.', modal: 'modal', phrase: 'phr.' };
+export const POS_EN: Partial<Record<Pos, string>> = { noun: 'n.', verb: 'v.', adj: 'adj.', adv: 'adv.', pron: 'pron.', det: 'det.', prep: 'prep.', conj: 'conj.', interj: 'interj.', num: 'num.', aux: 'aux.', modal: 'modal', phrase: 'phr.' };
 const TAG_VI: Record<string, string> = {
   slang: 'tiếng lóng', informal: 'khẩu ngữ', vulgar: 'thô tục', idiom: 'thành ngữ', phrasal: 'cụm động từ', expression: 'cụm cố định',
   abbr: 'viết tắt', contraction: 'rút gọn', archaic: 'cổ', formal: 'trang trọng', interjection: 'thán từ',

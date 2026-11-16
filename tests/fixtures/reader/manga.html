@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reader test manga</title>
+<style>
+  body { margin: 0; padding: 12px; background: #111; color: #eee; font: 16px system-ui; }
+  img, canvas { display: block; width: 100%; max-width: 360px; margin: 0 auto 16px; background: #fff; }
+</style>
+</head>
+<body>
+  <p id="intro">Chapter 1 — the same-origin page below, then a cross-origin page.</p>
+  <img id="same" alt="same-origin page">
+  <img id="cross" alt="cross-origin page">
+  <script>
+    // same-origin picture drawn in the page (a data URL is never "tainted")
+    var c = document.createElement('canvas');
+    c.width = 720; c.height = 1000;
+    var g = c.getContext('2d');
+    g.fillStyle = '#fff'; g.fillRect(0, 0, 720, 1000);
+    g.fillStyle = '#000'; g.font = 'bold 44px sans-serif';
+    g.fillText("I'M GONNA BECOME", 60, 180); g.fillText('THE STRONGEST NINJA!', 60, 240);
+    g.fillText('WHAT THE HELL IS', 60, 620); g.fillText('GOING ON HERE?!', 60, 680);
+    document.getElementById('same').src = c.toDataURL('image/png');
+    document.getElementById('cross').src = location.protocol + '//' + location.hostname + ':' + (parseInt(location.port, 10) + 1) + '/bubble@2x.png';
+  </script>
+</body>
+</html>
