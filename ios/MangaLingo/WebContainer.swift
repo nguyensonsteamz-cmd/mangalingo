@@ -80,7 +80,21 @@ struct WebContainer: UIViewRepresentable {
             switch cmd {
             case "probe":
                 // evidence line for the CI simulator job (see scripts/assets/ios-probe.html)
-                NSLog("LINGOLENS_PROBE %@ %@", body["key"] as? String ?? "?", body["value"] as? String ?? "")
+                let line = "LINGOLENS_PROBE (body["key"] as? String ?? "?") (body["value"] as? String ?? "")"
+                NSLog("%@", line)
+                // also a file in the app's Documents folder: the CI job reads it with `simctl get_app_container` (NSLog is not reliably captured)
+                if let dir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first {
+                    let file = dir.appendingPathComponent("probe.log")
+                    if let h = try? FileHandle(forWritingTo: file) {
+                        h.seekToEndOfFile()
+                        h.write(Data((line + "
+").utf8))
+                        try? h.close()
+                    } else {
+                        try? Data((line + "
+").utf8).write(to: file)
+                    }
+                }
                 replyHandler(true, nil)
             case "pendingScan":
                 replyHandler(["stamp": PendingScan.stamp], nil)
