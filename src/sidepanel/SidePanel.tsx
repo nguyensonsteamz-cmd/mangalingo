@@ -14,7 +14,8 @@ import {
 } from '@/ui/views';
 import { VocabManager, useVocab, vocabStore } from '@/ui/VocabManager';
 import { canSpeak, speak } from '@/ui/speech';
-import { NotesDrawer } from '@/ui/NotesDrawer';
+import { NotesPanel } from '@/ui/NotesPanel';
+import { CopyButton } from '@/ui/CopyButton';
 import { DEFAULT_MAX_TOTAL } from '@/modules/translation';
 import { MonthlyUsageCard } from '@/ui/MonthlyUsageCard';
 import { UsageNotice } from '@/ui/UsageNotice';
@@ -33,7 +34,6 @@ export function SidePanel({ topBar }: { topBar?: ReactNode } = {}) {
   const { settings: s, loaded } = useSettings('sidebar');
   const [tab, setTab] = useState<SidebarTab>('translation');
   const [compact, setCompact] = useState(false);
-  const [notesOpen, setNotesOpen] = useState(false);
   const { snap: usageSnap } = useUsage();
   const [entry, setEntry] = useState<Entry | null>(null);
   const requestedTab = useRef(false);
@@ -77,7 +77,12 @@ export function SidePanel({ topBar }: { topBar?: ReactNode } = {}) {
         setOcr({ result: p.result, pending: p.pending, error: p.error, source: p.source });
         setEntry(null);
         setTab('translation');
-      } else void runLookup(p.text, p.context, p.source, p.result);
+      } else {
+        // a NEW lookup from the page (a selected word / sentence): start on the Dịch tab, like the popup does, instead of staying on
+        // whichever tab the previous entry left open (that is what made a freshly translated sentence look out of sync)
+        if (!(globalThis as { __mlNextSidebarTab?: string }).__mlNextSidebarTab) setTab('translation');
+        void runLookup(p.text, p.context, p.source, p.result);
+      }
     },
     [runLookup],
   );
@@ -131,7 +136,7 @@ export function SidePanel({ topBar }: { topBar?: ReactNode } = {}) {
               {s.reading.translationMode === 'machine' && hasTranslator ? 'Dịch máy · chạy trên máy' : 'Từ điển · chạy trên máy'}
             </div>
           </div>
-          <IconButton label="Ghi chú" onClick={() => setNotesOpen(true)} active={notesOpen} data-ml-notes-open="">
+          <IconButton label="Ghi chú" onClick={() => setTab('notes')} active={tab === 'notes'} data-ml-notes-open="">
             <span aria-hidden="true">✏️</span>
           </IconButton>
           <IconButton label={compact ? 'Chế độ đầy đủ' : 'Chế độ thu gọn'} onClick={() => setCompact((v) => !v)} active={compact}>
@@ -221,7 +226,9 @@ export function SidePanel({ topBar }: { topBar?: ReactNode } = {}) {
         )}
       </header>
       <main className={cx('ml-scroll flex-1 px-3 py-3', crossfadeClass(`${tab}|${entry?.text ?? ''}|${ocr ? 1 : 0}`, fade.current))}>
-        {tab === 'saved' ? (
+        {tab === 'notes' ? (
+          <NotesPanel context={entry?.text} />
+        ) : tab === 'saved' ? (
           <VocabManager compact={compact} />
         ) : ocr && !entry ? (
           <OcrPanel ocr={ocr} tab={tab} s={s} onAnalyze={(t) => void runLookup(t, undefined, ocr.source)} />
@@ -236,7 +243,6 @@ export function SidePanel({ topBar }: { topBar?: ReactNode } = {}) {
         )}
       </main>
       {/* the reader's own notes (phrase ↔ meaning), same as in the phone app */}
-      <NotesDrawer open={notesOpen} onClose={() => setNotesOpen(false)} context={entry?.text} />
     </div>
   );
 }
@@ -247,13 +253,14 @@ const TAB_ITEMS: { id: SidebarTab; label: string; icon: ReactNode }[] = [
   { id: 'grammar', label: 'Ngữ pháp', icon: <IconEdit size={16} /> },
   { id: 'context', label: 'Ngữ cảnh', icon: <IconInfo size={16} /> },
   { id: 'saved', label: 'Đã lưu', icon: <IconBookmark size={16} /> },
+  { id: 'notes', label: 'Ghi chú', icon: <IconEdit size={16} /> },
 ];
 
 /** Pill tabs: the active tab is a filled accent pill, easy to spot at a glance. */
 function SidebarTabs({ value, onChange }: { value: SidebarTab; onChange: (v: SidebarTab) => void }) {
   return (
     <div className="px-3 pb-2.5">
-      <div role="tablist" className="ml-glass-field relative grid grid-cols-5 gap-1 rounded-[18px] p-1">
+      <div role="tablist" className="ml-glass-field relative grid grid-cols-6 gap-0.5 rounded-[18px] p-1">
         <GlassIndicator activeKey={value} className="rounded-[14px]" />
         {TAB_ITEMS.map((t) => (
           <button
@@ -308,11 +315,14 @@ function EntryView({ s, entry, tab, compact, onLookup, onBackToOcr }: { s: Setti
       <div className="mb-1 flex items-center gap-1.5">
         <span className="text-[11px] font-bold uppercase tracking-wider text-muted">Văn bản gốc</span>
         <Badge tone="accent">{r.kind === 'word' ? 'Từ' : r.kind === 'phrase' ? 'Cụm từ' : r.kind === 'sentence' ? 'Câu' : r.kind === 'paragraph' ? 'Đoạn văn' : 'Khác'}</Badge>
-        {canSpeak() && (
-          <IconButton label="Đọc" className="ml-auto h-6 w-6" onClick={() => speak(entry.text)}>
-            <IconVolume size={14} />
-          </IconButton>
-        )}
+        <span className="ml-auto flex items-center gap-0.5">
+          <CopyButton text={entry.text} label="Sao chép văn bản gốc" className="h-6 w-6" />
+          {canSpeak() && (
+            <IconButton label="Đọc" className="h-6 w-6" onClick={() => speak(entry.text)}>
+              <IconVolume size={14} />
+            </IconButton>
+          )}
+        </span>
       </div>
       <div className="ml-tr whitespace-pre-wrap text-[1.05em] font-medium text-text">{entry.text}</div>
       {entry.source?.title && !compact && <div className="mt-1 truncate text-[11px] text-subtle">{entry.source.title}</div>}

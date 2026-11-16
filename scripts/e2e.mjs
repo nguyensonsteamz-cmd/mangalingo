@@ -116,6 +116,21 @@ try {
     return `id ${extId}`;
   });
 
+  await step('First use: the sign-in gate blocks a fresh install (Settings page), explains that Google sign-in is not configured in this build, and lets the user continue temporarily', async () => {
+    const { targetId: gid } = await browser.send('Target.createTarget', { url: `chrome-extension://${extId}/options/index.html` });
+    const gp = await attach(browser, gid);
+    await gp.send('Runtime.enable');
+    const txt = await waitFor(() => gp.evaluate(`document.querySelector('[data-ml-auth-gate]')?.innerText ?? null`), { label: 'sign-in gate' });
+    assert(/Đăng nhập tài khoản Google/.test(txt), 'welcome text: ' + txt.slice(0, 120));
+    await waitFor(() => gp.evaluate(`!!document.querySelector('[data-ml-auth-skip]')`), { label: 'not-configured notice with the temporary continue button' });
+    assert(await gp.evaluate(`!document.querySelector('[data-ml-setup-section], [data-ml-usage-section]')`), 'settings must be hidden behind the gate');
+    await gp.evaluate(`document.querySelector('[data-ml-auth-skip]').click()`);
+    await waitFor(() => gp.evaluate(`!document.querySelector('[data-ml-auth-gate]') && !!document.body.innerText.includes('Cài đặt')`), { label: 'settings after continuing' });
+    const rec = await sw.evaluate(`chrome.storage.local.get('auth:v1').then((r) => r['auth:v1'])`);
+    assert(rec?.skipped === true, 'auth record stored: ' + JSON.stringify(rec));
+    await browser.send('Target.closeTarget', { targetId: gid });
+  });
+
   await step('Off by default: nothing is attached to a page until LingoLens is switched on for its site', async () => {
     const { targetId: probeId } = await browser.send('Target.createTarget', { url: `${BASE}/reader.html` });
     const probe = await attach(browser, probeId);
@@ -667,17 +682,26 @@ try {
     await closePopup();
   });
 
-  await step('Sidebar notes: write a phrase + meaning pair and it is stored (same notes as the phone app)', async () => {
+  await step('Sidebar notes (own tab): typing is AUTO-SAVED to the notes AND the vocabulary notebook, grouped under "Hôm nay", with a copy button', async () => {
     await panel.evaluate(`document.querySelector('[data-ml-notes-open]').click()`);
-    await waitFor(() => panel.evaluate(`!!document.querySelector('[data-ml-notes-drawer]')`), { label: 'notes drawer' });
+    await waitFor(() => panel.evaluate(`!!document.querySelector('[data-ml-notes-panel]')`), { label: 'notes tab' });
     await panel.evaluate(`document.querySelector('[data-ml-note-phrase]').focus()`);
     await panel.send('Input.insertText', { text: 'piece of cake' });
     await panel.evaluate(`document.querySelector('[data-ml-note-meaning]').focus()`);
     await panel.send('Input.insertText', { text: 'dễ như ăn bánh' });
-    await panel.evaluate(`document.querySelector('[data-ml-notes-save]').click()`);
-    const stored = await waitFor(() => sw.evaluate(`chrome.storage.local.get('notes:v1').then(r => (r['notes:v1'] ?? []).find(n => n.phrase === 'piece of cake')?.meaning)`), { label: 'note stored' });
+    // NO save button is pressed: the auto-save fires shortly after the last keystroke
+    const stored = await waitFor(() => sw.evaluate(`chrome.storage.local.get('notes:v1').then(r => (r['notes:v1'] ?? []).find(n => n.phrase === 'piece of cake')?.meaning)`), { label: 'note auto-saved', timeout: 8000 });
     assert(stored === 'dễ như ăn bánh', 'note meaning stored');
-    await panel.evaluate(`document.querySelector('[data-ml-notes-drawer] button').click()`);
+    const vocab = await waitFor(() => sw.evaluate(`chrome.storage.local.get('vocab:v1').then(r => Object.values(r['vocab:v1'] ?? {}).find(v => v.lemma === 'piece of cake')?.meaning)`), { label: 'note mirrored into the vocabulary notebook', timeout: 8000 });
+    assert(vocab === 'dễ như ăn bánh', 'vocabulary meaning: ' + vocab);
+    const day = await waitFor(() => panel.evaluate(`document.querySelector('[data-ml-notes-day]')?.innerText ?? null`), { label: 'day group' });
+    assert(/^HÔM NAY/i.test(day.trim()), 'grouped under today: ' + day.slice(0, 40));
+    assert(await panel.evaluate(`!!document.querySelector('[data-ml-note-card] [data-ml-note-copy]')`), 'copy button on the note card');
+    // editing the phrase keeps the notebook in step (old entry replaced, not duplicated)
+    await panel.evaluate(`document.querySelector('[data-ml-note-phrase]').focus()`);
+    await panel.send('Input.insertText', { text: ' (idiom)' });
+    await waitFor(() => sw.evaluate(`chrome.storage.local.get('vocab:v1').then(r => { const v = Object.values(r['vocab:v1'] ?? {}).filter(x => x.lemma.startsWith('piece of cake')); return v.length === 1 && v[0].lemma === 'piece of cake (idiom)'; })`), { label: 'notebook entry re-worded, not duplicated', timeout: 8000 });
+    await panel.evaluate(`document.querySelector('[role=tab]').click()`);
     // the following steps work on the manga page
     await page.send('Page.navigate', { url: `${BASE}/manga.html` });
     await sleep(1500);
@@ -727,16 +751,10 @@ try {
     await opt.evaluate(`location.hash = 'appearance'`);
   });
 
-  await step('Settings → Mô hình dịch tải về: both directions listed with size + licence, NOTHING downloaded, "prefer model" locked until a model exists, never preferred by default', async () => {
+  await step('Settings: the downloaded OPUS-MT model is NOT offered (product decision: Google Cloud first, Chrome Translator second); default provider unchanged', async () => {
     await opt.evaluate(`location.hash = 'usage'`);
-    const txt = await waitFor(() => opt.evaluate(`(() => { const t = document.querySelector('[data-ml-local-section]')?.innerText ?? ''; return t.includes('Tải về (~') ? t : null; })()`), { label: 'local model section (buttons ready)' });
-    assert(/OPUS-MT Anh → Việt/.test(txt) && /OPUS-MT Việt → Anh/.test(txt), 'both directions');
-    assert(txt.includes('apache-2.0') && txt.includes('Tải về (~102 MB)'), 'licence and size on the button: ' + txt.slice(0, 300));
-    assert(/Mặc định tắt/.test(txt) && /thấp hơn Chrome Translator/.test(txt), 'honest quality note');
-    const cached = await opt.evaluate(`chrome.runtime.sendMessage({ type: 'mtlocal:cached', modelId: 'local-opus-mt-en-vi' })`);
-    assert(cached.ok && cached.data === false, 'nothing downloaded before the user presses the button');
-    const locked = await opt.evaluate(`document.querySelector('[data-ml-local-section] button[role=switch]').disabled`);
-    assert(locked, 'preference switch locked while no model is downloaded');
+    await waitFor(() => opt.evaluate(`!!document.querySelector('[data-ml-usage-section]')`), { label: 'usage section' });
+    assert(await opt.evaluate(`!document.querySelector('[data-ml-local-section]')`), 'local model card must not be shown');
     const prefs = await sw.evaluate(`chrome.storage.local.get('mt.prefs').then((r) => r['mt.prefs'] ?? null)`);
     assert(!prefs || prefs.preferred !== 'local', 'default provider unchanged');
     await opt.evaluate(`location.hash = 'appearance'`);
@@ -870,6 +888,7 @@ try {
       const swT = await waitFor(async () => (await b2.send('Target.getTargets')).targetInfos.find((x) => x.type === 'service_worker' && x.url.startsWith(`chrome-extension://${id2}/`)), { label: 'worker' });
       const sw2 = await attach(b2, swT.targetId);
       await sw2.send('Runtime.enable');
+      await sw2.evaluate(`chrome.storage.local.set({ 'auth:v1': { skipped: true } })`); // a fresh profile would show the sign-in gate (covered by its own step)
       await sleep(500);
       const tab = await attach(b2, oldTabId, { world: 'LingoLens' });
       await tab.send('Runtime.enable');

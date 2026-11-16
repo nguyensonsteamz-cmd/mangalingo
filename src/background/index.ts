@@ -307,7 +307,9 @@ export async function ensureContentScript(tabId: number): Promise<boolean> {
   }
 }
 
-chrome.runtime.onInstalled.addListener(() => {
+chrome.runtime.onInstalled.addListener((details) => {
+  // first install: open the sign-in page (Settings, wrapped by the sign-in gate)
+  if (details.reason === 'install') void chrome.tabs.create({ url: chrome.runtime.getURL('options/index.html#setup') }).catch(() => {});
   createMenus();
   void applyEnabledState();
   // After an install/update/reload: start LingoLens in already-open tabs of enabled sites (no F5 needed).

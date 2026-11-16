@@ -439,6 +439,67 @@ export async function rescanBlock(targetId: string, blockId: string, vp: Rect) {
   }
 }
 
+/**
+ * Adds a bubble the scan missed: the user drags a rectangle over the text; ONLY that rectangle is read and a new numbered bubble is
+ * appended (the other bubbles are not touched). When nothing can be read the bubble is still added, empty, and opened for typing.
+ */
+export async function addBlock(targetId: string, vp: Rect) {
+  const s = store.get().settings;
+  const t = store.get().targets.find((x) => x.id === targetId);
+  const trect = t && targetRect(t);
+  if (!t?.result || !trect) return;
+  const r = {
+    left: Math.max(trect.left, vp.left),
+    top: Math.max(trect.top, vp.top),
+    width: Math.min(trect.left + trect.width, vp.left + vp.width) - Math.max(trect.left, vp.left),
+    height: Math.min(trect.top + trect.height, vp.top + vp.height) - Math.max(trect.top, vp.top),
+  };
+  store.set({ addBubble: null });
+  if (r.width < 12 || r.height < 12) return toast('Vùng quá nhỏ để thêm bong bóng.', 'info');
+  const box = { x: (r.left - trect.left) / trect.width, y: (r.top - trect.top) / trect.height, w: r.width / trect.width, h: r.height / trect.height };
+  const id = `m${Date.now().toString(36)}`;
+  type Block = NonNullable<OcrTarget['result']>['blocks'][number];
+  // 1. the bubble exists at once (a dashed empty box) so the user sees it
+  const base: Block = { id, text: '', confidence: 0, box, lines: [] };
+  const put = (b: Block) => {
+    const cur = store.get().targets.find((x) => x.id === targetId);
+    if (!cur?.result) return;
+    const blocks = cur.result.blocks.some((x) => x.id === id) ? cur.result.blocks.map((x) => (x.id === id ? b : x)) : [...cur.result.blocks, b];
+    updateTarget(targetId, { result: { ...cur.result, blocks, text: blocks.map((x) => x.text).join('\n\n') } });
+  };
+  put(base);
+  updateTarget(targetId, { rescanning: id });
+  try {
+    const res = await send({
+      type: 'ocr:scan',
+      jobId: `${targetId}-${id}`,
+      target: { viewportRect: { x: r.left, y: r.top, w: r.width, h: r.height }, devicePixelRatio: window.devicePixelRatio || 1, layout: 'block', lang: s.ocr.language, useCache: false },
+    });
+    const text = res.blocks.map((b) => b.text).join(' ').trim();
+    const lines = res.blocks.flatMap((b) =>
+      b.lines.map((l) => ({
+        ...l,
+        box: { x: box.x + l.box.x * box.w, y: box.y + l.box.y * box.h, w: l.box.w * box.w, h: l.box.h * box.h },
+        words: l.words.map((w) => ({ ...w, box: { x: box.x + w.box.x * box.w, y: box.y + w.box.y * box.h, w: w.box.w * box.w, h: w.box.h * box.h } })),
+      })),
+    );
+    const confidence = Math.round(res.blocks.reduce((k, b) => k + b.confidence, 0) / Math.max(1, res.blocks.length));
+    put({ id, text, confidence, box, lines });
+    if (!text) toast('Không đọc được chữ trong vùng này: hãy gõ nội dung cho bong bóng.', 'info');
+    else toast('Đã thêm bong bóng.', 'ok');
+  } catch (e) {
+    if ((e as MessageError).code !== 'cancelled') toast(`OCR lỗi: ${(e as Error).message}. Hãy gõ nội dung cho bong bóng.`, 'error');
+  } finally {
+    updateTarget(targetId, { rescanning: undefined });
+  }
+  const done = store.get().targets.find((x) => x.id === targetId);
+  if (done?.result) {
+    openOcrBlock(targetId, id, blockRect(trect, box));
+    if (!done.result.blocks.find((b) => b.id === id)?.text) setOcrEditing(true); // nothing read: let the user type it
+    if (done.kind === 'image') void send({ type: 'sidebar:push', payload: { type: 'ocr', result: done.result, source: pageSource() } }).catch(() => {});
+  }
+}
+
 export function editOcrBlock(targetId: string, blockId: string, text: string) {
   const t = store.get().targets.find((x) => x.id === targetId);
   if (!t) return;

@@ -36,6 +36,8 @@ export interface State {
   hoverImage: { el: Element; rect: Rect } | null;
   targets: OcrTarget[];
   regionSelect: boolean;
+  /** id of the OCR target the user is adding a bubble to (drag a rectangle over text the scan missed) */
+  addBubble: string | null;
   toast: { text: string; tone: 'info' | 'error' | 'ok'; id: number } | null;
   capturing: boolean;
 }
@@ -66,6 +68,7 @@ export const store = createStore({
   hoverImage: null,
   targets: [],
   regionSelect: false,
+  addBubble: null,
   toast: null,
   capturing: false,
 });

@@ -55,6 +55,10 @@ beforeEach(() => {
   (globalThis as { Translator?: unknown }).Translator = { availability: async () => 'unavailable', create: async () => { throw new Error('no'); } };
   vi.resetModules();
 });
+
+async function enableModel() {
+  (await import('@/translation/mt-providers')).setLocalModelEnabled(true);
+}
 afterEach(() => {
   act(() => root.unmount());
   host.remove();
@@ -63,6 +67,7 @@ afterEach(() => {
 
 describe('MachineTranslation with the downloaded model', () => {
   it('offers the model with its size, downloads only after the click, then shows the translation and the provider', async () => {
+    await enableModel();
     const { MachineTranslation } = await import('@/ui/MachineTranslation');
     await act(async () => root.render(<MachineTranslation text="Xin chào các bạn, hôm nay trời đẹp quá." s={DEFAULT_SETTINGS} />));
     await tick(30);
@@ -83,6 +88,7 @@ describe('MachineTranslation with the downloaded model', () => {
 
   it('with the model already on the device it translates without any prompt', async () => {
     state.cached = true;
+    await enableModel();
     const { MachineTranslation } = await import('@/ui/MachineTranslation');
     await act(async () => root.render(<MachineTranslation text="Tôi muốn đặt một bàn cho bốn người." s={DEFAULT_SETTINGS} />));
     await tick(80);
@@ -92,6 +98,7 @@ describe('MachineTranslation with the downloaded model', () => {
   });
 
   it('English text with no translator and no model: offers the English → Vietnamese model (never goes to the cloud)', async () => {
+    await enableModel();
     const { MachineTranslation } = await import('@/ui/MachineTranslation');
     await act(async () => root.render(<MachineTranslation text="Where is the nearest train station, please?" s={DEFAULT_SETTINGS} />));
     await tick(30);

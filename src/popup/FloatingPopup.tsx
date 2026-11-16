@@ -11,12 +11,23 @@ import { canSpeak, speak } from '@/ui/speech';
 import { computePopupPosition } from './position';
 import { OcrMeaning } from './OcrMeaning';
 import { MachineTranslation } from '@/ui/MachineTranslation';
+import { CopyButton } from '@/ui/CopyButton';
+import { useGate } from '@/ui/auth';
 import { glassAttr, popupSurface, prefersDark, resolveTheme } from '@/ui/theme';
 import { crossfadeClass } from '@/ui/motion';
 import { findBlock, useStore, type PopupView } from '@/content/store';
 import * as A from '@/content/actions';
 
 const MODE_LABEL = { word: 'Từ', phrase: 'Cụm từ', sentence: 'Câu', paragraph: 'Đoạn văn', unsupported: 'Ngôn ngữ khác' } as const;
+
+/** The user's own placement of the popup (drag the grip to move, the corner to resize). Kept while the page stays open. */
+interface Manual {
+  left?: number;
+  top?: number;
+  width?: number;
+  height?: number;
+}
+let lastManual: Manual = {};
 
 export function FloatingPopup({ shadow }: { shadow: ShadowRoot }) {
   const live = useStore((s) => s.popup);
@@ -37,8 +48,21 @@ export function FloatingPopup({ shadow }: { shadow: ShadowRoot }) {
     return () => clearTimeout(t);
   }, [leaving]);
   const popup = live?.open ? live : leaving ? last.current : null;
+  const gate = useGate();
   const fade = useRef({});
   const [height, setHeight] = useState(320);
+  const [manual, setManualState] = useState<Manual>(lastManual);
+  const setManual = (m: Manual) => {
+    lastManual = m;
+    setManualState(m);
+  };
+  // a freshly opened popup is placed next to its text again; only the size the user chose is kept
+  const wasOpen = useRef(false);
+  useEffect(() => {
+    if (live?.open && !wasOpen.current) setManual({ width: lastManual.width, height: lastManual.height });
+    wasOpen.current = !!live?.open;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [live?.open]);
   const [vp, setVp] = useState({ width: window.innerWidth, height: window.innerHeight });
 
   useLayoutEffect(() => {
@@ -54,7 +78,55 @@ export function FloatingPopup({ shadow }: { shadow: ShadowRoot }) {
   }, [popup?.open]);
 
   if (!popup?.open) return null;
-  const pos = computePopupPosition(popup.anchor, { width: s.popup.width, height }, vp, popup.prefer ?? s.popup.position);
+  const auto = computePopupPosition(popup.anchor, { width: manual.width ?? s.popup.width, height: manual.height ?? height }, vp, popup.prefer ?? s.popup.position);
+  const clampX = (x: number, w: number) => Math.min(Math.max(8, x), Math.max(8, vp.width - w - 8));
+  const clampY = (y: number) => Math.min(Math.max(8, y), Math.max(8, vp.height - 60));
+  const pos = {
+    ...auto,
+    left: manual.left !== undefined ? clampX(manual.left, auto.width) : auto.left,
+    top: manual.top !== undefined ? clampY(manual.top) : auto.top,
+    maxHeight: manual.height !== undefined ? Math.max(160, Math.min(manual.height, vp.height - 16)) : auto.maxHeight,
+  };
+  const startDrag = (e: React.PointerEvent) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    const el = e.currentTarget as HTMLElement;
+    el.setPointerCapture(e.pointerId);
+    const dx = e.clientX - pos.left;
+    const dy = e.clientY - pos.top;
+    const move = (ev: PointerEvent) => setManual({ ...lastManual, left: clampX(ev.clientX - dx, pos.width), top: clampY(ev.clientY - dy) });
+    const up = () => {
+      el.removeEventListener('pointermove', move);
+      el.removeEventListener('pointerup', up);
+    };
+    el.addEventListener('pointermove', move);
+    el.addEventListener('pointerup', up);
+  };
+  const startResize = (e: React.PointerEvent) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const el = e.currentTarget as HTMLElement;
+    el.setPointerCapture(e.pointerId);
+    const x0 = e.clientX;
+    const y0 = e.clientY;
+    const w0 = pos.width;
+    const h0 = ref.current?.getBoundingClientRect().height ?? height;
+    const move = (ev: PointerEvent) =>
+      setManual({
+        ...lastManual,
+        left: pos.left,
+        top: pos.top,
+        width: Math.min(Math.max(260, w0 + ev.clientX - x0), vp.width - pos.left - 8),
+        height: Math.min(Math.max(160, h0 + ev.clientY - y0), vp.height - pos.top - 8),
+      });
+    const up = () => {
+      el.removeEventListener('pointermove', move);
+      el.removeEventListener('pointerup', up);
+    };
+    el.addEventListener('pointermove', move);
+    el.addEventListener('pointerup', up);
+  };
   const surface = popupSurface(s, resolveTheme(s.appearance.theme, prefersDark()));
   const view = popup.stack[popup.stack.length - 1];
 
@@ -68,10 +140,25 @@ export function FloatingPopup({ shadow }: { shadow: ShadowRoot }) {
       {...glassAttr(s, 'popup')}
       data-placement={pos.placement}
       className={cx('ml-glass pointer-events-auto fixed flex flex-col overflow-hidden rounded-[20px] text-text', leaving ? 'ml-out' : s.popup.animation && 'animate-ml-in')}
-      style={{ ...(surface.vars as React.CSSProperties), left: pos.left, top: pos.top, width: pos.width, maxHeight: Math.min(pos.maxHeight, 640), opacity: s.popup.opacity }}
+      style={{ ...(surface.vars as React.CSSProperties), left: pos.left, top: pos.top, width: pos.width, maxHeight: manual.height !== undefined ? pos.maxHeight : Math.min(pos.maxHeight, 640), ...(manual.height !== undefined ? { height: pos.maxHeight } : {}), opacity: s.popup.opacity }}
     >
+      {/* grip: drag to move the popup anywhere on the page */}
+      <div onPointerDown={startDrag} className="flex h-3.5 shrink-0 cursor-grab touch-none items-center justify-center active:cursor-grabbing" title="Kéo để di chuyển" data-ml-popup-grip="">
+        <span className="h-1 w-9 rounded-full bg-text/20" />
+      </div>
       <div className={cx('flex min-h-0 flex-1 flex-col', crossfadeClass(`${popup.stack.length}|${popup.tab}|${view.kind === 'lookup' ? view.req.text : view.kind}`, fade.current))}>
-        {view.kind === 'lookup' ? <LookupView view={view} s={s} canBack={popup.stack.length > 1} tab={popup.tab} /> : <OcrView view={view} s={s} shadow={shadow} canBack={popup.stack.length > 1} />}
+        {gate === 'locked' ? (
+          <div className="space-y-2 p-3 text-[13px]" data-ml-popup-locked="">
+            <div className="font-semibold text-text">Đăng nhập Google để dùng LingoLens</div>
+            <div className="text-muted">Mở trang đăng nhập, sau đó chọn lại từ trên trang.</div>
+            <Button size="sm" variant="primary" onClick={() => void A.openSettings('setup')}>
+              Đăng nhập
+            </Button>
+          </div>
+        ) : view.kind === 'lookup' ? <LookupView view={view} s={s} canBack={popup.stack.length > 1} tab={popup.tab} /> : <OcrView view={view} s={s} shadow={shadow} canBack={popup.stack.length > 1} />}
+      </div>
+      <div onPointerDown={startResize} className="absolute bottom-0 right-0 z-10 h-5 w-5 cursor-nwse-resize touch-none" title="Kéo để đổi kích thước" data-ml-popup-resize="">
+        <svg viewBox="0 0 20 20" className="h-full w-full text-text/40" aria-hidden><path d="M18 8L8 18M18 13L13 18" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" fill="none" /></svg>
       </div>
     </div>
   );
@@ -113,6 +200,16 @@ function SpeakButton({ text, s }: { text: string; s: Settings }) {
     <IconButton label={ok ? 'Phát âm' : 'Trình duyệt không hỗ trợ phát âm'} disabled={!ok} onClick={() => speak(text)}>
       <IconVolume />
     </IconButton>
+  );
+}
+
+/** Copy + pronounce, the two small actions every card header has. */
+function CopySpeak({ text, s }: { text: string; s: Settings }) {
+  return (
+    <>
+      <CopyButton text={text} label="Sao chép" />
+      <SpeakButton text={text} s={s} />
+    </>
   );
 }
 
@@ -232,7 +329,7 @@ function WordView({ r, s, canBack, tab }: { r: WordLookup; s: Settings; canBack:
         }
         actions={
           <>
-            <SpeakButton text={r.query} s={s} />
+            <CopySpeak text={r.query} s={s} />
             {r.found && <SaveButton lemma={r.lemma} onSave={() => void A.saveWord(r)} />}
           </>
         }
@@ -300,7 +397,7 @@ function PhraseView({ r, s, canBack, tab, context }: { r: PhraseLookup; s: Setti
         }
         actions={
           <>
-            <SpeakButton text={r.query} s={s} />
+            <CopySpeak text={r.query} s={s} />
             <SaveButton lemma={r.phrase} onSave={() => void A.savePhrase(r.phrase, vi[0]?.vi?.join('; ') ?? en[0]?.en ?? '', context)} />
           </>
         }
@@ -371,7 +468,7 @@ function SentenceView({ r, s, canBack, tab }: { r: SentenceAnalysis; s: Settings
             {r.grammar.tense && <Badge>{r.grammar.tense.nameVi}</Badge>}
           </>
         }
-        actions={<SpeakButton text={r.text} s={s} />}
+        actions={<CopySpeak text={r.text} s={s} />}
       />
       {tabs.length > 1 && <Tabs className="px-2" tabs={tabs.map((t) => (t.id === 'context' ? { ...t, count: r.notes.length } : t.id === 'vocab' ? { ...t, count: r.vocabulary.length } : t))} value={active} onChange={A.setTab} />}
       <Body>
@@ -409,7 +506,7 @@ function ParagraphView({ r, s, canBack, tab }: { r: ParagraphAnalysis; s: Settin
         title={<span className="text-[14px] font-medium text-text">Đoạn văn · {r.sentences.length} câu</span>}
         sub={<span className="line-clamp-2">{r.text}</span>}
         badges={<Badge tone="accent">{MODE_LABEL.paragraph}</Badge>}
-        actions={<SpeakButton text={r.text} s={s} />}
+        actions={<CopySpeak text={r.text} s={s} />}
       />
       {tabs.length > 1 && <Tabs className="px-2" tabs={tabs} value={active} onChange={A.setTab} />}
       <Body>
@@ -481,7 +578,7 @@ function OcrView({ view, s, shadow, canBack }: { view: Extract<PopupView, { kind
             </>
           ) : undefined
         }
-        actions={<SpeakButton text={view.text} s={s} />}
+        actions={<CopySpeak text={view.text} s={s} />}
       />
       <Body>
         {view.editing ? (
@@ -512,6 +609,7 @@ function OcrView({ view, s, shadow, canBack }: { view: Extract<PopupView, { kind
             <div className="ml-card ml-glass-card rounded-2xl border-l-[4px] border-l-subtle px-3 py-2.5 hover:border-l-accent/70" data-ml-ocr-original="">
             <div className="mb-1 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-muted">
               <span className="h-1.5 w-1.5 rounded-full bg-subtle" /> Nguyên văn
+              <CopyButton text={view.text} label="Sao chép nguyên văn" className="ml-auto h-6 w-6" />
             </div>
             <div ref={textRef} onMouseUp={onMouseUp} className="ml-tr select-text leading-relaxed text-text">
               {words.map((w, i) =>

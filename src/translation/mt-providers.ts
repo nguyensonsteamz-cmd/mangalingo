@@ -103,11 +103,23 @@ export const messageBackend: LocalBackend = {
 
 export const localProvider = new LocalModelProvider(messageBackend, () => typeof WebAssembly !== 'undefined');
 
+/**
+ * The downloaded OPUS-MT model is switched OFF in the product (decision 2026-11-17: Google Cloud Translation first, the platform
+ * translator second). The code, tests and download tooling stay, so it can be switched back on without rework.
+ */
+let localModelEnabled = false;
+export const isLocalModelEnabled = () => localModelEnabled;
+export function setLocalModelEnabled(on: boolean) {
+  localModelEnabled = on;
+  registry = null;
+}
+
 let registry: ProviderRegistry | null = null;
 /** Registry with every provider of this platform. Priority: native first (today's behaviour), then the downloaded model. */
 export function getRegistry(): ProviderRegistry {
   if (!registry) {
-    registry = new ProviderRegistry().register(googleProvider(), 1).register(nativeProvider(), 10).register(localProvider, 20);
+    registry = new ProviderRegistry().register(googleProvider(), 1).register(nativeProvider(), 10);
+    if (localModelEnabled) registry.register(localProvider, 20);
   }
   return registry;
 }
@@ -133,7 +145,7 @@ export async function setMtPrefs(p: MtPrefs): Promise<void> {
 
 export async function localAvailability(pair?: LanguagePair): Promise<Availability> {
   const p = pair ?? EN_VI;
-  if (!modelForPair(p) || !localProvider.capabilities.platforms.includes(currentPlatform())) return 'unsupported'; // iOS: not verified on a device → not offered
+  if (!localModelEnabled || !modelForPair(p) || !localProvider.capabilities.platforms.includes(currentPlatform())) return 'unsupported'; // iOS: not verified on a device → not offered
   return localProvider.availability(p);
 }
 

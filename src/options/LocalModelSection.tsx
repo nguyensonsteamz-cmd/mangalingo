@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react';
 import { Badge, Button, Notice, Progress, Toggle } from '@/ui/components';
 import { send } from '@/shared/messages';
 import { LOCAL_MODELS, type LocalModelSpec } from '@/modules/mt';
-import { currentPlatform, getMtPrefs, setMtPrefs, messageBackend } from '@/translation/mt-providers';
+import { isLocalModelEnabled, currentPlatform, getMtPrefs, setMtPrefs, messageBackend } from '@/translation/mt-providers';
 
 type St = { state: 'checking' | 'idle' | 'downloading' | 'ready' | 'error'; p: number; error?: string };
 const mb = (b: number) => Math.round(b / 2 ** 20);
@@ -68,7 +68,7 @@ function ModelRow({ m, onChange }: { m: LocalModelSpec; onChange: () => void }) 
 
 /** iPhone: the downloaded model is not offered (the app page runs from a custom URL scheme where it is not verified); Apple Translation handles both directions there. */
 export function LocalModelSection() {
-  return currentPlatform() === 'ios' ? null : <LocalModelCard />;
+  return currentPlatform() === 'ios' || !isLocalModelEnabled() ? null : <LocalModelCard />;
 }
 
 function LocalModelCard() {

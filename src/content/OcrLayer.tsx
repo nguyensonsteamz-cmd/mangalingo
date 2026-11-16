@@ -46,6 +46,7 @@ export function OcrLayer() {
   const hover = useStore((s) => s.hoverImage);
   const settings = useStore((s) => s.settings);
   const region = useStore((s) => s.regionSelect);
+  const addFor = useStore((s) => s.addBubble);
   useViewportTick(targets.length > 0 || !!hover);
 
   return (
@@ -55,6 +56,7 @@ export function OcrLayer() {
         <TargetOverlay key={t.id} t={t} showBoxes={settings.ocr.showBoxes} />
       ))}
       {region && <RegionSelector />}
+      {addFor && <AddBubbleSelector targetId={addFor} />}
     </>
   );
 }
@@ -124,6 +126,7 @@ function TargetOverlay({ t, showBoxes }: { t: OcrTarget; showBoxes: boolean }) {
               return <ResizableBox key={b.id} t={t} b={b} box={box} n={numbered ? i + 1 : 0} />;
             })}
           <ResultChip t={t} rect={rect} />
+          <AddBubbleButton t={t} rect={rect} />
         </>
       )}
     </>
@@ -224,6 +227,69 @@ function ResizableBox({ t, b, box, n }: { t: OcrTarget; b: NonNullable<OcrTarget
           <Spinner /> đang quét lại
         </span>
       )}
+    </div>
+  );
+}
+
+/** "＋ Thêm bong bóng": appears over a scanned image; starts the add mode for that image. */
+function AddBubbleButton({ t, rect }: { t: OcrTarget; rect: Rect }) {
+  return (
+    <button
+      type="button"
+      data-ml-add-bubble=""
+      onClick={(e) => e.nativeEvent.isTrusted && store.set({ addBubble: t.id })}
+      className="ml-glass ml-focus ml-press pointer-events-auto fixed inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[12px] font-medium text-text hover:text-accent"
+      style={{ left: Math.max(6, rect.left + 6), top: Math.min(Math.max(6, rect.top + 6), window.innerHeight - 34) }}
+      title="Thêm bong bóng: kéo một vùng chữ mà OCR đã bỏ sót"
+    >
+      ＋ Thêm bong bóng
+    </button>
+  );
+}
+
+/** Drag a rectangle over text the scan missed (inside the image): only that area is read and added as a new bubble. */
+function AddBubbleSelector({ targetId }: { targetId: string }) {
+  const t = store.get().targets.find((x) => x.id === targetId);
+  const area = t && A.targetRect(t);
+  const startRef = useRef<{ x: number; y: number } | null>(null);
+  const [cur, setCur] = useState<{ x: number; y: number } | null>(null);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && store.set({ addBubble: null });
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, []);
+  if (!area) return null;
+  const s0 = startRef.current;
+  const rect = s0 && cur ? { left: Math.min(s0.x, cur.x), top: Math.min(s0.y, cur.y), width: Math.abs(cur.x - s0.x), height: Math.abs(cur.y - s0.y) } : null;
+  return (
+    <div
+      data-ml-add-region=""
+      className="pointer-events-auto fixed cursor-crosshair bg-black/25 outline outline-2 outline-accent/70"
+      style={{ left: area.left, top: area.top, width: area.width, height: area.height }}
+      onPointerDown={(e) => {
+        if (!e.nativeEvent.isTrusted) return;
+        e.preventDefault();
+        (e.currentTarget as Element).setPointerCapture(e.pointerId);
+        startRef.current = { x: e.clientX, y: e.clientY };
+        setCur({ x: e.clientX, y: e.clientY });
+      }}
+      onPointerMove={(e) => startRef.current && setCur({ x: e.clientX, y: e.clientY })}
+      onPointerUp={(e) => {
+        const a = startRef.current;
+        startRef.current = null;
+        if (!a || !e.nativeEvent.isTrusted) return;
+        const r = { left: Math.min(a.x, e.clientX), top: Math.min(a.y, e.clientY), width: Math.abs(e.clientX - a.x), height: Math.abs(e.clientY - a.y) };
+        if (r.width > 12 && r.height > 12) void A.addBlock(targetId, r);
+        else setCur(null);
+      }}
+    >
+      {rect && <div className="fixed rounded-sm border-2 border-accent bg-accent/15" style={rect} />}
+      <div className="ml-glass absolute left-1/2 top-2 flex -translate-x-1/2 items-center gap-2 rounded-full px-3 py-1 text-[12px] text-text" onPointerDown={(e) => e.stopPropagation()}>
+        Kéo quanh chữ cần thêm
+        <Button size="sm" variant="ghost" onClick={() => store.set({ addBubble: null })}>
+          Hủy (Esc)
+        </Button>
+      </div>
     </div>
   );
 }

@@ -1,5 +1,7 @@
 /** Vocabulary notebook UI: search, filter, status, notes, export/import, storage usage. */
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { CopyButton } from './CopyButton';
+import { groupByDay } from './dates';
 import type { LearningStatus, VocabEntry } from '@/shared/types';
 import { chromeLocal } from '@/storage/kv';
 import { OcrCache } from '@/storage/ocr-cache';
@@ -111,11 +113,30 @@ export function VocabManager({ compact }: { compact?: boolean }) {
       ) : !shown.length ? (
         <Empty title="Không có kết quả">Thử từ khóa hoặc bộ lọc khác.</Empty>
       ) : (
-        <ul className="space-y-2">
-          {shown.map((e) => (
-            <VocabItem key={e.id} e={e} compact={compact} />
-          ))}
-        </ul>
+        sort === 'az' ? (
+          <ul className="space-y-2">
+            {shown.map((e) => (
+              <VocabItem key={e.id} e={e} compact={compact} />
+            ))}
+          </ul>
+        ) : (
+          <div className="space-y-3" data-ml-vocab-days="">
+            {groupByDay(shown, (e) => e.createdAt).map((g) => (
+              <section key={g.key} data-ml-vocab-day={g.key}>
+                <div className="mb-1.5 flex items-center gap-2 px-1">
+                  <span className="text-[12px] font-bold uppercase tracking-wider text-muted">{g.label}</span>
+                  <span className="rounded-full bg-text/[0.07] px-1.5 text-[11px] font-semibold text-subtle">{g.items.length}</span>
+                  <span className="h-px flex-1 bg-border/70" />
+                </div>
+                <ul className="space-y-2">
+                  {g.items.map((e) => (
+                    <VocabItem key={e.id} e={e} compact={compact} />
+                  ))}
+                </ul>
+              </section>
+            ))}
+          </div>
+        )
       )}
     </div>
   );
@@ -141,6 +162,7 @@ function VocabItem({ e, compact }: { e: VocabEntry; compact?: boolean }) {
           </div>
           <div className="ml-tr mt-0.5 font-semibold text-text">{e.meaning || <span className="font-normal text-subtle">—</span>}</div>
         </div>
+        <CopyButton text={() => `${e.word} — ${e.meaning}`} label="Sao chép từ và nghĩa" />
         {canSpeak() && (
           <IconButton label="Phát âm" onClick={() => speak(e.word)}>
             <IconVolume size={14} />

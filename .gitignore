@@ -25,3 +25,4 @@ benchmarks/mt/node_modules/
 benchmarks/mt/data/iwslt.jsonl
 benchmarks/mt/data/alt.jsonl
 benchmarks/mt/results/*__*.json
+release-artifacts/

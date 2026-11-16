@@ -9,7 +9,7 @@ export type PopupTheme = 'follow' | 'light' | 'dark';
 export type AutoClose = 'off' | 'scroll' | 'leave' | 'timer';
 export type ClickModifier = 'none' | 'alt' | 'ctrl' | 'shift';
 export type FontFamily = 'system' | 'sans' | 'serif' | 'readable' | 'mono';
-export type SidebarTab = 'translation' | 'vocabulary' | 'grammar' | 'context' | 'saved';
+export type SidebarTab = 'translation' | 'vocabulary' | 'grammar' | 'context' | 'saved' | 'notes';
 export type OcrLayout = 'sparse' | 'auto' | 'block';
 export type OcrTrigger = 'hover' | 'manual';
 export type ContentWidth = 'full' | 'comfortable' | 'narrow';
@@ -199,7 +199,7 @@ export const RULES: Record<string, Rule> = {
   'sidebar.fontSize': { t: 'num', min: 0, max: 22, int: true },
   'sidebar.theme': { t: 'enum', values: ['follow', 'light', 'dark'] },
   'sidebar.background': { t: 'color', optional: true },
-  'sidebar.defaultTab': { t: 'enum', values: ['translation', 'vocabulary', 'grammar', 'context', 'saved'] },
+  'sidebar.defaultTab': { t: 'enum', values: ['translation', 'vocabulary', 'grammar', 'context', 'saved', 'notes'] },
   'typography.fontFamily': { t: 'enum', values: ['system', 'sans', 'serif', 'readable', 'mono'] },
   'typography.fontSize': { t: 'num', min: 11, max: 22, int: true },
   'typography.lineHeight': { t: 'num', min: 1.1, max: 2.2 },

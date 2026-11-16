@@ -12,6 +12,7 @@ import { UsageBlockedError, activeProviderLabel, getTranslator, machineTranslate
 import type { JobProgress, JobResult } from '@/modules/translation';
 import type { BlockedDecision } from '@/modules/usage/types';
 import { UsageConsent } from './UsageNotice';
+import { CopyButton } from './CopyButton';
 import { Button, Progress, Spinner, cx } from './components';
 import { SettingsStore } from '@/storage/settings-store';
 import { chromeLocal } from '@/storage/kv';
@@ -180,6 +181,7 @@ export function MachineTranslation({ text, s, className, onState, pair: pairProp
     >
       <div className="mb-1 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-accent">
         <span className="h-1.5 w-1.5 rounded-full bg-accent" /> Bản dịch{viEn ? ' Việt → Anh' : ''}
+        {st.k === 'done' && <CopyButton text={st.text} label="Sao chép bản dịch" className="ml-auto h-6 w-6" />}
         {provider ? <span className="ml-auto truncate text-[10px] font-medium normal-case tracking-normal text-muted" data-ml-mt-provider="">{provider}</span> : null}
       </div>
       {st.k === 'done' ? (
