@@ -94,8 +94,9 @@ export function WordMeaning({ r, s, max = 6, posInHeader = false }: { r: WordLoo
   return (
     <div>
       <InflectionLine r={r} />
-      {/* machine translation of the word first (when on); the dictionary meanings follow as the cross-check */}
-      {!englishTarget && <MtWordMeaning r={r} s={s} hasEnglish={en.length > 0} noDict={vi.length === 0} />}
+      {/* the dictionary meanings are curated and ranked by usage – they come first; a lone word translated by the
+          small on-device model (no context) is only a cross-check. Words without Vietnamese data get the machine translation on top. */}
+      {!englishTarget && vi.length === 0 && <MtWordMeaning r={r} s={s} hasEnglish={en.length > 0} noDict />}
       {englishTarget ? (
         <EnglishDefinitions r={r} en={en} s={s} max={max} title="English definitions · WordNet" />
       ) : vi.length > 0 ? (
@@ -120,6 +121,7 @@ export function WordMeaning({ r, s, max = 6, posInHeader = false }: { r: WordLoo
           ))}
         </div>
       ) : null}
+      {!englishTarget && vi.length > 0 && <MtWordMeaning r={r} s={s} hasEnglish={en.length > 0} noDict={false} secondary />}
       {englishTarget && vi.length > 0 && (
         <>
           <SectionTitle>Tiếng Việt</SectionTitle>
@@ -135,12 +137,23 @@ export function WordMeaning({ r, s, max = 6, posInHeader = false }: { r: WordLoo
  * Word without Vietnamese data: machine translation of the word (Chrome, on-device) when the
  * translation mode allows it; otherwise the honest "no Vietnamese data" notice.
  */
-function MtWordMeaning({ r, s, hasEnglish, noDict }: { r: WordLookup; s: Settings; hasEnglish: boolean; noDict: boolean }) {
+function MtWordMeaning({ r, s, hasEnglish, noDict, secondary = false }: { r: WordLookup; s: Settings; hasEnglish: boolean; noDict: boolean; secondary?: boolean }) {
   // Translate the word as written (keeps plural/tense), falling back to the base form.
   // lower case: a capitalised lone word reads like an exclamation to the translator ("You" → "Mày!")
   const word = (r.found ? r.query.trim() || r.lemma : r.query).toLowerCase();
   const mt = useMt(r.found ? word : undefined, s);
   const vi = mt ? mt.charAt(0).toLowerCase() + mt.slice(1) : mt;
+  if (secondary) {
+    // cross-check line under the dictionary meanings: nothing while pending / when it only repeats them
+    const known = r.senses.flatMap((x) => x.vi ?? []).join(' ').toLowerCase();
+    if (!vi || vi.trim().toLowerCase() === word.toLowerCase() || known.includes(vi.trim().toLowerCase())) return null;
+    return (
+      <div className="mt-2 text-[12.5px] text-muted" data-ml-word-mt="">
+        <span className="mr-1.5 rounded bg-accent/15 px-1 text-[10px] font-semibold text-accent" title="Dịch máy từng từ, không có ngữ cảnh – chỉ để đối chiếu">dịch máy</span>
+        {vi}
+      </div>
+    );
+  }
   if (vi === undefined) {
     return (
       <div className="flex items-center gap-2 py-1 text-[12.5px] text-muted">
@@ -508,13 +521,13 @@ export function VocabHints({ items, onLookup, onSave, saved, s }: { items: Vocab
   );
 }
 
-/** One word of the vocabulary list: machine translation first (when on), the dictionary meaning as the cross-check / fallback. */
+/** One word of the vocabulary list: the dictionary meaning first; the on-device machine translation fills the gaps and cross-checks. */
 function VocabRow({ v, s, onLookup, onSave, saved }: { v: VocabHint; s?: Settings; onLookup?: (t: string) => void; onSave?: (v: VocabHint) => void; saved?: Set<string> }) {
   // lower case: a capitalised lone word reads like an exclamation to the translator ("You" → "Mày!")
   const asked = s ? v.word.toLowerCase() : undefined;
   const mt = useMt(asked, s ?? ({ reading: { translationMode: 'dictionary' } } as Settings));
   const mtVi = asked && mt && mt.trim().toLowerCase() !== asked ? mt.charAt(0).toLowerCase() + mt.slice(1) : undefined;
-  const vi = mtVi ?? v.vi;
+  const vi = v.vi ?? mtVi;
   return (
     <li className="flex items-start gap-2 py-1.5">
       <div className="min-w-0 flex-1">
@@ -526,8 +539,8 @@ function VocabRow({ v, s, onLookup, onSave, saved }: { v: VocabHint; s?: Setting
           {vi ? (
             <>
               {vi}
-              {mtVi && <span className="ml-1.5 rounded bg-accent/15 px-1 text-[10px] font-semibold text-accent">dịch máy</span>}
-              {mtVi && v.vi && v.vi.trim().toLowerCase() !== mtVi.trim().toLowerCase() && <div className="text-[11.5px] text-subtle">Từ điển: {v.vi}</div>}
+              {!v.vi && <span className="ml-1.5 rounded bg-accent/15 px-1 text-[10px] font-semibold text-accent">dịch máy</span>}
+              {mtVi && v.vi && !v.vi.toLowerCase().includes(mtVi.trim().toLowerCase()) && <div className="text-[11.5px] text-subtle">Dịch máy: {mtVi}</div>}
             </>
           ) : asked && mt === undefined ? (
             <span className="inline-flex items-center gap-1.5"><Spinner /> Đang dịch…</span>
