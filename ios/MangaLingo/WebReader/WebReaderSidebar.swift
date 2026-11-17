@@ -75,14 +75,15 @@ struct ReaderSidebarPanel: View {
     }
 }
 
-/// The "touch" tools: a column of buttons docked to a screen edge. Closed, only a small arrow tab shows; drag the tab up / down to
-/// move it, or across the middle of the screen to dock it on the other side.
+/// The "touch" tools: a round arrow button that can be dragged anywhere and settles against the left or the right edge (at any height).
+/// Tapping it opens a column of tools right next to it (below the button, or above it when there is no room); the column scrolls
+/// when the screen is too short for all of it.
 struct ReaderToolsDrawer: View {
     @ObservedObject var model: WebReaderViewModel
     @AppStorage("wr.toolsY") private var yFraction = 0.4
     @AppStorage("wr.toolsRight") private var onRight = true
     @State private var open = false
-    @State private var dragY: CGFloat?
+    @State private var dragPoint: CGPoint?
 
     private struct Tool: Identifiable {
         let id: String
@@ -107,74 +108,89 @@ struct ReaderToolsDrawer: View {
 
     private let tileW: CGFloat = 76
     private let tileH: CGFloat = 70
-    private let tabW: CGFloat = 30
+    private let handleSize: CGFloat = 52
+    private let margin: CGFloat = 6
+    private let gap: CGFloat = 8
 
     var body: some View {
         GeometryReader { geo in
+            let size = geo.size
             let items = tools
-            let panelH = CGFloat(items.count) * tileH + 12
             let panelW = tileW + 12
-            let center = dragY ?? CGFloat(yFraction) * geo.size.height
-            let top = min(max(8, center - panelH / 2), max(8, geo.size.height - panelH - 8))
-            HStack(spacing: 0) {
-                if !onRight { panel(items, width: panelW, height: panelH) }
-                handle(in: geo.size)
-                if onRight { panel(items, width: panelW, height: panelH) }
+            let fullH = CGFloat(items.count) * tileH + 12
+            let panelH = max(tileH + 12, min(fullH, size.height - handleSize - 2 * margin - gap))
+            // the button: where the finger is while dragging, otherwise against its edge at the saved height
+            let restX = onRight ? size.width - handleSize / 2 - margin : handleSize / 2 + margin
+            let hx = dragPoint?.x ?? restX
+            let rawY = dragPoint?.y ?? CGFloat(yFraction) * size.height
+            let hy = min(max(handleSize / 2 + margin, rawY), max(handleSize / 2 + margin, size.height - handleSize / 2 - margin))
+            // the column opens on the side of the button that has room
+            let spaceBelow = size.height - (hy + handleSize / 2) - margin
+            let below = spaceBelow >= panelH + gap || hy < size.height / 2
+            let rawPanelY = below ? hy + handleSize / 2 + gap + panelH / 2 : hy - handleSize / 2 - gap - panelH / 2
+            let panelY = min(max(margin + panelH / 2, rawPanelY), size.height - margin - panelH / 2)
+            let panelX = onRight ? size.width - margin - panelW / 2 : margin + panelW / 2
+
+            ZStack {
+                if open {
+                    panel(items, width: panelW, height: panelH, fullHeight: fullH)
+                        .position(x: panelX, y: panelY)
+                        .transition(.opacity.combined(with: .scale(scale: 0.92)))
+                }
+                handle(size: size)
+                    .position(x: hx, y: hy)
             }
-            .frame(height: panelH)
-            .offset(x: open ? 0 : (onRight ? panelW : -panelW))
-            .position(x: onRight ? geo.size.width - (tabW + panelW) / 2 + (open ? 0 : 0) : (tabW + panelW) / 2, y: top + panelH / 2)
-            .animation(dragY == nil ? .spring(response: 0.35, dampingFraction: 0.85) : nil, value: open)
+            .frame(width: size.width, height: size.height)
+            .animation(dragPoint == nil ? .spring(response: 0.32, dampingFraction: 0.85) : nil, value: open)
+            .animation(dragPoint == nil ? .spring(response: 0.32, dampingFraction: 0.85) : nil, value: onRight)
         }
         .coordinateSpace(name: "readerTools")
         .allowsHitTesting(!model.sidebarOpen)
     }
 
-    private func panel(_ items: [Tool], width: CGFloat, height: CGFloat) -> some View {
-        VStack(spacing: 0) {
-            ForEach(items) { t in
-                Button {
-                    open = false
-                    t.run()
-                } label: {
-                    VStack(spacing: 3) {
-                        Image(systemName: t.symbol).font(.system(size: 23, weight: .medium))
-                        Text(t.label).font(.system(size: 12, weight: .semibold)).lineLimit(1)
+    private func panel(_ items: [Tool], width: CGFloat, height: CGFloat, fullHeight: CGFloat) -> some View {
+        ScrollView(.vertical, showsIndicators: false) {
+            VStack(spacing: 0) {
+                ForEach(items) { t in
+                    Button {
+                        open = false
+                        t.run()
+                    } label: {
+                        VStack(spacing: 3) {
+                            Image(systemName: t.symbol).font(.system(size: 23, weight: .medium))
+                            Text(t.label).font(.system(size: 12, weight: .semibold)).lineLimit(1)
+                        }
+                        .frame(width: tileW, height: tileH - 2)
+                        .background(RoundedRectangle(cornerRadius: 14).fill(t.active ? ReaderPalette.accentFill.opacity(0.5) : Color.clear))
                     }
-                    .frame(width: tileW, height: tileH - 2)
-                    .background(RoundedRectangle(cornerRadius: 14).fill(t.active ? ReaderPalette.accentFill.opacity(0.5) : Color.clear))
+                    .foregroundColor(.white)
+                    .accessibilityLabel(t.label)
                 }
-                .foregroundColor(.white)
-                .accessibilityLabel(t.label)
             }
+            .padding(.vertical, 6)
         }
         .frame(width: width, height: height)
-        .background(RoundedRectangle(cornerRadius: 20).fill(ReaderPalette.surface.opacity(0.96)))
-        .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.white.opacity(0.1), lineWidth: 1))
+        .background(RoundedRectangle(cornerRadius: 20).fill(ReaderPalette.surface.opacity(0.97)))
+        .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.white.opacity(0.12), lineWidth: 1))
     }
 
-    /// A short tab (not as tall as the panel) so it takes little room while the tools are closed.
-    private func handle(in size: CGSize) -> some View {
-        Image(systemName: (open == onRight) ? "chevron.right" : "chevron.left")
-            .font(.system(size: 15, weight: .bold))
+    private func handle(size: CGSize) -> some View {
+        Image(systemName: open ? "xmark" : (onRight ? "chevron.left" : "chevron.right"))
+            .font(.system(size: 18, weight: .bold))
             .foregroundColor(.white)
-            .frame(width: tabW, height: 56)
-            .background(RoundedRectangle(cornerRadius: 14).fill(ReaderPalette.surface.opacity(0.96)))
-            .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.white.opacity(0.12), lineWidth: 1))
-            .contentShape(Rectangle())
+            .frame(width: handleSize, height: handleSize)
+            .background(Circle().fill(ReaderPalette.accentFill.opacity(0.92)))
+            .overlay(Circle().stroke(Color.white.opacity(0.25), lineWidth: 1))
+            .shadow(color: Color.black.opacity(0.35), radius: 6, x: 0, y: 2)
+            .contentShape(Circle())
+            .onTapGesture { open.toggle() }
             .gesture(
-                DragGesture(minimumDistance: 0, coordinateSpace: .named("readerTools"))
-                    .onChanged { v in
-                        if abs(v.translation.height) > 8 || abs(v.translation.width) > 8 { dragY = v.location.y }
-                    }
+                DragGesture(minimumDistance: 6, coordinateSpace: .named("readerTools"))
+                    .onChanged { v in dragPoint = v.location }
                     .onEnded { v in
-                        if dragY == nil {
-                            open.toggle()
-                        } else {
-                            yFraction = Double(min(0.85, max(0.1, v.location.y / max(1, size.height))))
-                            onRight = v.location.x > size.width / 2
-                            dragY = nil
-                        }
+                        yFraction = Double(min(0.95, max(0.05, v.location.y / max(1, size.height))))
+                        onRight = v.location.x > size.width / 2
+                        dragPoint = nil
                     }
             )
             .accessibilityLabel(open ? "Đóng công cụ" : "Mở công cụ")
