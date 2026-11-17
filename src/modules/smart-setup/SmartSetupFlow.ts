@@ -126,7 +126,8 @@ export class SmartSetupFlow {
       const session = await this.d.oauth.signIn();
       this.token = session.accessToken;
       this.tokenExpires = session.expiresAt ?? this.now() + 55 * 60_000;
-      const account = await this.d.client.userEmail(this.token);
+      // the e-mail is only a label: never let a slow network hold the sign-in
+      const account = await Promise.race([this.d.client.userEmail(this.token), new Promise<undefined>((r) => setTimeout(() => r(undefined), 6000))]);
       const s = await this.state();
       return this.save({ account: account ?? s.account, step: s.project && s.step !== 'intro' && s.step !== 'connect' && s.step !== 'done' ? s.step : 'project' });
     });

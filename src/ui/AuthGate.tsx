@@ -5,6 +5,7 @@ import { IconLogo } from '@/ui/icons';
 import { getSmartSetup, openConsole } from '@/ui/smart-setup-client';
 import type { SetupError } from '@/modules/smart-setup';
 import { ERROR_INFO } from '@/modules/smart-setup';
+import { send } from '@/shared/messages';
 import { useGate, writeAuth } from './auth';
 
 export function AuthGate({ children, goToSetup, compact }: { children: ReactNode; /** open the Smart Setup page after a successful sign-in */ goToSetup?: () => void; /** small toolbar popup */ compact?: boolean }) {
@@ -30,6 +31,12 @@ export function AuthScreen({ goToSetup, compact }: { goToSetup?: () => void; com
   }, [flow]);
 
   const signIn = async () => {
+    if (compact) {
+      // the toolbar popup closes as soon as the Google window opens, which would cut the sign-in off: do it in a full tab
+      await send({ type: 'options:open', section: 'setup' }).catch(() => {});
+      window.close();
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
