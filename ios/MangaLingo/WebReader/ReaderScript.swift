@@ -418,6 +418,7 @@ enum ReaderScript {
 
   // payload from the app: the lookup result for the popup
   function show(p) {
+    if (p.id >= BUBBLE_ID0) return applyBubble(p);
     if (!cur || p.id !== cur.id) return; // a newer lookup replaced this one
     ensureHost();
     card.textContent = '';
@@ -787,11 +788,80 @@ enum ReaderScript {
   }
 
   function clearOcrBoxes() {
+    bubQueue = [];
+    bubBusy = false; // a request that is still out is ignored when it answers
+    for (var k in bubReq) clearTimeout(bubReq[k].timer);
+    bubReq = {};
     ocrOverlays.forEach(function (o) {
       o.remove();
     });
     ocrOverlays = [];
     ocrBlockSeq = 0;
+    updateBubbleBar();
+  }
+
+  // ------------------------------------------------------------------ automatic translation of the bubbles
+  // When a scan finishes, every bubble is translated at once (one request at a time) and the translation is written over the bubble, so
+  // nothing has to be tapped. Tapping a bubble still opens the sheet with the original text, the word-by-word look-up and the edit buttons.
+  var BUBBLE_ID0 = 1000000;
+  var bubSeq = BUBBLE_ID0;
+  var bubReq = {};
+  var bubQueue = [];
+  var bubBusy = false;
+  var showTranslations = true;
+
+  function pumpBubbles() {
+    if (bubBusy) return;
+    var it = bubQueue.shift();
+    while (it && !it.d.isConnected) it = bubQueue.shift();
+    if (!it) return;
+    bubBusy = true;
+    var id = ++bubSeq;
+    bubReq[id] = it;
+    it.timer = setTimeout(function () {
+      applyBubble({ id: id });
+    }, 25000);
+    post({ t: 'lookup', id: id, text: it.text, context: it.text, mode: 'sentence', src: 'bubble', rect: { x: 0, y: 0, w: 0, h: 0 } });
+  }
+
+  function fillBubble(d, tr) {
+    var old = d.querySelector('[data-mlr-trlabel]');
+    if (old) old.remove();
+    var r = d.getBoundingClientRect();
+    var fs = Math.max(8, Math.min(18, Math.sqrt((Math.max(1, r.width) * Math.max(1, r.height)) / (0.62 * Math.max(1, tr.length)))));
+    var t = document.createElement('div');
+    t.setAttribute('data-mlr-trlabel', '1');
+    t.textContent = tr;
+    t.setAttribute(
+      'style',
+      'position:absolute;left:0;top:0;right:0;bottom:0;overflow:hidden;display:' + (showTranslations ? 'flex' : 'none') + ';align-items:center;justify-content:center;text-align:center;' +
+        'background:rgba(255,255,255,.94);color:#111;border-radius:5px;padding:1px 3px;word-break:break-word;pointer-events:none;' +
+        'font:600 ' + fs.toFixed(1) + 'px/1.15 -apple-system,BlinkMacSystemFont,system-ui,sans-serif;',
+    );
+    d.insertBefore(t, d.firstChild);
+    d.setAttribute('data-mlr-tr', tr);
+  }
+
+  function applyBubble(p) {
+    var it = bubReq[p.id];
+    if (!it) return;
+    clearTimeout(it.timer);
+    delete bubReq[p.id];
+    bubBusy = false;
+    if (p.blocked) {
+      // the quota guard asks the user: stop translating by itself, say why once
+      bubQueue = [];
+      toast(p.blocked.message || 'Hạn mức dịch đã hết.');
+    } else if (p.mt && it.d.isConnected) {
+      fillBubble(it.d, p.mt);
+    }
+    pumpBubbles();
+  }
+
+  function setTranslationsVisible(on) {
+    showTranslations = !!on;
+    var els = document.querySelectorAll('mangalingo-reader-ocr [data-mlr-trlabel]');
+    for (var i = 0; i < els.length; i++) els[i].style.display = on ? 'flex' : 'none';
     updateBubbleBar();
   }
 
@@ -804,6 +874,11 @@ enum ReaderScript {
     clearUi('.bar');
     if (!ocrOverlays.length) return;
     var bar = el('div', 'bar');
+    bar.appendChild(
+      btn(showTranslations ? 'Hiện chữ gốc' : 'Hiện bản dịch', '', function () {
+        setTranslationsVisible(!showTranslations);
+      }),
+    );
     bar.appendChild(
       btn('＋ Thêm bong bóng', '', function () {
         regionMode(true);
@@ -839,6 +914,11 @@ enum ReaderScript {
   function ocrResult(res) {
     var src = ocrImages[res.id];
     clearUi('.toast');
+    if (ocrOn) {
+      // the image was picked and read: leave the pick mode by itself (no "Xong" to press)
+      ocrMode(false);
+      post({ t: 'ocrCancel' });
+    }
     if (!src) return;
     if (res.error) {
       toast(res.error);
@@ -884,6 +964,7 @@ enum ReaderScript {
       num.textContent = String(n);
       num.setAttribute('style', 'position:absolute;left:-2px;top:-12px;min-width:18px;height:18px;border-radius:9px;background:#f97316;color:#fff;font:700 11px/18px -apple-system,system-ui,sans-serif;text-align:center;');
       d.appendChild(num);
+      bubQueue.push({ d: d, text: b.text });
       d.addEventListener('click', function (e) {
         e.preventDefault();
         e.stopPropagation();
@@ -895,6 +976,7 @@ enum ReaderScript {
     (document.documentElement || document.body).appendChild(overlay);
     ocrOverlays.push(overlay);
     updateBubbleBar();
+    pumpBubbles();
     // the app shows the list of bubbles in its sidebar
     post({ t: 'ocrBubbles', id: res.id, fresh: ocrOverlays.length === 1, blocks: res.blocks.map(function (b, i) { return { text: b.text, box: b.box, n: ocrBlockSeq - res.blocks.length + i + 1 }; }) });
   }
