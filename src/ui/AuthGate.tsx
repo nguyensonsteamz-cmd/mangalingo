@@ -7,20 +7,20 @@ import type { SetupError } from '@/modules/smart-setup';
 import { ERROR_INFO } from '@/modules/smart-setup';
 import { useGate, writeAuth } from './auth';
 
-export function AuthGate({ children, goToSetup }: { children: ReactNode; /** open the Smart Setup page after a successful sign-in */ goToSetup?: () => void }) {
+export function AuthGate({ children, goToSetup, compact }: { children: ReactNode; /** open the Smart Setup page after a successful sign-in */ goToSetup?: () => void; /** small toolbar popup */ compact?: boolean }) {
   const gate = useGate();
   if (gate === 'loading') {
     return (
-      <div className="flex min-h-[60vh] items-center justify-center">
+      <div className={compact ? 'flex h-[200px] w-[340px] items-center justify-center' : 'flex min-h-[60vh] items-center justify-center'}>
         <Spinner />
       </div>
     );
   }
   if (gate === 'open') return <>{children}</>;
-  return <AuthScreen goToSetup={goToSetup} />;
+  return <AuthScreen goToSetup={goToSetup} compact={compact} />;
 }
 
-export function AuthScreen({ goToSetup }: { goToSetup?: () => void }) {
+export function AuthScreen({ goToSetup, compact }: { goToSetup?: () => void; compact?: boolean }) {
   const flow = getSmartSetup();
   const [configured, setConfigured] = useState<boolean | null>(null);
   const [busy, setBusy] = useState(false);
@@ -44,11 +44,18 @@ export function AuthScreen({ goToSetup }: { goToSetup?: () => void }) {
   };
 
   return (
-    <div className="mx-auto flex min-h-[70vh] max-w-[440px] flex-col items-center justify-center gap-4 px-5 py-8 text-center" data-ml-auth-gate="">
-      <IconLogo size={56} />
+    <div
+      className={compact ? 'flex w-[340px] flex-col items-center gap-3 px-5 py-5 text-center' : 'mx-auto flex min-h-[70vh] max-w-[440px] flex-col items-center justify-center gap-4 px-5 py-8 text-center'}
+      data-ml-auth-gate=""
+    >
+      <IconLogo size={compact ? 44 : 56} />
       <div>
-        <h1 className="text-[22px] font-bold tracking-tight text-text">Chào mừng đến LingoLens</h1>
-        <p className="mt-1.5 text-[14px] text-muted">Đăng nhập tài khoản Google để bắt đầu. Bản dịch chính dùng Google Cloud Translation trong dự án Google Cloud của chính bạn; LingoLens không có máy chủ và không lưu mật khẩu của bạn.</p>
+        <h1 className={compact ? 'text-[18px] font-bold tracking-tight text-text' : 'text-[22px] font-bold tracking-tight text-text'}>{compact ? 'Đăng nhập để bắt đầu' : 'Chào mừng đến LingoLens'}</h1>
+        <p className={compact ? 'mt-1 text-[12.5px] leading-snug text-muted' : 'mt-1.5 text-[14px] text-muted'}>
+          {compact
+            ? 'Dùng tài khoản Google để dịch bằng Google Cloud Translation trong dự án của chính bạn. LingoLens không có máy chủ và không lưu mật khẩu.'
+            : 'Đăng nhập tài khoản Google để bắt đầu. Bản dịch chính dùng Google Cloud Translation trong dự án Google Cloud của chính bạn; LingoLens không có máy chủ và không lưu mật khẩu của bạn.'}
+        </p>
       </div>
       {configured === false ? (
         <div className="w-full space-y-3 text-left">
@@ -80,7 +87,7 @@ export function AuthScreen({ goToSetup }: { goToSetup?: () => void }) {
           )}
         </div>
       )}
-      <p className="text-[11.5px] text-subtle">Quyền được yêu cầu: quản lý dự án Google Cloud Translation của bạn (cloud-platform) và địa chỉ email để hiển thị tên tài khoản. Có thể thu hồi bất kỳ lúc nào trong Cài đặt → Tài khoản.</p>
+      <p className={compact ? 'text-[11px] leading-snug text-subtle' : 'text-[11.5px] text-subtle'}>{compact ? 'Quyền: quản lý Cloud Translation (cloud-platform) và email. Thu hồi trong Cài đặt → Tài khoản.' : 'Quyền được yêu cầu: quản lý dự án Google Cloud Translation của bạn (cloud-platform) và địa chỉ email để hiển thị tên tài khoản. Có thể thu hồi bất kỳ lúc nào trong Cài đặt → Tài khoản.'}</p>
     </div>
   );
 }

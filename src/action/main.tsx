@@ -8,7 +8,7 @@ import { send } from '@/shared/messages';
 installGlassMotion();
 
 createRoot(document.getElementById('root')!).render(
-  <AuthGate goToSetup={() => void send({ type: 'options:open', section: 'setup' }).catch(() => {})}>
+  <AuthGate compact goToSetup={() => void send({ type: 'options:open', section: 'setup' }).catch(() => {})}>
     <ActionPopup />
   </AuthGate>,
 );
