@@ -170,7 +170,12 @@ export function SettingsCenter({ hidden = [], topBar }: { hidden?: string[]; top
                   section === x.id ? 'ml-sel-text border border-transparent font-semibold' : x.id === FEATURED ? 'border border-accent/40 bg-accent/10 font-semibold text-text hover:bg-accent/15' : 'border border-transparent text-muted hover:bg-text/[0.05] hover:text-text',
                 )}
               >
-                {x.id === FEATURED ? '👤 ' : ''}
+                {x.id === FEATURED && (
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-1.5 inline-block align-[-3px]" aria-hidden="true" data-ml-account-icon="">
+                    <circle cx="12" cy="8" r="4" />
+                    <path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7" />
+                  </svg>
+                )}
                 {x.label}
               </button>
             </li>
