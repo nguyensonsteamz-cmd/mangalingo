@@ -129,6 +129,7 @@ export function Scan({
   const wrap = useRef<HTMLDivElement>(null);
   const [frame, setFrame] = useState<Box>({ x: 0.15, y: 0.38, w: 0.7, h: 0.18 });
   const [showFrame, setShowFrame] = useState(true);
+  const [adding, setAdding] = useState(false); // frame drawn to ADD a bubble the scan missed (the others stay)
   const [busy, setBusy] = useState<false | 'region' | 'full'>(false);
   const [error, setError] = useState('');
   const [blocks, setBlocks] = useState<OcrBlock[]>([]);
@@ -180,7 +181,12 @@ export function Scan({
     setFocus(null);
     setEdit(null);
     setError('');
+    setAdding(false);
     setShowFrame(true);
+  };
+  const stopAdding = () => {
+    setAdding(false);
+    setShowFrame(false);
   };
 
   const pointers = useRef(new Map<number, { x: number; y: number }>());
@@ -353,6 +359,22 @@ export function Scan({
       const image = await (b64.current ?? toBase64(src));
       const lines = await recognize(image, scanMode === 'region' ? (box ?? frame) : undefined);
       if (id !== runId.current) return; // cancelled
+      if (scanMode === 'region' && adding) {
+        const nid = 'b' + Date.now().toString(36);
+        const one = lines.length ? bubbleBlock(lines, nid, true) : null;
+        if (!one) {
+          setError('Không thấy chữ trong khung. Kéo khung trùng lên chữ cần thêm rồi quét lại.');
+          return;
+        }
+        setBlocks((list) => [...list, { ...one, id: nid, box: box ?? frame }]);
+        setActive(nid);
+        setFocus((f) => ({ id: nid, n: (f?.n ?? 0) + 1 }));
+        setEdit(null);
+        setAdding(false);
+        setShowFrame(false);
+        setSheetKey((k) => k + 1);
+        return;
+      }
       let found: OcrBlock[];
       if (scanMode === 'region') {
         // the user framed one bubble / sentence / word: everything inside is one text
@@ -423,6 +445,7 @@ export function Scan({
         items={[
           ...extraItems,
           ...(onNewFile ? [{ id: 'file', label: 'Tệp khác', icon: '📎', onClick: () => fileInput.current?.click() }] : []),
+          ...(!showFrame && blocks.length ? [{ id: 'add', label: 'Thêm bóng', icon: '＋', onClick: () => { setAdding(true); setShowFrame(true); } }] : []),
           ...(!showFrame && blocks.length ? [{ id: 'clear', label: 'Xoá bóng', icon: '🧹', onClick: clearBubbles }] : []),
           ...(!showFrame && !blocks.length ? [{ id: 'frame', label: 'Khung mới', icon: '⬚', onClick: () => setShowFrame(true) }] : []),
           ...(view.s > 1.05 ? [{ id: 'fit', label: 'Vừa khung', icon: '⤢', onClick: () => setView(clampView(1, 0, 0)) }] : []),
@@ -456,7 +479,7 @@ export function Scan({
             }}
             onError={() => setError('Không mở được ảnh.')}
           />
-          {!showFrame &&
+          {(!showFrame || adding) &&
             blocks.map((b, i) => {
               const box = edit?.id === b.id ? edit.box : b.box;
               const on = b.id === active;
@@ -530,6 +553,11 @@ export function Scan({
         </div>
       </div>
 
+      {blocks.length > 0 && !showFrame && !busy && (
+        <button type="button" onClick={clearBubbles} className="ml-glass ml-press fixed right-3 top-[calc(env(safe-area-inset-top)+54px)] z-20 flex items-center gap-1 rounded-full px-3 py-1.5 text-[13px] font-semibold text-danger" data-ml-bubbles-off="" aria-label="Tắt bong bóng">
+          ✕ Tắt bong bóng
+        </button>
+      )}
       {highlightMode && (
         <div className="ml-glass-select fixed left-1/2 top-[calc(env(safe-area-inset-top)+56px)] z-20 -translate-x-1/2 whitespace-nowrap rounded-full border px-3.5 py-1.5 text-[13px] font-semibold" data-ml-hl-hint="">
           🖍 Kéo trên ảnh để tô sáng
@@ -605,11 +633,17 @@ export function Scan({
         ) : (
           <>
             <button type="button" disabled={!showFrame} onClick={() => void run('region')} data-ml-magnetic="" className="ml-press ml-btn-primary ml-ripple flex flex-1 items-center justify-center gap-1.5 rounded-[20px] py-2.5 text-[14px] font-bold disabled:opacity-40">
-              <IconScan size={16} /> Quét vùng này
+              <IconScan size={16} /> {adding ? 'Thêm bong bóng' : 'Quét vùng này'}
             </button>
-            <button type="button" onClick={() => void run('full')} className="ml-press ml-glass-card ml-ripple flex flex-1 items-center justify-center gap-1.5 rounded-[20px] py-2.5 text-[14px] font-semibold text-text">
-              Quét toàn màn hình
-            </button>
+            {adding ? (
+              <button type="button" onClick={stopAdding} className="ml-press ml-glass-card flex flex-1 items-center justify-center rounded-[20px] py-2.5 text-[14px] font-semibold text-text" data-ml-add-cancel="">
+                Hủy thêm
+              </button>
+            ) : (
+              <button type="button" onClick={() => void run('full')} className="ml-press ml-glass-card ml-ripple flex flex-1 items-center justify-center gap-1.5 rounded-[20px] py-2.5 text-[14px] font-semibold text-text">
+                Quét toàn màn hình
+              </button>
+            )}
           </>
         )}
       </div>

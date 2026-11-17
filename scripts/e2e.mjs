@@ -608,6 +608,18 @@ try {
     return `${boxes.length} blocks via captureVisibleTab; old image's boxes removed`;
   });
 
+  await step('"Tắt bong bóng" button: removes the bubbles of this image (and the button) with one real click', async () => {
+    assert((await ocrBoxes()).length > 0, 'bubbles are shown first');
+    const b = await page.evaluate(`(() => { const e = ${shadowQ('[data-ml-bubbles-off]')}; if (!e) return null; const r = e.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`);
+    assert(b, 'the button is shown');
+    await mouse('mouseMoved', b.x, b.y, { button: 'none' });
+    await mouse('mousePressed', b.x, b.y);
+    await mouse('mouseReleased', b.x, b.y);
+    await waitFor(async () => (await ocrBoxes()).length === 0, { label: 'bubbles off' });
+    assert(await page.evaluate(`!${shadowQ('[data-ml-bubbles-off]')}`), 'the button disappears with the bubbles');
+    return 'bubbles removed';
+  });
+
   await step('Esc clears OCR boxes; OCR can be cancelled while running', async () => {
     await key('Escape');
     await waitFor(async () => (await ocrBoxes()).length === 0, { label: 'boxes cleared by Esc' });

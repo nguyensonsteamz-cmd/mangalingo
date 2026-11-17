@@ -234,16 +234,26 @@ function ResizableBox({ t, b, box, n }: { t: OcrTarget; b: NonNullable<OcrTarget
 /** "＋ Thêm bong bóng": appears over a scanned image; starts the add mode for that image. */
 function AddBubbleButton({ t, rect }: { t: OcrTarget; rect: Rect }) {
   return (
-    <button
-      type="button"
-      data-ml-add-bubble=""
-      onClick={(e) => e.nativeEvent.isTrusted && store.set({ addBubble: t.id })}
-      className="ml-glass ml-focus ml-press pointer-events-auto fixed inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[12px] font-medium text-text hover:text-accent"
-      style={{ left: Math.max(6, rect.left + 6), top: Math.min(Math.max(6, rect.top + 6), window.innerHeight - 34) }}
-      title="Thêm bong bóng: kéo một vùng chữ mà OCR đã bỏ sót"
-    >
-      ＋ Thêm bong bóng
-    </button>
+    <div className="pointer-events-auto fixed flex gap-1" style={{ left: Math.max(6, rect.left + 6), top: Math.min(Math.max(6, rect.top + 6), window.innerHeight - 34) }}>
+      <button
+        type="button"
+        data-ml-add-bubble=""
+        onClick={(e) => e.nativeEvent.isTrusted && store.set({ addBubble: t.id })}
+        className="ml-glass ml-focus ml-press inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[12px] font-medium text-text hover:text-accent"
+        title="Thêm bong bóng: kéo một vùng chữ mà OCR đã bỏ sót"
+      >
+        ＋ Thêm bong bóng
+      </button>
+      <button
+        type="button"
+        data-ml-bubbles-off=""
+        onClick={(e) => e.nativeEvent.isTrusted && A.removeTarget(t.id)}
+        className="ml-glass ml-focus ml-press inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[12px] font-medium text-text hover:text-danger"
+        title="Tắt các bong bóng của ảnh này"
+      >
+        ✕ Tắt bong bóng
+      </button>
+    </div>
   );
 }
 

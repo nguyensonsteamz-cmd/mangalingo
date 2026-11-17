@@ -231,6 +231,8 @@ enum ReaderScript {
     '.chipbtn{position:fixed;z-index:2147483647;border:0;border-radius:99px;padding:7px 14px;font:600 14px -apple-system,system-ui,sans-serif;color:#fff;background:#3451d1;box-shadow:0 8px 22px rgba(0,0,0,.45)}' +
     '.hint{position:fixed;z-index:2147483647;left:12px;right:12px;top:calc(env(safe-area-inset-top,0px) + 8px);display:flex;gap:10px;align-items:center;' +
     'background:rgba(22,25,34,.96);color:#eef1f7;border:1px solid rgba(124,156,255,.5);border-radius:14px;padding:9px 12px;font:600 14px -apple-system,system-ui,sans-serif}' +
+    '.bar{position:fixed;z-index:2147483646;right:10px;top:calc(env(safe-area-inset-top,0px) + 60px);display:flex;gap:6px}' +
+    '.bar button.b{background:rgba(22,25,34,.96);border:1px solid rgba(255,255,255,.18);box-shadow:0 4px 14px rgba(0,0,0,.4)}' +
     '.hint span{flex:1}.toast{position:fixed;z-index:2147483647;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 90px);transform:translateX(-50%);background:rgba(22,25,34,.97);color:#eef1f7;' +
     'border:1px solid rgba(255,255,255,.14);border-radius:12px;padding:8px 14px;font:600 13.5px -apple-system,system-ui,sans-serif;max-width:86vw;text-align:center}';
 
@@ -600,9 +602,9 @@ enum ReaderScript {
   }
 
   /** Reads the visible screen (or a rectangle of it) through a snapshot taken by the app. rect: viewport CSS px. */
-  function requestRegionOcr(rect, append) {
+  function requestRegionOcr(rect, append, replace) {
     var id = ++ocrSeq;
-    ocrImages[id] = { rect: { x: rect.x + window.scrollX, y: rect.y + window.scrollY, w: rect.w, h: rect.h }, append: !!append };
+    ocrImages[id] = { rect: { x: rect.x + window.scrollX, y: rect.y + window.scrollY, w: rect.w, h: rect.h }, append: !!append, replace: replace || null };
     post({ t: 'ocrRegion', id: id, rect: rect });
     toast('Đang nhận dạng chữ…');
     return id;
@@ -615,7 +617,7 @@ enum ReaderScript {
 
   /** Region mode: drag a rectangle over text the scan missed (or over any text); only that area is read and its bubbles are ADDED. */
   var regionLayer = null;
-  function regionMode(on) {
+  function regionMode(on, pick) {
     regionOn = !!on;
     ensureHost();
     clearUi('.hint');
@@ -665,11 +667,12 @@ enum ReaderScript {
       post({ t: 'regionDone' });
       // the layer is removed first, so the snapshot shows the page, not the dimmer
       setTimeout(function () {
-        requestRegionOcr(rr, true);
+        if (pick) pick(rr);
+        else requestRegionOcr(rr, true);
       }, 80);
     });
     var h = el('div', 'hint');
-    h.appendChild(el('span', '', 'Kéo quanh chữ cần quét hoặc thêm bong bóng'));
+    h.appendChild(el('span', '', pick ? 'Kéo quanh chữ của bong bóng này để đọc lại' : 'Kéo quanh chữ cần quét hoặc thêm bong bóng'));
     h.appendChild(
       btn('Huỷ', '', function () {
         regionMode(false);
@@ -687,6 +690,30 @@ enum ReaderScript {
     });
     ocrOverlays = [];
     ocrBlockSeq = 0;
+    updateBubbleBar();
+  }
+
+  /** "＋ Thêm bong bóng" / "✕ Tắt bong bóng": shown while bubbles are on the page. */
+  function updateBubbleBar() {
+    ocrOverlays = ocrOverlays.filter(function (o) {
+      return o.isConnected && o.querySelector('[data-mlr-ocr]');
+    });
+    if (!root) return;
+    clearUi('.bar');
+    if (!ocrOverlays.length) return;
+    var bar = el('div', 'bar');
+    bar.appendChild(
+      btn('＋ Thêm bong bóng', '', function () {
+        regionMode(true);
+      }),
+    );
+    bar.appendChild(
+      btn('✕ Tắt bong bóng', '', function () {
+        clearOcrBoxes();
+        post({ t: 'regionDone' });
+      }),
+    );
+    root.appendChild(bar);
   }
 
   function ocrMode(on) {
@@ -737,6 +764,7 @@ enum ReaderScript {
       width = r.width;
       height = r.height;
     }
+    if (src.replace && src.replace.isConnected) src.replace.remove(); // a re-read bubble replaces the old one
     var overlay = document.createElement('mangalingo-reader-ocr');
     overlay.setAttribute('style', 'all:initial;position:absolute;z-index:2147483646;pointer-events:none;left:' + left + 'px;top:' + top + 'px;width:' + width + 'px;height:' + height + 'px;');
     var texts = [];
@@ -754,6 +782,37 @@ enum ReaderScript {
       num.textContent = String(n);
       num.setAttribute('style', 'position:absolute;left:-2px;top:-12px;min-width:18px;height:18px;border-radius:9px;background:#f97316;color:#fff;font:700 11px/18px -apple-system,system-ui,sans-serif;text-align:center;');
       d.appendChild(num);
+      var tools = document.createElement('span');
+      tools.setAttribute('style', 'position:absolute;right:-4px;top:-14px;display:flex;gap:4px;');
+      function mini(label, title, fn) {
+        var m = document.createElement('span');
+        m.textContent = label;
+        m.setAttribute('role', 'button');
+        m.setAttribute('aria-label', title);
+        m.setAttribute('style', 'min-width:22px;height:22px;border-radius:11px;background:#1c2030;border:1px solid rgba(255,255,255,.5);color:#fff;font:700 12px/20px -apple-system,system-ui,sans-serif;text-align:center;');
+        m.addEventListener('click', function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          fn();
+        });
+        return m;
+      }
+      tools.appendChild(
+        mini('✎', 'Chỉnh vùng bong bóng', function () {
+          var rr0 = d.getBoundingClientRect();
+          regionMode(true, function (rr) {
+            requestRegionOcr(rr, true, d);
+          });
+          void rr0;
+        }),
+      );
+      tools.appendChild(
+        mini('✕', 'Bỏ bong bóng này', function () {
+          d.remove();
+          updateBubbleBar();
+        }),
+      );
+      d.appendChild(tools);
       d.addEventListener('click', function (e) {
         e.preventDefault();
         e.stopPropagation();
@@ -764,6 +823,7 @@ enum ReaderScript {
     });
     (document.documentElement || document.body).appendChild(overlay);
     ocrOverlays.push(overlay);
+    updateBubbleBar();
     // the app shows the list of bubbles in its sidebar
     post({ t: 'ocrBubbles', id: res.id, fresh: ocrOverlays.length === 1, blocks: res.blocks.map(function (b, i) { return { text: b.text, box: b.box, n: ocrBlockSeq - res.blocks.length + i + 1 }; }) });
   }

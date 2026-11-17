@@ -177,6 +177,38 @@ try {
     return 'rect ' + JSON.stringify(reg.rect);
   });
 
+  await step('bubble tools: remove one bubble, re-read one by dragging a new area (only it is replaced), add another, "Tắt bong bóng" removes all', async () => {
+    await reset();
+    const count = () => p.evaluateMain(`document.querySelectorAll('mangalingo-reader-ocr [data-mlr-ocr]').length`);
+    const bar = () => p.evaluateMain(`!!window.__mlrTest.root.querySelector('.bar')`);
+    await p.evaluateMain(`window.__mlr.scanScreen()`);
+    const scr = (await log()).filter((m) => m.t === 'ocrRegion').pop();
+    await p.evaluateMain(`window.__mlr.ocrResult({ id: ${scr.id}, blocks: [{ id: 'a', text: 'ONE', box: { x: 0.1, y: 0.1, w: 0.3, h: 0.1 } }, { id: 'b', text: 'TWO', box: { x: 0.1, y: 0.4, w: 0.3, h: 0.1 } }, { id: 'c', text: 'THREE', box: { x: 0.1, y: 0.7, w: 0.3, h: 0.1 } }] })`);
+    assert((await count()) === 3 && (await bar()), 'three bubbles and the bar');
+    // ✕ on the first bubble
+    await p.evaluateMain(`document.querySelector('mangalingo-reader-ocr [data-mlr-ocr="1"] [aria-label="Bỏ bong bóng này"]').click()`);
+    assert((await count()) === 2, 'one bubble removed, the others stay');
+    // ✎ on the second: a drag re-reads that area only, and the result REPLACES that bubble
+    await p.evaluateMain(`document.querySelector('mangalingo-reader-ocr [data-mlr-ocr="2"] [aria-label="Chỉnh vùng bong bóng"]').click()`);
+    assert(await p.evaluateMain(`!!document.querySelector('mangalingo-reader-region')`), 'region layer for the edit');
+    await p.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 40, y: 100 });
+    await p.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: 40, y: 100, button: 'left', clickCount: 1 });
+    await p.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 180, y: 160 });
+    await p.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: 180, y: 160, button: 'left', clickCount: 1 });
+    await sleep(400);
+    const reg2 = (await log()).filter((m) => m.t === 'ocrRegion').pop();
+    assert(reg2.id !== scr.id, 'a new region request was sent');
+    await p.evaluateMain(`window.__mlr.ocrResult({ id: ${reg2.id}, blocks: [{ id: 'z', text: 'TWO FIXED', box: { x: 0.1, y: 0.1, w: 0.5, h: 0.3 } }] })`);
+    assert((await count()) === 2, 'the edited bubble replaced the old one (count unchanged), got ' + (await count()));
+    // the bar's "＋ Thêm bong bóng" opens the region layer, "✕ Tắt bong bóng" removes everything
+    await p.evaluateMain(`[...window.__mlrTest.root.querySelectorAll('.bar button')].find(b => b.textContent.includes('Thêm')).click()`);
+    assert(await p.evaluateMain(`!!document.querySelector('mangalingo-reader-region')`), 'add mode from the bar');
+    await p.evaluateMain(`window.__mlr.regionMode(false)`);
+    await p.evaluateMain(`[...window.__mlrTest.root.querySelectorAll('.bar button')].find(b => b.textContent.includes('Tắt')).click()`);
+    assert((await count()) === 0 && !(await bar()), 'all bubbles and the bar are gone');
+    await reset();
+  });
+
   await step('the site’s own click handlers still run (nothing is stopped or prevented)', async () => {
     await reset();
     await p.evaluateMain(`window.siteClicks = 0`);
