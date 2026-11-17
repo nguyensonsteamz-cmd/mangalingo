@@ -8,7 +8,7 @@ import type { Chunk, ContextNote, GrammarReport, Pos, Sense, SourceInfo, VocabHi
 import type { Settings } from '@/shared/settings';
 import { Badge, Notice, SectionTitle, Spinner, cx } from './components';
 import { useMt } from './useMt';
-import { relevantExamples } from './examples';
+import { asSentence, relevantExamples } from './examples';
 
 export const POS_VI: Record<Pos, string> = {
   noun: 'danh từ', verb: 'động từ', adj: 'tính từ', adv: 'trạng từ', pron: 'đại từ', det: 'hạn định từ', prep: 'giới từ',
@@ -172,7 +172,7 @@ function MtWordMeaning({ r, s, hasEnglish, noDict, secondary = false }: { r: Wor
 /** Vietnamese machine translation of one English definition (only for words without Vietnamese data). */
 /** One example sentence with its Vietnamese translation under it. */
 export function ExampleLine({ text, s }: { text: string; s: Settings }) {
-  const vi = useMt(text, s, true);
+  const vi = useMt(asSentence(text), s, true);
   return (
     <li className="ml-glass-card rounded-xl border-l-[3px] border-l-accent/50 px-2.5 py-1.5 text-[13px] text-text" data-ml-example="">
       <span className="block italic">{text}</span>

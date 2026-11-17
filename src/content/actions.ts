@@ -5,7 +5,7 @@ import type { Rect } from '@/popup/position';
 import { chromeLocal } from '@/storage/kv';
 import { VocabStore } from '@/storage/vocab-store';
 import { OcrCache } from '@/storage/ocr-cache';
-import { primaryMeaning } from '@/ui/views';
+import { vietnameseMeaning } from '@/ui/meaning';
 import { findBlock, store, toast, updateTarget, type OcrTarget, type PopupView } from './store';
 
 const kv = chromeLocal();
@@ -93,7 +93,7 @@ export async function saveWord(r: WordLookup, sentence?: string, translation?: s
       word: r.query,
       lemma: r.lemma,
       ipa: r.ipa,
-      meaning: primaryMeaning(r),
+      meaning: await vietnameseMeaning(r, store.get().settings.reading.targetLanguage),
       pos: r.context?.likelyPos ?? r.posList[0],
       sentence: sentence ?? r.context?.sentence,
       translation,

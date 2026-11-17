@@ -42,7 +42,7 @@ export interface ReaderDeps {
   saveWord(e: { word: string; lemma: string; meaning: string; pos?: Pos; ipa?: string; sentence?: string; sourceUrl?: string; sourceTitle?: string }): Promise<void>;
   openDetails(text: string, context?: string): void;
   posLabel(pos: Pos): string;
-  primaryMeaning(r: WordLookup): string;
+  primaryMeaning(r: WordLookup): string | Promise<string>;
 }
 
 const blockedOf = (e: unknown): BlockedDecision | null => {
@@ -115,7 +115,7 @@ export function createReaderBridge(deps: ReaderDeps) {
       try {
         const r = await deps.lookup({ text: req.word, context: req.context, mode: 'word', assumeEnglish: true });
         if (r.kind !== 'word' || !r.found) return { ok: false, message: 'Từ này chưa có trong từ điển nên chưa lưu được.' };
-        await deps.saveWord({ word: r.query, lemma: r.lemma, meaning: deps.primaryMeaning(r), pos: r.context?.likelyPos ?? r.posList[0], ipa: r.ipa, sentence: req.context, sourceUrl: req.url, sourceTitle: req.title });
+        await deps.saveWord({ word: r.query, lemma: r.lemma, meaning: await deps.primaryMeaning(r), pos: r.context?.likelyPos ?? r.posList[0], ipa: r.ipa, sentence: req.context, sourceUrl: req.url, sourceTitle: req.title });
         return { ok: true };
       } catch (e) {
         return { ok: false, message: (e as Error)?.message ?? 'Không lưu được.' };

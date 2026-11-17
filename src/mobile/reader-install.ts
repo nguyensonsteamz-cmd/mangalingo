@@ -2,7 +2,8 @@
 import { send } from '@/shared/messages';
 import { machineTranslate } from '@/translation/chrome-mt';
 import { vocabStore } from '@/ui/VocabManager';
-import { POS_EN, POS_VI, primaryMeaning } from '@/ui/views';
+import { POS_EN, POS_VI } from '@/ui/views';
+import { vietnameseMeaning } from '@/ui/meaning';
 import type { Pos } from '@/shared/types';
 import { iosBridge } from './ios';
 import { openLookup } from './Scan';
@@ -23,7 +24,7 @@ export function installReaderBridge(): void {
       void context;
     },
     posLabel: (pos: Pos) => `${POS_EN[pos] ?? pos} · ${POS_VI[pos]}`,
-    primaryMeaning,
+    primaryMeaning: (r) => vietnameseMeaning(r),
   });
   // single-argument wrappers: Swift calls window.__mlReader[fn](arg) with one JSON value
   (globalThis as { __mlReader?: unknown }).__mlReader = {

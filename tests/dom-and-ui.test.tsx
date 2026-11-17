@@ -185,7 +185,7 @@ describe('colour settings', () => {
     expect(dark.theme).toBe('dark');
     const d = popupSurface(DEFAULT_SETTINGS, 'dark');
     expect(d.theme).toBe('light');
-    expect(Object.keys(d.vars).sort()).toEqual(['--ml-accent', '--ml-accent-fg']); // only the accent kept readable on the surface
+    expect(Object.keys(d.vars)).toEqual(expect.arrayContaining(['--ml-accent', '--ml-accent-fg', '--ml-text', '--ml-muted', '--ml-subtle'])); // accent + text tokens kept legible on the surface
     expect(popupSurface(mergeSettings(DEFAULT_SETTINGS, { popup: { theme: 'follow' } }), 'dark').theme).toBe('dark');
   });
 });
@@ -205,7 +205,7 @@ describe('sidebar appearance settings', () => {
     expect(DEFAULT_SETTINGS.sidebar.background).toBe('');
     const d = sidebarSurface(DEFAULT_SETTINGS, 'dark');
     expect(d.theme).toBe('dark');
-    expect(Object.keys(d.vars).sort()).toEqual(['--ml-accent', '--ml-accent-fg']);
+    expect(Object.keys(d.vars)).toEqual(expect.arrayContaining(['--ml-accent', '--ml-accent-fg', '--ml-text', '--ml-muted', '--ml-subtle']));
     expect(sidebarSurface(mergeSettings(DEFAULT_SETTINGS, { sidebar: { theme: 'light' } }), 'dark').theme).toBe('light');
     const cream = sidebarSurface(mergeSettings(DEFAULT_SETTINGS, { sidebar: { background: '#fffbeb' } }), 'dark');
     expect(cream.theme).toBe('light');

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_SETTINGS } from '@/shared/settings';
-import { contrastRatio, hexToRgb, popupSurface, readableOn, sidebarSurface, TEXT_FLIP } from '@/ui/theme';
+import { contrastRatio, hexToRgb, MIN_GLASS_ALPHA, popupSurface, readableOn, sidebarSurface, TEXT_FLIP } from '@/ui/theme';
 
 const rgbOf = (v: string) => v.split(' ').map(Number) as [number, number, number];
 
@@ -46,6 +46,35 @@ describe('text never melts into its background', () => {
       expect(Number(v['--ml-glass-alpha'])).toBeGreaterThanOrEqual(0.5);
       const surf = rgbOf(v['--ml-surface']);
       expect(theme === 'dark' ? surf[0] < 60 : surf[0] > 200).toBe(true);
+    }
+  });
+});
+
+describe('every text token keeps its contrast on the popup glass (worst case: the opposite page colour behind it)', () => {
+  it('muted / subtle / text / status colours reach their minimum on dark, light, clear and custom popups', async () => {
+    const { legibleTextVars } = await import('@/ui/theme');
+    for (const theme of ['dark', 'light'] as const) {
+      for (const alpha of [MIN_GLASS_ALPHA, 0.9, 1]) {
+        const surface: [number, number, number] = theme === 'dark' ? [22, 25, 33] : [255, 255, 255];
+        const behind: [number, number, number] = theme === 'light' ? [0, 0, 0] : [255, 255, 255];
+        const eff = surface.map((v, i) => Math.round(v * alpha + behind[i] * (1 - alpha))) as [number, number, number];
+        const v = legibleTextVars(theme, surface, alpha);
+        expect(contrastRatio(rgbOf(v['--ml-text']), eff), `${theme} text a=${alpha}`).toBeGreaterThanOrEqual(7);
+        expect(contrastRatio(rgbOf(v['--ml-muted']), eff), `${theme} muted a=${alpha}`).toBeGreaterThanOrEqual(4.4);
+        expect(contrastRatio(rgbOf(v['--ml-subtle']), eff), `${theme} subtle a=${alpha}`).toBeGreaterThanOrEqual(4.4);
+      }
+    }
+  });
+});
+
+describe('the popup glass is never thinner than the floor', () => {
+  it('any material / opacity setting keeps the alpha at or above MIN_GLASS_ALPHA (solid is fully opaque)', () => {
+    for (const material of ['glass', 'clear'] as const) {
+      for (const glassAlpha of [0, 0.1, 0.3, 0.6]) {
+        const s = { ...DEFAULT_SETTINGS, popup: { ...DEFAULT_SETTINGS.popup, material, glassAlpha, background: '' } };
+        const v = popupSurface(s, 'dark').vars;
+        expect(Number(v['--ml-glass-alpha'])).toBeGreaterThanOrEqual(MIN_GLASS_ALPHA);
+      }
     }
   });
 });

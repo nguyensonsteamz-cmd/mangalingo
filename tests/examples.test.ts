@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { relevantExamples, stemOf, usesWord } from '@/ui/examples';
+import { asSentence, relevantExamples, stemOf, usesWord } from '@/ui/examples';
 
 describe('example sentences must use the looked-up word', () => {
   const project = [
@@ -34,5 +34,10 @@ describe('example sentences must use the looked-up word', () => {
   });
   it('no key words: nothing is filtered', () => {
     expect(relevantExamples(['a', 'b'])).toEqual(['a', 'b']);
+  });
+  it('asSentence adds a capital and a final stop only when missing', () => {
+    expect(asSentence('his voice projects well')).toBe('His voice projects well.');
+    expect(asSentence('Is it ok?')).toBe('Is it ok?');
+    expect(asSentence('  ')).toBe('');
   });
 });

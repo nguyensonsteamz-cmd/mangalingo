@@ -46,6 +46,40 @@ export function readableOn(color: [number, number, number], bg: [number, number,
   return c;
 }
 
+type RGB = [number, number, number];
+const TEXT_TOKENS: Record<'dark' | 'light', Record<string, { rgb: RGB; min: number }>> = {
+  dark: {
+    '--ml-text': { rgb: [232, 235, 242], min: 9 },
+    '--ml-muted': { rgb: [160, 167, 182], min: 6 },
+    '--ml-subtle': { rgb: [110, 117, 133], min: 4.5 },
+    '--ml-ok': { rgb: [92, 199, 140], min: 4.5 },
+    '--ml-warn': { rgb: [232, 179, 86], min: 4.5 },
+    '--ml-danger': { rgb: [240, 108, 108], min: 4.5 },
+  },
+  light: {
+    '--ml-text': { rgb: [24, 27, 35], min: 9 },
+    '--ml-muted': { rgb: [88, 96, 112], min: 6 },
+    '--ml-subtle': { rgb: [132, 140, 156], min: 4.5 },
+    '--ml-ok': { rgb: [24, 140, 84], min: 4.5 },
+    '--ml-warn': { rgb: [176, 112, 12], min: 4.5 },
+    '--ml-danger': { rgb: [200, 50, 50], min: 4.5 },
+  },
+};
+
+/**
+ * Text colours that stay legible on a surface: every text token (text, muted, subtle, ok / warn / danger) is moved toward black or
+ * white until it has the contrast it needs against the background it will really sit on. A glass surface lets the page show through,
+ * so the background is estimated for the WORST page behind it (black behind a light popup, white behind a dark one).
+ */
+export function legibleTextVars(theme: 'dark' | 'light', surface: RGB, alpha: number): Record<string, string> {
+  const behind: RGB = theme === 'light' ? [0, 0, 0] : [255, 255, 255];
+  const a = Math.min(1, Math.max(0, alpha));
+  const eff = surface.map((v, i) => Math.round(v * a + behind[i] * (1 - a))) as RGB;
+  const out: Record<string, string> = {};
+  for (const [name, t] of Object.entries(TEXT_TOKENS[theme])) out[name] = readableOn(t.rgb, eff, t.min).join(' ');
+  return out;
+}
+
 const DARK_SURFACE: [number, number, number] = [22, 25, 33];
 const LIGHT_SURFACE: [number, number, number] = [255, 255, 255];
 /** Accent variables that stay readable on a surface (used by the popup and the sidebar, whose backgrounds can be customised). */
@@ -87,13 +121,21 @@ export function popupMaterialVars(material: Settings['popup']['material'], alpha
  * custom colour the text scheme (light/dark tokens) is chosen from its luminance so text stays
  * readable, and the elevated/border tones are derived from it.
  */
+/** Thinnest glass a popup may have: thinner and the page behind it can drown the text, whatever the colours (worst case: white page behind a dark popup). */
+export const MIN_GLASS_ALPHA = 0.78;
+
 export function popupSurface(s: Settings, pageTheme: 'dark' | 'light'): { theme: 'dark' | 'light'; vars: Record<string, string> } {
   const bg = s.popup.background;
-  const material = { ...popupMaterialVars(s.popup.material, s.popup.glassAlpha), ...(!s.appearance.glass ? { '--ml-glass-off': '1' } : {}) };
+  const material: Record<string, string> = { ...popupMaterialVars(s.popup.material, s.popup.glassAlpha), ...(!s.appearance.glass ? { '--ml-glass-off': '1' } : {}) };
+  if (material['--ml-glass-off'] !== '1') {
+    material['--ml-glass-alpha'] = String(Math.max(MIN_GLASS_ALPHA, Number(material['--ml-glass-alpha'] ?? 0)));
+    material['--ml-glass-card-alpha'] = String(Math.max(MIN_GLASS_ALPHA * 0.8, Number(material['--ml-glass-card-alpha'] ?? 0)));
+  }
   if (!/^#[0-9a-f]{6}$/i.test(bg)) {
     const theme = s.popup.theme === 'follow' ? pageTheme : s.popup.theme;
     const base = theme === 'dark' ? DARK_SURFACE : LIGHT_SURFACE;
     const vars: Record<string, string> = { ...material, ...accentVars(s.appearance.accent, base) };
+    const solid = vars['--ml-glass-off'] === '1';
     // clear glass lets the page show through: tint it to the theme and keep it dense enough that the text never melts into the page
     if (s.popup.material === 'clear') {
       vars['--ml-surface'] = base.join(' ');
@@ -101,14 +143,15 @@ export function popupSurface(s: Settings, pageTheme: 'dark' | 'light'): { theme:
       if (Number(vars['--ml-glass-alpha'] ?? 0) < floor) vars['--ml-glass-alpha'] = String(floor);
       if (Number(vars['--ml-glass-card-alpha'] ?? 0) < floor * 0.8) vars['--ml-glass-card-alpha'] = String(floor * 0.8);
     }
-    return { theme, vars };
+    const alpha = solid ? 1 : Number(vars['--ml-glass-alpha'] ?? (theme === 'dark' ? 0.72 : 0.7));
+    return { theme, vars: { ...vars, ...legibleTextVars(theme, vars['--ml-surface'] ? (vars['--ml-surface'].split(' ').map(Number) as RGB) : base, alpha) } };
   }
   const rgb = hexToRgb(bg);
   const light = luminance(rgb) > TEXT_FLIP;
   const toward: [number, number, number] = light ? [0, 0, 0] : [255, 255, 255];
   return {
     theme: light ? 'light' : 'dark',
-    vars: { ...material, ...accentVars(s.appearance.accent, rgb), '--ml-surface': rgb.join(' '), '--ml-elevated': mix(rgb, toward, 0.06), '--ml-border': mix(rgb, toward, 0.16) },
+    vars: { ...material, ...accentVars(s.appearance.accent, rgb), ...legibleTextVars(light ? 'light' : 'dark', rgb, (material as Record<string, string>)['--ml-glass-off'] === '1' ? 1 : Number((material as Record<string, string>)['--ml-glass-alpha'] ?? 0.75)), '--ml-surface': rgb.join(' '), '--ml-elevated': mix(rgb, toward, 0.06), '--ml-border': mix(rgb, toward, 0.16) },
   };
 }
 
@@ -175,7 +218,8 @@ export function sidebarSurface(s: Settings, pageTheme: 'dark' | 'light'): { them
   const bg = s.sidebar.background;
   if (!/^#[0-9a-f]{6}$/i.test(bg)) {
     const theme = s.sidebar.theme === 'follow' ? pageTheme : s.sidebar.theme;
-    return { theme, vars: accentVars(s.appearance.accent, theme === 'dark' ? DARK_SURFACE : LIGHT_SURFACE) };
+    const base = theme === 'dark' ? DARK_SURFACE : LIGHT_SURFACE;
+    return { theme, vars: { ...accentVars(s.appearance.accent, base), ...legibleTextVars(theme, base, 1) } };
   }
   const rgb = hexToRgb(bg);
   const light = luminance(rgb) > TEXT_FLIP;
@@ -184,6 +228,7 @@ export function sidebarSurface(s: Settings, pageTheme: 'dark' | 'light'): { them
     theme: light ? 'light' : 'dark',
     vars: {
       ...accentVars(s.appearance.accent, rgb),
+      ...legibleTextVars(light ? 'light' : 'dark', rgb, 1),
       '--ml-bg': rgb.join(' '),
       '--ml-surface': light ? mix(rgb, [255, 255, 255], 0.55) : mix(rgb, contrast, 0.05),
       '--ml-elevated': mix(rgb, contrast, light ? 0.05 : 0.1),

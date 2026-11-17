@@ -1,4 +1,5 @@
 /** Reading sidebar (Chrome Side Panel): Translation · Vocabulary · Grammar · Context · Saved. */
+import { vietnameseMeaning } from '@/ui/meaning';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { crossfadeClass } from '@/ui/motion';
 import { send, type PageEvent, type SidebarPayload } from '@/shared/messages';
@@ -10,7 +11,6 @@ import { Badge, Button, Empty, GlassIndicator, IconButton, Notice, SectionTitle,
 import { IconBookmark, IconCompact, IconEdit, IconEraser, IconExpand, IconGear, IconInfo, IconLayers, IconLogo, IconPanel, IconScan, IconSearch, IconVolume } from '@/ui/icons';
 import {
   ChunksView, GrammarView, NotesView, PosBadge, SourceLine, VocabHints, WordContextView, WordExamples, WordGrammar, WordMeaning,
-  primaryMeaning,
 } from '@/ui/views';
 import { VocabManager, useVocab, vocabStore } from '@/ui/VocabManager';
 import { canSpeak, speak } from '@/ui/speech';
@@ -371,7 +371,7 @@ function EntryView({ s, entry, tab, compact, onLookup, onBackToOcr }: { s: Setti
             </IconButton>
           )}
           {r.found && (
-            <Button size="sm" disabled={saved.has(r.lemma)} onClick={() => void vocabStore.add({ word: r.query, lemma: r.lemma, ipa: r.ipa, meaning: primaryMeaning(r), pos: r.context?.likelyPos ?? r.posList[0], sentence: r.context?.sentence, sourceUrl: entry.source?.url, sourceTitle: entry.source?.title })}>
+            <Button size="sm" disabled={saved.has(r.lemma)} onClick={async () => void vocabStore.add({ word: r.query, lemma: r.lemma, ipa: r.ipa, meaning: await vietnameseMeaning(r, s.reading.targetLanguage), pos: r.context?.likelyPos ?? r.posList[0], sentence: r.context?.sentence, sourceUrl: entry.source?.url, sourceTitle: entry.source?.title })}>
               {saved.has(r.lemma) ? 'Đã lưu' : 'Lưu từ'}
             </Button>
           )}

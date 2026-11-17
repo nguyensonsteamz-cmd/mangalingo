@@ -46,3 +46,11 @@ export function relevantExamples(examples: string[], ...words: (string | undefin
   }
   return out;
 }
+
+/** WordNet examples are fragments ("his voice projects well"): a capital letter and a final stop make the machine translator treat them as a sentence. */
+export function asSentence(text: string): string {
+  const t = text.trim();
+  if (!t) return t;
+  const cap = t[0].toUpperCase() + t.slice(1);
+  return /[.!?…"”')\]]$/.test(cap) ? cap : cap + '.';
+}
