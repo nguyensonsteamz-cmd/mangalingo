@@ -32,6 +32,7 @@ jobs:
       - name: Build the Chrome extension
         env:
           LINGOLENS_EXTENSION_PUBLIC_KEY: ${{ vars.LINGOLENS_EXTENSION_PUBLIC_KEY }}
+          LINGOLENS_OAUTH_CHROME_CLIENT_ID: ${{ vars.LINGOLENS_OAUTH_CHROME_CLIENT_ID }}
         run: npm run build
       - name: Check the extension bundle (no remote code, runtime + notices present, model NOT bundled)
         run: |
