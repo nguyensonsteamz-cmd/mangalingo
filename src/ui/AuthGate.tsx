@@ -51,11 +51,9 @@ export function AuthScreen({ goToSetup, compact }: { goToSetup?: () => void; com
       <IconLogo size={compact ? 44 : 56} />
       <div>
         <h1 className={compact ? 'text-[18px] font-bold tracking-tight text-text' : 'text-[22px] font-bold tracking-tight text-text'}>{compact ? 'Đăng nhập để bắt đầu' : 'Chào mừng đến LingoLens'}</h1>
-        <p className={compact ? 'mt-1 text-[12.5px] leading-snug text-muted' : 'mt-1.5 text-[14px] text-muted'}>
-          {compact
-            ? 'Dùng tài khoản Google để dịch bằng Google Cloud Translation trong dự án của chính bạn. LingoLens không có máy chủ và không lưu mật khẩu.'
-            : 'Đăng nhập tài khoản Google để bắt đầu. Bản dịch chính dùng Google Cloud Translation trong dự án Google Cloud của chính bạn; LingoLens không có máy chủ và không lưu mật khẩu của bạn.'}
-        </p>
+        {!compact && (
+          <p className="mt-1.5 text-[14px] text-muted">Đăng nhập tài khoản Google để bắt đầu. Bản dịch chính dùng Google Cloud Translation trong dự án Google Cloud của chính bạn; LingoLens không có máy chủ và không lưu mật khẩu của bạn.</p>
+        )}
       </div>
       {configured === false ? (
         <div className="w-full space-y-3 text-left">
@@ -87,7 +85,9 @@ export function AuthScreen({ goToSetup, compact }: { goToSetup?: () => void; com
           )}
         </div>
       )}
-      <p className={compact ? 'text-[11px] leading-snug text-subtle' : 'text-[11.5px] text-subtle'}>{compact ? 'Quyền: quản lý Cloud Translation (cloud-platform) và email. Thu hồi trong Cài đặt → Tài khoản.' : 'Quyền được yêu cầu: quản lý dự án Google Cloud Translation của bạn (cloud-platform) và địa chỉ email để hiển thị tên tài khoản. Có thể thu hồi bất kỳ lúc nào trong Cài đặt → Tài khoản.'}</p>
+      {!compact && (
+        <p className="text-[11.5px] text-subtle">Quyền được yêu cầu: quản lý dự án Google Cloud Translation của bạn (cloud-platform) và địa chỉ email để hiển thị tên tài khoản. Có thể thu hồi bất kỳ lúc nào trong Cài đặt → Tài khoản.</p>
+      )}
     </div>
   );
 }
