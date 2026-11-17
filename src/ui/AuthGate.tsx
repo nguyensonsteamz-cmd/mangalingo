@@ -29,6 +29,17 @@ export function AuthScreen({ goToSetup, compact }: { goToSetup?: () => void; com
   const run = useRef(0);
   useEffect(() => {
     void flow.configured().then(setConfigured, () => setConfigured(false));
+    // access may already have been granted (an earlier window that finished after its page was closed): pick it up without a prompt
+    void flow
+      .connectSilent()
+      .then(async (st) => {
+        if (st) {
+          await writeAuth({ signedIn: true, account: st.account });
+          goToSetup?.();
+        }
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [flow]);
 
   const signIn = async () => {

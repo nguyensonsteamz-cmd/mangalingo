@@ -133,6 +133,17 @@ export class SmartSetupFlow {
     });
   }
 
+  /** Picks up a Google session the browser already has (access granted earlier): no window. Returns the state when there was one. */
+  async connectSilent(): Promise<SetupState | null> {
+    const session = await this.d.oauth.silent?.().catch(() => null);
+    if (!session) return null;
+    this.token = session.accessToken;
+    this.tokenExpires = session.expiresAt ?? this.now() + 55 * 60_000;
+    const account = await Promise.race([this.d.client.userEmail(this.token), new Promise<undefined>((r) => setTimeout(() => r(undefined), 6000))]);
+    const s = await this.state();
+    return this.save({ account: account ?? s.account });
+  }
+
   /** Drops the OAuth session (revokes the token). Nothing else changes. */
   async endSession(): Promise<void> {
     const t = this.token;

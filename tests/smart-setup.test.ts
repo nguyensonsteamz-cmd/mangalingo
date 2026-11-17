@@ -813,3 +813,18 @@ describe('one-tap setup (billing stays a step; the rest runs automatically)', ()
     expect(r.oauth.signIns).toBe(signIns); // no new sign-in
   });
 });
+
+describe('silent sign-in (access already granted)', () => {
+  it('connectSilent picks up an existing browser session without a prompt, and returns null when there is none', async () => {
+    const r = rig();
+    expect(await r.flow.connectSilent()).toBeNull(); // the test provider has no silent session
+    (r.oauth as { silent?: () => Promise<{ accessToken: string } | null> }).silent = async () => {
+      r.g.validTokens.add('tok-1');
+      return { accessToken: 'tok-1' };
+    };
+    const st = await r.flow.connectSilent();
+    expect(st).not.toBeNull();
+    expect(r.flow.hasSession).toBe(true);
+    expect(r.oauth.signIns).toBe(0); // no interactive sign-in happened
+  });
+});

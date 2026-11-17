@@ -19,6 +19,8 @@ export interface OAuthProvider {
   /** Is a client ID present in this build? (public identifier, injected at build time) */
   configured(): Promise<boolean>;
   signIn(): Promise<OAuthSession>;
+  /** A token the browser already holds (access was granted before): no window, never prompts. Null when there is none. */
+  silent?(): Promise<OAuthSession | null>;
   /** Revokes the token at Google and forgets it locally. Best effort. */
   signOut(token: string): Promise<void>;
 }
@@ -47,6 +49,24 @@ export function chromeIdentityProvider(api: ChromeLike | undefined = (globalThis
     async configured() {
       const id = api?.runtime?.getManifest?.().oauth2?.client_id ?? '';
       return !!api?.identity?.getAuthToken && !!id && !/YOUR_|placeholder/i.test(id);
+    },
+    async silent() {
+      if (!(await this.configured())) return null;
+      try {
+        const r = await new Promise<string | { token?: string } | undefined>((resolve, reject) => {
+          const done = (res: string | { token?: string } | undefined) => {
+            const err = (globalThis as { chrome?: { runtime?: { lastError?: { message?: string } } } }).chrome?.runtime?.lastError;
+            if (err) reject(new Error(err.message));
+            else resolve(res);
+          };
+          const p = (api!.identity!.getAuthToken as unknown as (d: unknown, cb: (r: string | { token?: string } | undefined) => void) => Promise<string | { token?: string }> | void)({ interactive: false, scopes: OAUTH_SCOPES }, done);
+          if (p && typeof (p as Promise<unknown>).then === 'function') (p as Promise<string | { token?: string }>).then(resolve, reject);
+        });
+        const token = typeof r === 'string' ? r : r?.token;
+        return token ? { accessToken: token, expiresAt: Date.now() + 55 * 60_000 } : null;
+      } catch {
+        return null;
+      }
     },
     async signIn() {
       if (!(await this.configured())) throw new SetupError('OAUTH_NOT_CONFIGURED');
