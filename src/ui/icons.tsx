@@ -17,7 +17,7 @@ const base = ({ size = 16, ...p }: P) => ({
 });
 
 export const IconVolume = (p: P) => (
-  <svg {...base(p)}><path d="M11 5 6 9H3v6h3l5 4V5Z" /><path d="M15.5 8.5a5 5 0 0 1 0 7" /><path d="M18.5 5.5a9 9 0 0 1 0 13" /></svg>
+  <svg {...base(p)}><path d="M11 5 6.5 9H3.5v6h3L11 19V5Z" /><path d="M15 9.5a3.5 3.5 0 0 1 0 5" /></svg>
 );
 export const IconBookmark = (p: P) => (
   <svg {...base(p)}><path d="M6 3h12v18l-6-4-6 4V3Z" /></svg>

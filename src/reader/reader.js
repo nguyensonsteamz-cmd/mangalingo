@@ -206,7 +206,9 @@
     '@keyframes in{from{opacity:0;transform:translateY(4px) scale(.98)}to{opacity:1;transform:none}}' +
     '@keyframes up{from{transform:translateY(100%)}to{transform:none}}' +
     '.card.sheet{left:0;right:0;bottom:0;top:auto;width:auto;max-height:64vh;border-radius:22px 22px 0 0;border-bottom:0;padding:10px 16px calc(env(safe-area-inset-bottom,0px) + 16px);animation:up .24s cubic-bezier(.16,1,.3,1)}' +
-    '.grab{width:38px;height:4px;border-radius:2px;background:rgba(255,255,255,.28);margin:0 auto 8px}' +
+    '.grabzone{padding:4px 0 12px;margin:-4px 0 0;touch-action:none;cursor:grab}' +
+    '.grab{width:44px;height:5px;border-radius:3px;background:rgba(255,255,255,.32);margin:0 auto}' +
+    '.x svg{display:block;margin:auto}' +
     '.row{display:flex;align-items:flex-start;gap:8px}' +
     '.title{flex:1;min-width:0;font-weight:700;font-size:1.18em;word-break:break-word}' +
     '.ipa{color:#9aa4b8;font-weight:400;font-size:.85em;margin-left:6px}' +
@@ -302,13 +304,61 @@
     card = null;
   }
 
+  /** The bar at the top of the bottom sheet: drag it up to make the sheet taller, down to make it shorter; a long pull down closes it. */
+  var lastSheetDrag = 0; // a click right after dragging the sheet is not a tap on the page
+  function makeGrab() {
+    var zone = el('div', 'grabzone');
+    zone.setAttribute('data-mlr', 'grab');
+    zone.appendChild(el('div', 'grab'));
+    var startY = 0;
+    var startH = 0;
+    var down = false;
+    // no text selection while dragging (it would start a look-up of the page text under the finger)
+    ['mousedown', 'touchstart'].forEach(function (t) {
+      zone.addEventListener(t, function (e) {
+        if (e.cancelable) e.preventDefault();
+      }, { passive: false });
+    });
+    function move(e) {
+      if (!down || !card) return;
+      lastSheetDrag = Date.now();
+      var h = Math.max(140, Math.min(window.innerHeight * 0.92, startH + (startY - e.clientY)));
+      card.style.maxHeight = 'none';
+      card.style.height = h + 'px';
+    }
+    function end(e) {
+      window.removeEventListener('pointermove', move, true);
+      window.removeEventListener('pointerup', end, true);
+      window.removeEventListener('pointercancel', end, true);
+      if (!down) return;
+      down = false;
+      if (e.clientY - startY > 150) closePopup();
+    }
+    zone.addEventListener('pointerdown', function (e) {
+      down = true;
+      startY = e.clientY;
+      startH = card ? card.getBoundingClientRect().height : 0;
+      // listen on the window while dragging: the finger / pointer leaves the bar at once
+      window.addEventListener('pointermove', move, true);
+      window.addEventListener('pointerup', end, true);
+      window.addEventListener('pointercancel', end, true);
+    });
+    // the click that follows a drag must not reach the page (it would count as a tap outside the popup)
+    zone.addEventListener('click', function (e) {
+      e.stopPropagation();
+    });
+    return zone;
+  }
+
+  var SPEAKER = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6.5 9H3.5v6h3L11 19V5Z"/><path d="M15 9.5a3.5 3.5 0 0 1 0 5"/></svg>';
+
   function startLookup(req) {
     ensureHost();
     closePopup();
     clearUi('.toast');
     cur = { id: ++seq, text: req.text, context: req.context || req.text, paragraph: req.paragraph || req.context || req.text, mode: req.mode || modeOf(req.text), rect: req.rect, src: req.src || 'click', bubble: req.bubble || null };
     card = el('div', 'card' + (cur.src === 'ocr' || cur.src === 'quick' ? ' sheet' : ''));
-    if (card.classList.contains('sheet')) card.appendChild(el('div', 'grab'));
+    if (card.classList.contains('sheet')) card.appendChild(makeGrab());
     var head = el('div', 'row');
     var t = el('div', 'title', cur.text.length > 80 ? cur.text.slice(0, 80) + '…' : cur.text);
     var x = el('button', 'x', '✕');
@@ -368,14 +418,15 @@
     if (!cur || p.id !== cur.id) return; // a newer lookup replaced this one
     ensureHost();
     card.textContent = '';
-    if (card.classList.contains('sheet')) card.appendChild(el('div', 'grab'));
+    if (card.classList.contains('sheet')) card.appendChild(makeGrab());
     var head = el('div', 'row');
     var t = el('div', 'title');
     t.appendChild(document.createTextNode(p.title || cur.text));
     if (p.ipa) t.appendChild(el('span', 'ipa', p.ipa));
     head.appendChild(t);
     if (p.canSpeak !== false) {
-      var sp = el('button', 'x', '🔊');
+      var sp = el('button', 'x');
+      sp.innerHTML = SPEAKER;
       sp.type = 'button';
       sp.setAttribute('aria-label', 'Phát âm');
       sp.addEventListener('click', function (e) {
@@ -515,6 +566,7 @@
   var selTimer = 0;
 
   function onClick(e) {
+    if (Date.now() - lastSheetDrag < 600) return;
     if (!S.clickToLookup || ocrOn) return;
     if (inOurUi(e)) return;
     var t = e.target;

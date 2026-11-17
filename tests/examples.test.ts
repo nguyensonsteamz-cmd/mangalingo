@@ -41,3 +41,27 @@ describe('example sentences must use the looked-up word', () => {
     expect(asSentence('  ')).toBe('');
   });
 });
+
+import { pickDefinitions } from '@/ui/views';
+import type { WordLookup } from '@/shared/types';
+
+describe('English definitions: the sense that fits comes first', () => {
+  const senses = [
+    { pos: 'noun', en: 'a facility where things can be deposited' },
+    { pos: 'verb', en: 'to put in a place' },
+    { pos: 'noun', en: 'a person to whom a secret is entrusted' },
+    { pos: 'noun', en: 'a burial vault' },
+  ];
+  const r = (context?: Partial<NonNullable<WordLookup['context']>>) => ({ senses, context: context ? { sentence: '', confidence: 'low', method: 't', ...context } : undefined }) as unknown as WordLookup;
+  it('keeps the data order without context', () => {
+    expect(pickDefinitions(r(), senses as never).map((s) => s.en)[0]).toBe('a facility where things can be deposited');
+  });
+  it('keeps only the part of speech the word has in the sentence, with the best sense first', () => {
+    const out = pickDefinitions(r({ likelyPos: 'noun', bestSense: 2 }), senses as never);
+    expect(out.map((s) => s.pos)).toEqual(['noun', 'noun', 'noun']);
+    expect(out[0].en).toBe('a person to whom a secret is entrusted');
+  });
+  it('falls back to every sense when none has the likely part of speech', () => {
+    expect(pickDefinitions(r({ likelyPos: 'adverb' as never }), senses as never)).toHaveLength(4);
+  });
+});

@@ -51,7 +51,6 @@ struct WebReaderView: View {
             ReaderPalette.background.ignoresSafeArea()
             VStack(spacing: 0) {
                 topBar
-                tabStrip
                 progressBar
                 ZStack {
                     ReaderWebHost(web: model.controller.web)

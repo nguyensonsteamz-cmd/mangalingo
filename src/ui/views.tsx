@@ -3,7 +3,7 @@
  * visible: Vietnamese meanings from curated data, English definitions from WordNet, rule-based
  * analysis marked as such, and missing data shown as missing.
  */
-import { type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import type { Chunk, ContextNote, GrammarReport, Pos, Sense, SourceInfo, VocabHint, WordLookup } from '@/shared/types';
 import type { Settings } from '@/shared/settings';
 import { Badge, Notice, SectionTitle, Spinner, cx } from './components';
@@ -187,14 +187,32 @@ function MtDefinition({ text, s }: { text: string; s: Settings }) {
   return <span className="mt-0.5 block text-[12.5px] text-muted" data-ml-def-mt="">→ {vi}</span>;
 }
 
-function EnglishDefinitions({ r, en, s, max, title }: { r: WordLookup; en: Sense[]; s: Settings; max: number; title: string }) {
+/**
+ * WordNet lists every sense of a word, many of them far from what the reader met. Put the sense that fits the sentence first, keep the
+ * part of speech the word has in the sentence (when it has one), and keep the data order (most common sense first) for the rest.
+ */
+export function pickDefinitions(r: WordLookup, en: Sense[]): Sense[] {
+  const best = r.context?.bestSense !== undefined ? r.senses[r.context.bestSense] : undefined;
+  const pos = r.context?.likelyPos;
+  const samePos = pos ? en.filter((x) => x.pos === pos) : [];
+  const pool = samePos.length ? samePos : en;
+  return best && pool.includes(best) ? [best, ...pool.filter((x) => x !== best)] : pool;
+}
+
+const FIRST_DEFS = 3;
+
+function EnglishDefinitions({ r, en: allEn, s, max, title }: { r: WordLookup; en: Sense[]; s: Settings; max: number; title: string }) {
   const translateDefs = s.reading.targetLanguage !== 'en';
-  if (!en.length) return null;
+  const [more, setMore] = useState(false);
+  const ordered = pickDefinitions(r, allEn);
+  const en = more ? ordered.slice(0, max) : ordered.slice(0, Math.min(max, FIRST_DEFS));
+  const hidden = Math.min(max, ordered.length) - en.length;
+  if (!ordered.length) return null;
   return (
     <>
       <SectionTitle>{title}</SectionTitle>
       <ol className="space-y-1">
-        {en.slice(0, max).map((x, i) => (
+        {en.map((x, i) => (
           <li key={i} className={cx('flex gap-2 text-[13px]', r.context?.bestSense === r.senses.indexOf(x) && 'rounded-md bg-accent/10 px-1.5 py-0.5 -mx-1.5')}>
             <span className="w-4 shrink-0 text-right text-subtle">{i + 1}.</span>
             <span className="min-w-0">
@@ -206,7 +224,11 @@ function EnglishDefinitions({ r, en, s, max, title }: { r: WordLookup; en: Sense
           </li>
         ))}
       </ol>
-      {en.length > max && <div className="mt-1 text-[11.5px] text-subtle">+{en.length - max} nghĩa khác (mở Sidebar để xem đầy đủ)</div>}
+      {hidden > 0 && (
+        <button type="button" className="mt-1 text-[12px] font-semibold text-accent" onClick={() => setMore(true)} data-ml-more-defs="">
+          Xem thêm {hidden} nghĩa
+        </button>
+      )}
     </>
   );
 }

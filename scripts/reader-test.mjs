@@ -231,6 +231,43 @@ try {
     await reset();
   });
 
+  await step('the bottom sheet can be dragged: up makes it taller, down makes it shorter, a long pull down closes it; the speaker is a thin SVG icon', async () => {
+    await reset();
+    await p.evaluateMain(`window.__mlr.lookupText('village')`);
+    const lk = (await log()).filter((m) => m.t === 'lookup').pop();
+    await p.evaluateMain(`window.__mlr.show({ id: ${lk.id}, title: 'village', meanings: [{ pos: 'n.', vi: 'làng' }], english: ['a community smaller than a town'], saveable: true })`);
+    await sleep(500); // the sheet slides up first
+    const h = () => p.evaluateMain(`window.__mlrTest.root.querySelector('.card.sheet').getBoundingClientRect().height`);
+    const grab = () => p.evaluateMain(`(() => { const r = window.__mlrTest.root.querySelector('[data-mlr=grab]').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`);
+    assert(await p.evaluateMain(`!!window.__mlrTest.root.querySelector('.x svg') && !/🔊/.test(window.__mlrTest.root.innerHTML)`), 'speaker is an SVG, not an emoji');
+    const h0 = await h();
+    let g = await grab();
+    await p.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: g.x, y: g.y });
+    await p.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: g.x, y: g.y, button: 'left', clickCount: 1 });
+    for (let i = 1; i <= 5; i++) await p.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: g.x, y: g.y - i * 16, buttons: 1 });
+    await p.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: g.x, y: g.y - 80, button: 'left', clickCount: 1 });
+    await sleep(200);
+    const h1 = await h();
+    assert(h1 > h0 + 40, 'dragged up: taller (' + h0 + ' -> ' + h1 + ')');
+    g = await grab();
+    await p.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: g.x, y: g.y });
+    await p.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: g.x, y: g.y, button: 'left', clickCount: 1 });
+    for (let i = 1; i <= 4; i++) await p.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: g.x, y: g.y + i * 20, buttons: 1 });
+    await p.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: g.x, y: g.y + 80, button: 'left', clickCount: 1 });
+    await sleep(200);
+    const h2 = await h();
+    assert(h2 < h1 - 40, 'dragged down: shorter (' + h1 + ' -> ' + h2 + ')');
+    g = await grab();
+    await p.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: g.x, y: g.y });
+    await p.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: g.x, y: g.y, button: 'left', clickCount: 1 });
+    for (let i = 1; i <= 8; i++) await p.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: g.x, y: g.y + i * 25, buttons: 1 });
+    await p.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: g.x, y: g.y + 200, button: 'left', clickCount: 1 });
+    await sleep(200);
+    assert(await p.evaluateMain(`!window.__mlrTest.root.querySelector('.card')`), 'a long pull down closes the sheet');
+    await sleep(700); // the click right after a drag is ignored for a moment (it is not a tap on the page)
+    await reset();
+  });
+
   await step('the site’s own click handlers still run (nothing is stopped or prevented)', async () => {
     await reset();
     await p.evaluateMain(`window.siteClicks = 0`);
