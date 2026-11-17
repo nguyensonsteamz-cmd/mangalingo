@@ -1,9 +1,9 @@
 /** First-use screen: "Đăng nhập Google để bắt đầu". Wraps a page; shows the app once signed in (or when sign-in cannot be offered yet). */
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Button, Notice, Spinner } from '@/ui/components';
 import { IconLogo } from '@/ui/icons';
 import { getSmartSetup, openConsole } from '@/ui/smart-setup-client';
-import type { SetupError } from '@/modules/smart-setup';
+import { SetupError } from '@/modules/smart-setup';
 import { ERROR_INFO } from '@/modules/smart-setup';
 import { send } from '@/shared/messages';
 import { useGate, writeAuth } from './auth';
@@ -26,6 +26,7 @@ export function AuthScreen({ goToSetup, compact }: { goToSetup?: () => void; com
   const [configured, setConfigured] = useState<boolean | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<SetupError | null>(null);
+  const run = useRef(0);
   useEffect(() => {
     void flow.configured().then(setConfigured, () => setConfigured(false));
   }, [flow]);
@@ -37,17 +38,27 @@ export function AuthScreen({ goToSetup, compact }: { goToSetup?: () => void; com
       window.close();
       return;
     }
+    const id = ++run.current;
     setBusy(true);
     setError(null);
     try {
-      const st = await flow.connect();
+      // a sign-in window that never answers (hidden behind another window, or an older request still pending) must not hang this screen
+      const st = await Promise.race([
+        flow.connect(),
+        new Promise<never>((_, rej) => setTimeout(() => rej(new SetupError('GOOGLE_AUTH_FAILED', 'Hết thời gian chờ cửa sổ đăng nhập của Google (2 phút). Hãy tìm và đóng cửa sổ đăng nhập Google đang mở (có thể nằm sau cửa sổ này) rồi bấm đăng nhập lại.')), 120_000)),
+      ]);
+      if (id !== run.current) return; // cancelled meanwhile
       await writeAuth({ signedIn: true, account: st.account });
       goToSetup?.();
     } catch (e) {
-      setError(e as SetupError);
+      if (id === run.current) setError(e as SetupError);
     } finally {
-      setBusy(false);
+      if (id === run.current) setBusy(false);
     }
+  };
+  const cancel = () => {
+    run.current++;
+    setBusy(false);
   };
 
   return (
@@ -79,6 +90,14 @@ export function AuthScreen({ goToSetup, compact }: { goToSetup?: () => void; com
           <Button className="w-full" variant="primary" disabled={busy || configured === null} onClick={() => void signIn()} data-ml-auth-signin="">
             {busy ? 'Đang đăng nhập…' : 'Đăng nhập với Google'}
           </Button>
+          {busy && !compact && (
+            <div className="space-y-1.5 text-[12.5px] text-muted" data-ml-auth-waiting="">
+              <p>Một cửa sổ đăng nhập của Google sẽ mở ra. Nếu không thấy, hãy tìm nó trên thanh tác vụ (có thể nằm sau cửa sổ này).</p>
+              <Button size="sm" variant="ghost" onClick={cancel} data-ml-auth-cancel="">
+                Hủy và thử lại
+              </Button>
+            </div>
+          )}
           {error && (
             <Notice tone="error" title={ERROR_INFO[error.code]?.title ?? 'Không đăng nhập được'}>
               {ERROR_INFO[error.code] ? `${ERROR_INFO[error.code].cause} ${ERROR_INFO[error.code].fix}` : error.message}
