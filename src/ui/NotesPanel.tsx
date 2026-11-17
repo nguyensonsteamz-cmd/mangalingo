@@ -85,7 +85,7 @@ export function NotesPanel({ context, className }: { context?: string; className
       <div className="ml-glass-card rounded-2xl border-l-[4px] border-l-accent p-2.5" data-ml-notes-new="">
         <div className="mb-1.5 flex items-center gap-2">
           <span className="text-[12px] font-bold uppercase tracking-wider text-accent">{draft.id ? 'Đang sửa ghi chú' : 'Ghi chú mới'}</span>
-          <span className="ml-auto text-[11.5px] text-subtle" data-ml-notes-status="">
+          <span className="sr-only" data-ml-notes-status="">
             {status === 'saving' ? 'Đang lưu…' : status === 'saved' ? 'Đã tự lưu vào ghi chú và Sổ từ ✓' : 'Tự động lưu khi bạn gõ'}
           </span>
         </div>
@@ -107,8 +107,7 @@ export function NotesPanel({ context, className }: { context?: string; className
           data-ml-note-meaning=""
         />
         <div className="mt-1.5 flex items-center gap-2">
-          {context && <div className="line-clamp-1 min-w-0 flex-1 text-[11.5px] text-subtle">Kèm câu: {context}</div>}
-          <button type="button" disabled={!draft.phrase.trim()} onClick={() => void newNote()} className="ml-press ml-btn-primary ml-auto shrink-0 rounded-full px-3 py-1.5 text-[12.5px] font-semibold disabled:opacity-40" data-ml-notes-save="">
+                    <button type="button" disabled={!draft.phrase.trim()} onClick={() => void newNote()} className="ml-press ml-btn-primary ml-auto shrink-0 rounded-full px-3 py-1.5 text-[12.5px] font-semibold disabled:opacity-40" data-ml-notes-save="">
             + Ghi chú mới
           </button>
         </div>
