@@ -43,6 +43,8 @@ struct WebReaderView: View {
     @ObservedObject private var settings = WebReaderSettings.shared
     @Environment(\.scenePhase) private var scenePhase
     @FocusState private var addressFocused: Bool
+    @FocusState private var quickFocused: Bool
+    @State private var quickText = ""
 
     var body: some View {
         ZStack {
@@ -90,15 +92,15 @@ struct WebReaderView: View {
         HStack(spacing: 10) {
             Button { model.close() } label: {
                 Image(systemName: "xmark")
-                    .font(.system(size: 15, weight: .bold))
-                    .frame(width: 34, height: 34)
+                    .font(.system(size: 17, weight: .bold))
+                    .frame(width: 42, height: 42)
                     .background(Circle().fill(ReaderPalette.surface))
             }
             .accessibilityLabel("Đóng trình đọc (các tab được giữ lại)")
 
             HStack(spacing: 6) {
                 Image(systemName: isSecure ? "lock.fill" : "globe")
-                    .font(.system(size: 12))
+                    .font(.system(size: 14))
                     .foregroundColor(isSecure ? Color.green.opacity(0.85) : ReaderPalette.muted)
                 TextField("Nhập địa chỉ hoặc từ khoá", text: $model.addressText)
                     .focused($addressFocused)
@@ -106,7 +108,7 @@ struct WebReaderView: View {
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                     .submitLabel(.go)
-                    .font(.system(size: 15))
+                    .font(.system(size: 17))
                     .onSubmit {
                         addressFocused = false
                         model.controller.load(model.addressText)
@@ -122,7 +124,7 @@ struct WebReaderView: View {
                 }
             }
             .padding(.horizontal, 12)
-            .frame(height: 38)
+            .frame(height: 46)
             .background(Capsule().fill(ReaderPalette.surface))
             .overlay(Capsule().stroke(Color.white.opacity(0.08), lineWidth: 1))
 
@@ -130,8 +132,8 @@ struct WebReaderView: View {
                 if model.isLoading { model.controller.stop() } else { model.controller.reload() }
             } label: {
                 Image(systemName: model.isLoading ? "xmark" : "arrow.clockwise")
-                    .font(.system(size: 15, weight: .semibold))
-                    .frame(width: 34, height: 34)
+                    .font(.system(size: 17, weight: .semibold))
+                    .frame(width: 42, height: 42)
             }
             .accessibilityLabel(model.isLoading ? "Dừng tải" : "Tải lại")
         }
@@ -154,8 +156,8 @@ struct WebReaderView: View {
                     }
                     Button { model.openTab(nil, activate: true) } label: {
                         Image(systemName: "plus")
-                            .font(.system(size: 14, weight: .bold))
-                            .frame(width: 32, height: 30)
+                            .font(.system(size: 16, weight: .bold))
+                            .frame(width: 40, height: 36)
                             .background(Capsule().fill(ReaderPalette.surface))
                     }
                     .accessibilityLabel("Mở tab mới")
@@ -166,7 +168,7 @@ struct WebReaderView: View {
                 withAnimation { proxy.scrollTo(model.current.id, anchor: .center) }
             }
         }
-        .frame(height: 36)
+        .frame(height: 44)
         .foregroundColor(.white)
     }
 
@@ -175,21 +177,21 @@ struct WebReaderView: View {
         return HStack(spacing: 4) {
             Button { model.select(index) } label: {
                 Text(tab.label)
-                    .font(.system(size: 13, weight: selected ? .semibold : .regular))
+                    .font(.system(size: 15, weight: selected ? .semibold : .regular))
                     .lineLimit(1)
-                    .frame(maxWidth: 130, alignment: .leading)
+                    .frame(maxWidth: 150, alignment: .leading)
             }
             Button { model.closeTab(at: index) } label: {
                 Image(systemName: "xmark")
-                    .font(.system(size: 10, weight: .bold))
-                    .frame(width: 18, height: 18)
+                    .font(.system(size: 12, weight: .bold))
+                    .frame(width: 24, height: 24)
                     .foregroundColor(selected ? .white : ReaderPalette.muted)
             }
             .accessibilityLabel("Đóng tab")
         }
         .padding(.leading, 12)
         .padding(.trailing, 6)
-        .frame(height: 30)
+        .frame(height: 36)
         .background(Capsule().fill(selected ? ReaderPalette.accentFill.opacity(0.55) : ReaderPalette.surface))
         .overlay(Capsule().stroke(selected ? ReaderPalette.accent.opacity(0.7) : Color.white.opacity(0.06), lineWidth: 1))
     }
@@ -208,28 +210,82 @@ struct WebReaderView: View {
     // MARK: bottom bar
 
     private var bottomBar: some View {
-        HStack(spacing: 0) {
-            barButton("chevron.left", label: "Quay lại", enabled: model.canGoBack) { model.controller.goBack() }
-            barButton("chevron.right", label: "Tiến tới", enabled: model.canGoForward) { model.controller.goForward() }
-            tabsButton
-            barButton("character.bubble", label: "Dịch phần đã chọn", tint: model.hasSelection ? ReaderPalette.accent : nil) { model.translateSelection() }
-            barButton("text.viewfinder", label: "Quét chữ trong ảnh", tint: model.ocrMode ? Color.orange : nil, filled: model.ocrMode) { model.toggleOCR() }
-            moreMenu
+        VStack(spacing: 0) {
+            quickBar
+            HStack(spacing: 0) {
+                barButton("chevron.left", label: "Quay lại", enabled: model.canGoBack) { model.controller.goBack() }
+                barButton("chevron.right", label: "Tiến tới", enabled: model.canGoForward) { model.controller.goForward() }
+                tabsButton
+                barButton("character.bubble", label: "Dịch phần đã chọn", tint: model.hasSelection ? ReaderPalette.accent : nil) { model.translateSelection() }
+                barButton("photo", label: "Quét chữ trong ảnh", tint: model.ocrMode ? Color.orange : nil, filled: model.ocrMode) { model.toggleOCR() }
+                moreMenu
+            }
+            .padding(.top, 4)
+            .padding(.bottom, 2)
         }
         .padding(.horizontal, 6)
-        .padding(.top, 6)
-        .padding(.bottom, 2)
         .background(ReaderPalette.background)
         .overlay(alignment: .top) { Rectangle().fill(Color.white.opacity(0.07)).frame(height: 1) }
     }
 
-    private var tabsButton: some View {
-        Button { model.showTabs = true } label: {
-            ZStack {
-                RoundedRectangle(cornerRadius: 5).stroke(Color.white, lineWidth: 1.6).frame(width: 21, height: 21)
-                Text("\(model.tabs.count)").font(.system(size: 11, weight: .bold))
+    /// Region scan and a quick look-up field: type a word or a sentence and the answer rises from the bottom edge of the page.
+    private var quickBar: some View {
+        HStack(spacing: 8) {
+            Button { model.startRegion() } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "rectangle.dashed").font(.system(size: 18, weight: .semibold))
+                    Text("Quét vùng").font(.system(size: 15, weight: .semibold))
+                }
+                .padding(.horizontal, 14)
+                .frame(height: 46)
+                .background(Capsule().fill(model.regionMode ? ReaderPalette.accentFill : ReaderPalette.surface))
+                .overlay(Capsule().stroke(model.regionMode ? ReaderPalette.accent : Color.white.opacity(0.1), lineWidth: 1))
             }
-            .frame(maxWidth: .infinity, minHeight: 44)
+            .accessibilityLabel("Quét vùng")
+
+            HStack(spacing: 8) {
+                Image(systemName: "magnifyingglass").font(.system(size: 16)).foregroundColor(ReaderPalette.muted)
+                TextField("Tra nhanh từ hoặc câu", text: $quickText)
+                    .focused($quickFocused)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .submitLabel(.search)
+                    .font(.system(size: 17))
+                    .onSubmit { runQuickLookup() }
+                if !quickText.isEmpty {
+                    Button { quickText = "" } label: {
+                        Image(systemName: "xmark.circle.fill").foregroundColor(ReaderPalette.muted)
+                    }
+                    .accessibilityLabel("Xoá chữ đã nhập")
+                }
+            }
+            .padding(.horizontal, 14)
+            .frame(height: 46)
+            .background(Capsule().fill(ReaderPalette.surface))
+            .overlay(Capsule().stroke(Color.white.opacity(0.1), lineWidth: 1))
+        }
+        .foregroundColor(.white)
+        .padding(.horizontal, 4)
+        .padding(.top, 8)
+    }
+
+    private func runQuickLookup() {
+        let text = quickText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return }
+        quickFocused = false
+        model.quickLookup(text)
+    }
+
+    private var tabsButton: some View {
+        Button {
+            model.current.captureThumbnail()
+            model.showTabs = true
+        } label: {
+            ZStack {
+                RoundedRectangle(cornerRadius: 6).stroke(Color.white, lineWidth: 1.8).frame(width: 25, height: 25)
+                Text("\(model.tabs.count)").font(.system(size: 13, weight: .bold))
+            }
+            .frame(maxWidth: .infinity, minHeight: 50)
         }
         .foregroundColor(.white)
         .accessibilityLabel("Các tab (\(model.tabs.count))")
@@ -247,8 +303,8 @@ struct WebReaderView: View {
             Button { model.showSettings = true } label: { Label("Cài đặt trình đọc", systemImage: "gearshape") }
         } label: {
             Image(systemName: "ellipsis.circle")
-                .font(.system(size: 19, weight: .medium))
-                .frame(maxWidth: .infinity, minHeight: 44)
+                .font(.system(size: 24, weight: .medium))
+                .frame(maxWidth: .infinity, minHeight: 50)
         }
         .foregroundColor(.white)
         .accessibilityLabel("Thêm")
@@ -257,8 +313,8 @@ struct WebReaderView: View {
     private func barButton(_ symbol: String, label: String, enabled: Bool = true, tint: Color? = nil, filled: Bool = false, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: symbol)
-                .font(.system(size: 19, weight: .medium))
-                .frame(maxWidth: .infinity, minHeight: 44)
+                .font(.system(size: 24, weight: .medium))
+                .frame(maxWidth: .infinity, minHeight: 50)
                 .background(
                     RoundedRectangle(cornerRadius: 12).fill(filled ? (tint ?? ReaderPalette.accent).opacity(0.22) : Color.clear).padding(.horizontal, 4)
                 )
@@ -328,37 +384,30 @@ struct WebReaderView: View {
     }
 }
 
-/// All open tabs as a list (title + address), with close buttons and "new tab".
+/// All open tabs as big cards (a picture of the page, its title, a close button), like the tab view of a phone browser.
 struct WebReaderTabsView: View {
     @ObservedObject var model: WebReaderViewModel
     @Environment(\.dismiss) private var dismiss
+    private let columns = [GridItem(.flexible(), spacing: 14), GridItem(.flexible(), spacing: 14)]
 
     var body: some View {
         NavigationStack {
-            List {
-                ForEach(Array(model.tabs.enumerated()), id: \.element.id) { index, tab in
-                    Button {
-                        model.select(index)
-                        dismiss()
-                    } label: {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(tab.label).font(.system(size: 15, weight: .semibold)).lineLimit(1)
-                                Text((tab.url ?? tab.restoreURL)?.absoluteString ?? "").font(.system(size: 12)).foregroundColor(ReaderPalette.muted).lineLimit(1)
-                            }
-                            Spacer()
-                            if index == model.currentIndex { Image(systemName: "checkmark").foregroundColor(ReaderPalette.accent) }
-                        }
+            ScrollView {
+                LazyVGrid(columns: columns, spacing: 14) {
+                    ForEach(Array(model.tabs.enumerated()), id: \.element.id) { index, tab in
+                        ReaderTabCard(
+                            tab: tab,
+                            selected: index == model.currentIndex,
+                            onOpen: {
+                                model.select(index)
+                                dismiss()
+                            },
+                            onClose: { model.closeTab(at: index) }
+                        )
                     }
-                    .foregroundColor(.white)
-                    .listRowBackground(Color.clear)
                 }
-                .onDelete { offsets in
-                    for i in offsets.sorted(by: >) { model.closeTab(at: i) }
-                }
+                .padding(14)
             }
-            .listStyle(.plain)
-            .scrollContentBackground(.hidden)
             .background(ReaderPalette.background)
             .navigationTitle("Các tab (\(model.tabs.count))")
             .navigationBarTitleDisplayMode(.inline)
@@ -373,6 +422,61 @@ struct WebReaderTabsView: View {
             }
         }
         .preferredColorScheme(.dark)
+    }
+}
+
+struct ReaderTabCard: View {
+    @ObservedObject var tab: ReaderTab
+    let selected: Bool
+    let onOpen: () -> Void
+    let onClose: () -> Void
+
+    private var host: String { (tab.url ?? tab.restoreURL)?.host ?? "Tab mới" }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 6) {
+                Text(tab.label)
+                    .font(.system(size: 14, weight: .semibold))
+                    .lineLimit(1)
+                Spacer(minLength: 4)
+                Button(action: onClose) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 13, weight: .bold))
+                        .frame(width: 30, height: 30)
+                }
+                .accessibilityLabel("Đóng tab")
+            }
+            .padding(.leading, 12)
+            .padding(.trailing, 4)
+            .frame(height: 38)
+
+            Button(action: onOpen) {
+                ZStack {
+                    ReaderPalette.background
+                    if let image = tab.thumbnail {
+                        Image(uiImage: image)
+                            .resizable()
+                            .scaledToFill()
+                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                    } else {
+                        VStack(spacing: 8) {
+                            Image(systemName: "globe").font(.system(size: 30))
+                            Text(host).font(.system(size: 12)).lineLimit(1)
+                        }
+                        .foregroundColor(ReaderPalette.muted)
+                    }
+                }
+                .frame(height: 190)
+                .clipped()
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Mở tab \(tab.label)")
+        }
+        .foregroundColor(.white)
+        .background(ReaderPalette.surface)
+        .clipShape(RoundedRectangle(cornerRadius: 18))
+        .overlay(RoundedRectangle(cornerRadius: 18).stroke(selected ? ReaderPalette.accent : Color.white.opacity(0.08), lineWidth: selected ? 2.5 : 1))
     }
 }
 

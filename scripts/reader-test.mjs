@@ -177,19 +177,29 @@ try {
     return 'rect ' + JSON.stringify(reg.rect);
   });
 
-  await step('bubble tools: remove one bubble, re-read one by dragging a new area (only it is replaced), add another, "Tắt bong bóng" removes all', async () => {
+  await step('bubble tools: bubbles carry no icons; tapping one opens a bottom sheet whose buttons edit / delete THAT bubble or clear all; the bar adds a bubble or turns all off', async () => {
     await reset();
     const count = () => p.evaluateMain(`document.querySelectorAll('mangalingo-reader-ocr [data-mlr-ocr]').length`);
     const bar = () => p.evaluateMain(`!!window.__mlrTest.root.querySelector('.bar')`);
+    const sheetBtn = (label) => p.evaluateMain(`(() => { const b = [...window.__mlrTest.root.querySelectorAll('.card.sheet button')].find(x => x.textContent.includes(${JSON.stringify(label)})); if (!b) return false; b.click(); return true; })()`);
     await p.evaluateMain(`window.__mlr.scanScreen()`);
     const scr = (await log()).filter((m) => m.t === 'ocrRegion').pop();
     await p.evaluateMain(`window.__mlr.ocrResult({ id: ${scr.id}, blocks: [{ id: 'a', text: 'ONE', box: { x: 0.1, y: 0.1, w: 0.3, h: 0.1 } }, { id: 'b', text: 'TWO', box: { x: 0.1, y: 0.4, w: 0.3, h: 0.1 } }, { id: 'c', text: 'THREE', box: { x: 0.1, y: 0.7, w: 0.3, h: 0.1 } }] })`);
     assert((await count()) === 3 && (await bar()), 'three bubbles and the bar');
-    // ✕ on the first bubble
-    await p.evaluateMain(`document.querySelector('mangalingo-reader-ocr [data-mlr-ocr="1"] [aria-label="Bỏ bong bóng này"]').click()`);
-    assert((await count()) === 2, 'one bubble removed, the others stay');
-    // ✎ on the second: a drag re-reads that area only, and the result REPLACES that bubble
-    await p.evaluateMain(`document.querySelector('mangalingo-reader-ocr [data-mlr-ocr="2"] [aria-label="Chỉnh vùng bong bóng"]').click()`);
+    assert(await p.evaluateMain(`document.querySelectorAll('mangalingo-reader-ocr [data-mlr-ocr] span[role=button]').length === 0`), 'no icons on the bubbles');
+    // tap bubble 1: a sheet (bottom) opens; the app answers
+    await p.evaluateMain(`document.querySelector('mangalingo-reader-ocr [data-mlr-ocr="1"]').click()`);
+    const lk = (await log()).filter((m) => m.t === 'lookup').pop();
+    assert(lk && lk.src === 'ocr', 'lookup from the bubble');
+    await p.evaluateMain(`window.__mlr.show({ id: ${lk.id}, title: 'ONE', meanings: [{ pos: 'n.', vi: 'một' }] })`);
+    assert(await p.evaluateMain(`!!window.__mlrTest.root.querySelector('.card.sheet')`), 'the popup is a bottom sheet');
+    assert(await sheetBtn('Xoá bong bóng này'), 'delete button in the sheet');
+    assert((await count()) === 2, 'only that bubble is gone');
+    // tap bubble 2 (now first in the DOM): edit its area
+    await p.evaluateMain(`document.querySelector('mangalingo-reader-ocr [data-mlr-ocr="2"]').click()`);
+    const lk2 = (await log()).filter((m) => m.t === 'lookup').pop();
+    await p.evaluateMain(`window.__mlr.show({ id: ${lk2.id}, title: 'TWO', meanings: [] })`);
+    assert(await sheetBtn('Chỉnh vùng'), 'edit button in the sheet');
     assert(await p.evaluateMain(`!!document.querySelector('mangalingo-reader-region')`), 'region layer for the edit');
     await p.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 40, y: 100 });
     await p.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: 40, y: 100, button: 'left', clickCount: 1 });
@@ -199,13 +209,25 @@ try {
     const reg2 = (await log()).filter((m) => m.t === 'ocrRegion').pop();
     assert(reg2.id !== scr.id, 'a new region request was sent');
     await p.evaluateMain(`window.__mlr.ocrResult({ id: ${reg2.id}, blocks: [{ id: 'z', text: 'TWO FIXED', box: { x: 0.1, y: 0.1, w: 0.5, h: 0.3 } }] })`);
-    assert((await count()) === 2, 'the edited bubble replaced the old one (count unchanged), got ' + (await count()));
-    // the bar's "＋ Thêm bong bóng" opens the region layer, "✕ Tắt bong bóng" removes everything
+    assert((await count()) === 2, 'the edited bubble replaced the old one, got ' + (await count()));
+    // the bar: add mode, then all off
     await p.evaluateMain(`[...window.__mlrTest.root.querySelectorAll('.bar button')].find(b => b.textContent.includes('Thêm')).click()`);
     assert(await p.evaluateMain(`!!document.querySelector('mangalingo-reader-region')`), 'add mode from the bar');
     await p.evaluateMain(`window.__mlr.regionMode(false)`);
     await p.evaluateMain(`[...window.__mlrTest.root.querySelectorAll('.bar button')].find(b => b.textContent.includes('Tắt')).click()`);
     assert((await count()) === 0 && !(await bar()), 'all bubbles and the bar are gone');
+    await reset();
+  });
+
+  await step('quick look-up: typed text opens the answer as a bottom sheet (word and sentence)', async () => {
+    await reset();
+    await p.evaluateMain(`window.__mlr.lookupText('village')`);
+    let lk = (await log()).filter((m) => m.t === 'lookup').pop();
+    assert(lk.src === 'quick' && lk.mode === 'word' && lk.text === 'village', 'word look-up: ' + JSON.stringify(lk));
+    assert(await p.evaluateMain(`!!window.__mlrTest.root.querySelector('.card.sheet')`), 'sheet');
+    await p.evaluateMain(`window.__mlr.lookupText('The old village was quiet at night.')`);
+    lk = (await log()).filter((m) => m.t === 'lookup').pop();
+    assert(lk.mode === 'sentence', 'sentence look-up: ' + lk.mode);
     await reset();
   });
 

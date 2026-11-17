@@ -105,9 +105,9 @@ struct ReaderToolsDrawer: View {
         ]
     }
 
-    private let tileW: CGFloat = 62
-    private let tileH: CGFloat = 58
-    private let tabW: CGFloat = 26
+    private let tileW: CGFloat = 76
+    private let tileH: CGFloat = 70
+    private let tabW: CGFloat = 30
 
     var body: some View {
         GeometryReader { geo in
@@ -118,12 +118,10 @@ struct ReaderToolsDrawer: View {
             let top = min(max(8, center - panelH / 2), max(8, geo.size.height - panelH - 8))
             HStack(spacing: 0) {
                 if !onRight { panel(items, width: panelW, height: panelH) }
-                handle(height: panelH, in: geo.size)
+                handle(in: geo.size)
                 if onRight { panel(items, width: panelW, height: panelH) }
             }
             .frame(height: panelH)
-            .background(RoundedRectangle(cornerRadius: 20).fill(ReaderPalette.surface.opacity(0.96)))
-            .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.white.opacity(0.1), lineWidth: 1))
             .offset(x: open ? 0 : (onRight ? panelW : -panelW))
             .position(x: onRight ? geo.size.width - (tabW + panelW) / 2 + (open ? 0 : 0) : (tabW + panelW) / 2, y: top + panelH / 2)
             .animation(dragY == nil ? .spring(response: 0.35, dampingFraction: 0.85) : nil, value: open)
@@ -140,8 +138,8 @@ struct ReaderToolsDrawer: View {
                     t.run()
                 } label: {
                     VStack(spacing: 3) {
-                        Image(systemName: t.symbol).font(.system(size: 19, weight: .medium))
-                        Text(t.label).font(.system(size: 10.5, weight: .semibold)).lineLimit(1)
+                        Image(systemName: t.symbol).font(.system(size: 23, weight: .medium))
+                        Text(t.label).font(.system(size: 12, weight: .semibold)).lineLimit(1)
                     }
                     .frame(width: tileW, height: tileH - 2)
                     .background(RoundedRectangle(cornerRadius: 14).fill(t.active ? ReaderPalette.accentFill.opacity(0.5) : Color.clear))
@@ -151,13 +149,18 @@ struct ReaderToolsDrawer: View {
             }
         }
         .frame(width: width, height: height)
+        .background(RoundedRectangle(cornerRadius: 20).fill(ReaderPalette.surface.opacity(0.96)))
+        .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.white.opacity(0.1), lineWidth: 1))
     }
 
-    private func handle(height: CGFloat, in size: CGSize) -> some View {
+    /// A short tab (not as tall as the panel) so it takes little room while the tools are closed.
+    private func handle(in size: CGSize) -> some View {
         Image(systemName: (open == onRight) ? "chevron.right" : "chevron.left")
-            .font(.system(size: 14, weight: .bold))
-            .foregroundColor(ReaderPalette.muted)
-            .frame(width: tabW, height: height)
+            .font(.system(size: 15, weight: .bold))
+            .foregroundColor(.white)
+            .frame(width: tabW, height: 56)
+            .background(RoundedRectangle(cornerRadius: 14).fill(ReaderPalette.surface.opacity(0.96)))
+            .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.white.opacity(0.12), lineWidth: 1))
             .contentShape(Rectangle())
             .gesture(
                 DragGesture(minimumDistance: 0, coordinateSpace: .named("readerTools"))

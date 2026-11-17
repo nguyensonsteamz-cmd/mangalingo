@@ -187,6 +187,8 @@ final class WebReaderController: NSObject, WKNavigationDelegate, WKUIDelegate {
     func scanScreen() { evalReader("window.__mlr && window.__mlr.scanScreen();") }
     func scanAllImages() { evalReader("window.__mlr && window.__mlr.scanAllImages();") }
     func translateSelection() { evalReader("window.__mlr && window.__mlr.translateSelection();") }
+    /// Quick look-up of typed text: the page's script shows the answer as a sheet from the bottom edge.
+    func lookupText(_ text: String) { evalReader("window.__mlr && window.__mlr.lookupText(\(JS.literal(text)));") }
     func hidePopup() { evalReader("window.__mlr && window.__mlr.hide();") }
 
     func show(_ payload: [String: Any]) {
@@ -428,7 +430,7 @@ final class WebReaderController: NSObject, WKNavigationDelegate, WKUIDelegate {
         if navigationAction.navigationType == .linkActivated {
             model?.openTab(url, activate: true)
         } else if settings.blockAds {
-            model?.toast("Đã chặn một cửa sổ quảng cáo (\(url.host ?? "?")).", action: .init(title: "Vẫn mở") { [weak self] in self?.model?.openTab(url, activate: true) })
+            model?.toast("Đã chặn quảng cáo", action: .init(title: "Vẫn mở") { [weak self] in self?.model?.openTab(url, activate: true) })
         } else {
             model?.openTab(url, activate: true)
         }

@@ -204,6 +204,9 @@
     'padding:12px 14px 12px;font:15px/1.4 -apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif;-webkit-text-size-adjust:100%;' +
     'animation:in .16s ease-out}' +
     '@keyframes in{from{opacity:0;transform:translateY(4px) scale(.98)}to{opacity:1;transform:none}}' +
+    '@keyframes up{from{transform:translateY(100%)}to{transform:none}}' +
+    '.card.sheet{left:0;right:0;bottom:0;top:auto;width:auto;max-height:64vh;border-radius:22px 22px 0 0;border-bottom:0;padding:10px 16px calc(env(safe-area-inset-bottom,0px) + 16px);animation:up .24s cubic-bezier(.16,1,.3,1)}' +
+    '.grab{width:38px;height:4px;border-radius:2px;background:rgba(255,255,255,.28);margin:0 auto 8px}' +
     '.row{display:flex;align-items:flex-start;gap:8px}' +
     '.title{flex:1;min-width:0;font-weight:700;font-size:1.18em;word-break:break-word}' +
     '.ipa{color:#9aa4b8;font-weight:400;font-size:.85em;margin-left:6px}' +
@@ -267,6 +270,10 @@
 
   function place(rect) {
     if (!card) return;
+    if (card.classList.contains('sheet')) {
+      card.style.fontSize = S.fontSize + 'px';
+      return;
+    }
     var vw = window.innerWidth;
     var vh = window.innerHeight;
     var w = Math.min(SIZES[S.popupSize] || SIZES.medium, vw - 16);
@@ -299,8 +306,9 @@
     ensureHost();
     closePopup();
     clearUi('.toast');
-    cur = { id: ++seq, text: req.text, context: req.context || req.text, paragraph: req.paragraph || req.context || req.text, mode: req.mode || modeOf(req.text), rect: req.rect, src: req.src || 'click' };
-    card = el('div', 'card');
+    cur = { id: ++seq, text: req.text, context: req.context || req.text, paragraph: req.paragraph || req.context || req.text, mode: req.mode || modeOf(req.text), rect: req.rect, src: req.src || 'click', bubble: req.bubble || null };
+    card = el('div', 'card' + (cur.src === 'ocr' || cur.src === 'quick' ? ' sheet' : ''));
+    if (card.classList.contains('sheet')) card.appendChild(el('div', 'grab'));
     var head = el('div', 'row');
     var t = el('div', 'title', cur.text.length > 80 ? cur.text.slice(0, 80) + '…' : cur.text);
     var x = el('button', 'x', '✕');
@@ -342,6 +350,14 @@
     root.appendChild(b);
   }
 
+  /** Quick look-up of typed text (the bottom bar): a word or a sentence, the answer rises from the bottom edge. */
+  function lookupText(text) {
+    var t = String(text || '').trim().slice(0, 1500);
+    if (!t) return;
+    ocrMode(false);
+    startLookup({ text: t, context: t, paragraph: t, mode: modeOf(t), rect: { x: 0, y: window.innerHeight, w: window.innerWidth, h: 0 }, src: 'quick' });
+  }
+
   function trigger(req, forced) {
     if (S.autoPopup || forced) startLookup(req);
     else chipFor(req);
@@ -352,6 +368,7 @@
     if (!cur || p.id !== cur.id) return; // a newer lookup replaced this one
     ensureHost();
     card.textContent = '';
+    if (card.classList.contains('sheet')) card.appendChild(el('div', 'grab'));
     var head = el('div', 'row');
     var t = el('div', 'title');
     t.appendChild(document.createTextNode(p.title || cur.text));
@@ -433,14 +450,39 @@
     if (cur.mode === 'word' && cur.context && cur.context !== cur.text) {
       row.appendChild(
         btn('Dịch câu', '', function () {
-          startLookup({ text: cur.context, context: cur.context, paragraph: cur.paragraph, mode: 'sentence', rect: cur.rect, src: cur.src });
+          startLookup({ text: cur.context, context: cur.context, paragraph: cur.paragraph, mode: 'sentence', rect: cur.rect, src: cur.src, bubble: cur.bubble });
         }),
       );
     }
     if (cur.mode !== 'paragraph' && cur.paragraph && cur.paragraph.length > cur.text.length + 20) {
       row.appendChild(
         btn('Dịch đoạn', '', function () {
-          startLookup({ text: cur.paragraph.slice(0, 1500), context: cur.paragraph.slice(0, 1500), paragraph: cur.paragraph, mode: 'paragraph', rect: cur.rect, src: cur.src });
+          startLookup({ text: cur.paragraph.slice(0, 1500), context: cur.paragraph.slice(0, 1500), paragraph: cur.paragraph, mode: 'paragraph', rect: cur.rect, src: cur.src, bubble: cur.bubble });
+        }),
+      );
+    }
+    if (cur.bubble) {
+      var bub = cur.bubble;
+      row.appendChild(
+        btn('Chỉnh vùng', '', function () {
+          closePopup();
+          regionMode(true, function (rr) {
+            requestRegionOcr(rr, true, bub);
+          });
+        }),
+      );
+      row.appendChild(
+        btn('Xoá bong bóng này', '', function () {
+          closePopup();
+          bub.remove();
+          updateBubbleBar();
+        }),
+      );
+      row.appendChild(
+        btn('Xoá tất cả', '', function () {
+          closePopup();
+          clearOcrBoxes();
+          post({ t: 'regionDone' });
         }),
       );
     }
@@ -599,17 +641,25 @@
   }
 
   /** Reads the visible screen (or a rectangle of it) through a snapshot taken by the app. rect: viewport CSS px. */
+  /** client (layout viewport) coordinates -> the web view's own points: what the snapshot is taken in, correct while pinch-zoomed */
+  function viewRect(r) {
+    var vv = window.visualViewport;
+    if (!vv || !vv.scale || (vv.scale === 1 && !vv.offsetLeft && !vv.offsetTop)) return r;
+    return { x: (r.x - vv.offsetLeft) * vv.scale, y: (r.y - vv.offsetTop) * vv.scale, w: r.w * vv.scale, h: r.h * vv.scale };
+  }
   function requestRegionOcr(rect, append, replace) {
     var id = ++ocrSeq;
     ocrImages[id] = { rect: { x: rect.x + window.scrollX, y: rect.y + window.scrollY, w: rect.w, h: rect.h }, append: !!append, replace: replace || null };
-    post({ t: 'ocrRegion', id: id, rect: rect });
+    post({ t: 'ocrRegion', id: id, rect: viewRect(rect) });
     toast('Đang nhận dạng chữ…');
     return id;
   }
   function scanScreen() {
     ocrMode(false);
     clearOcrBoxes();
-    requestRegionOcr({ x: 0, y: 0, w: window.innerWidth, h: window.innerHeight }, false);
+    var vv = window.visualViewport;
+    // what is on screen: the whole window, or the zoomed part of the page
+    requestRegionOcr(vv && vv.scale > 1.01 ? { x: vv.offsetLeft, y: vv.offsetTop, w: vv.width, h: vv.height } : { x: 0, y: 0, w: window.innerWidth, h: window.innerHeight }, false);
   }
 
   /** Region mode: drag a rectangle over text the scan missed (or over any text); only that area is read and its bubbles are ADDED. */
@@ -779,42 +829,11 @@
       num.textContent = String(n);
       num.setAttribute('style', 'position:absolute;left:-2px;top:-12px;min-width:18px;height:18px;border-radius:9px;background:#f97316;color:#fff;font:700 11px/18px -apple-system,system-ui,sans-serif;text-align:center;');
       d.appendChild(num);
-      var tools = document.createElement('span');
-      tools.setAttribute('style', 'position:absolute;right:-4px;top:-14px;display:flex;gap:4px;');
-      function mini(label, title, fn) {
-        var m = document.createElement('span');
-        m.textContent = label;
-        m.setAttribute('role', 'button');
-        m.setAttribute('aria-label', title);
-        m.setAttribute('style', 'min-width:22px;height:22px;border-radius:11px;background:#1c2030;border:1px solid rgba(255,255,255,.5);color:#fff;font:700 12px/20px -apple-system,system-ui,sans-serif;text-align:center;');
-        m.addEventListener('click', function (e) {
-          e.preventDefault();
-          e.stopPropagation();
-          fn();
-        });
-        return m;
-      }
-      tools.appendChild(
-        mini('✎', 'Chỉnh vùng bong bóng', function () {
-          var rr0 = d.getBoundingClientRect();
-          regionMode(true, function (rr) {
-            requestRegionOcr(rr, true, d);
-          });
-          void rr0;
-        }),
-      );
-      tools.appendChild(
-        mini('✕', 'Bỏ bong bóng này', function () {
-          d.remove();
-          updateBubbleBar();
-        }),
-      );
-      d.appendChild(tools);
       d.addEventListener('click', function (e) {
         e.preventDefault();
         e.stopPropagation();
         var rr = d.getBoundingClientRect();
-        startLookup({ text: b.text, context: b.text, paragraph: b.text, mode: modeOf(b.text) === 'word' ? 'word' : 'sentence', rect: { x: rr.left, y: rr.top, w: rr.width, h: rr.height }, src: 'ocr' });
+        startLookup({ text: b.text, context: b.text, paragraph: b.text, mode: modeOf(b.text) === 'word' ? 'word' : 'sentence', rect: { x: rr.left, y: rr.top, w: rr.width, h: rr.height }, src: 'ocr', bubble: d });
       });
       overlay.appendChild(d);
     });
@@ -865,7 +884,7 @@
     e.stopImmediatePropagation();
     if (e.cancelable) e.preventDefault();
     if (Date.now() - ghostSeen > 4000) {
-      toast('Đã chặn một lớp quảng cáo vô hình. Chạm lại để mở nội dung.');
+      toast('Đã chặn quảng cáo');
       post({ t: 'adBlocked', tag: top.tagName });
     }
     ghostSeen = Date.now();
@@ -899,6 +918,7 @@
     ocrMode: ocrMode,
     ocrResult: ocrResult,
     regionMode: regionMode,
+    lookupText: lookupText,
     scanScreen: scanScreen,
     scanAllImages: scanAllImages,
     translateSelection: translateSelection,

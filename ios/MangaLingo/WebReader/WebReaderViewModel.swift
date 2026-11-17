@@ -143,6 +143,7 @@ final class WebReaderViewModel: ObservableObject {
     func select(_ index: Int) {
         guard tabs.indices.contains(index) else { return }
         current.controller.hidePopup()
+        current.captureThumbnail()
         currentIndex = index
         ensureCurrentLoaded()
         syncPublished()
@@ -297,6 +298,15 @@ final class WebReaderViewModel: ObservableObject {
             "createdAt": Int(Date().timeIntervalSince1970 * 1000),
         ]
         sidebar.push(["type": "ocr", "result": result, "source": source(of: c)])
+    }
+
+    /// The bottom bar's quick look-up (a word or a sentence typed by the user).
+    func quickLookup(_ text: String) {
+        let t = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !t.isEmpty else { return }
+        ocrMode = false
+        regionMode = false
+        controller.lookupText(t)
     }
 
     func translateSelection() {

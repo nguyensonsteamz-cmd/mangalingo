@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 import WebKit
 
 /// One tab of the Reader: its own web view (controller) plus what the tab strip and the saved session need to know.
@@ -7,6 +8,8 @@ final class ReaderTab: ObservableObject, Identifiable {
     let controller: WebReaderController
     @Published var title: String
     @Published var url: URL?
+    /// A small picture of the page, shown on the tab card. Taken when the tab is left and when the tab list opens.
+    @Published var thumbnail: UIImage?
     /// Where to load this tab when it is first shown after the app was restarted (its web view is created empty).
     var restoreURL: URL?
 
@@ -15,6 +18,15 @@ final class ReaderTab: ObservableObject, Identifiable {
         self.controller = controller
         self.title = title
         self.url = url
+    }
+
+    func captureThumbnail() {
+        guard controller.isLoaded, controller.web.window != nil else { return }
+        let config = WKSnapshotConfiguration()
+        config.snapshotWidth = 360
+        controller.web.takeSnapshot(with: config) { [weak self] image, _ in
+            DispatchQueue.main.async { if let image = image { self?.thumbnail = image } }
+        }
     }
 
     /// Text shown on the tab chip.
