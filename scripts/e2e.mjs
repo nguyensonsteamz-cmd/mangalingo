@@ -811,6 +811,19 @@ try {
     await opt.evaluate(`location.hash = 'appearance'`);
   });
 
+  await step('Switching to Google Cloud without a key tells the user to finish the set-up (and offers the key field); the notice disappears once a key exists', async () => {
+    await opt.evaluate(`location.hash = 'usage'`);
+    await waitFor(() => opt.evaluate(`!!document.querySelector('[data-ml-usage-section]')`), { label: 'usage section' });
+    assert(await opt.evaluate(`!document.querySelector('[data-ml-usage-setup-needed]')`), 'no notice while on-device');
+    await opt.evaluate(`chrome.runtime.sendMessage({ type: 'usage:settings', patch: { provider: 'google' } })`);
+    const t = await waitFor(() => opt.evaluate(`document.querySelector('[data-ml-usage-setup-needed]')?.innerText ?? null`), { label: 'set-up notice' });
+    assert(/hoàn tất thiết lập/i.test(t), 'notice text: ' + t.slice(0, 100));
+    assert(await opt.evaluate(`!!document.querySelector('[data-ml-usage-key]')`), 'the key field is offered');
+    await opt.evaluate(`chrome.runtime.sendMessage({ type: 'usage:settings', patch: { provider: 'device' } })`);
+    await waitFor(() => opt.evaluate(`!document.querySelector('[data-ml-usage-setup-needed]')`), { label: 'notice gone' });
+    await opt.evaluate(`location.hash = 'appearance'`);
+  });
+
   await step('Settings: the downloaded OPUS-MT model is NOT offered (product decision: Google Cloud first, Chrome Translator second); default provider unchanged', async () => {
     await opt.evaluate(`location.hash = 'usage'`);
     await waitFor(() => opt.evaluate(`!!document.querySelector('[data-ml-usage-section]')`), { label: 'usage section' });

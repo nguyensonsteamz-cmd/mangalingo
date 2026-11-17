@@ -8,7 +8,7 @@ import { EN_VI, MtError, VI_EN, modelForPair, type LanguagePair } from '@/module
 import { localAvailability, localProvider, messageBackend } from '@/translation/mt-providers';
 import { detectLanguage } from '@/language/detect';
 import type { Settings } from '@/shared/settings';
-import { UsageBlockedError, activeProviderLabel, getTranslator, machineTranslate, machineTranslateLong, mtAvailability, needsChunking, type MtAvailability } from '@/translation/chrome-mt';
+import { UsageBlockedError, getTranslator, machineTranslate, machineTranslateLong, mtAvailability, needsChunking, type MtAvailability } from '@/translation/chrome-mt';
 import type { JobProgress, JobResult } from '@/modules/translation';
 import type { BlockedDecision } from '@/modules/usage/types';
 import { UsageConsent } from './UsageNotice';
@@ -43,14 +43,6 @@ export function MachineTranslation({ text, s, className, onState, pair: pairProp
     return d.code === 'vi' && d.confidence >= 0.6 ? VI_EN : EN_VI;
   }, [text, pairProp]);
   const viEn = pair.source === 'vi';
-  const [provider, setProvider] = useState('');
-  useEffect(() => {
-    let alive = true;
-    void activeProviderLabel(pair).then((l) => alive && setProvider(l));
-    return () => {
-      alive = false;
-    };
-  }, [pair, st.k]);
   const [justEnabled, setJustEnabled] = useState(false);
   const enabled = s.reading.translationMode === 'machine' || justEnabled;
   // When the feature is off, offer a one-click "enable" only if this Chrome can translate EN→VI.
@@ -182,7 +174,6 @@ export function MachineTranslation({ text, s, className, onState, pair: pairProp
       <div className="mb-1 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-accent">
         <span className="h-1.5 w-1.5 rounded-full bg-accent" /> Bản dịch{viEn ? ' Việt → Anh' : ''}
         {st.k === 'done' && <CopyButton text={st.text} label="Sao chép bản dịch" className="ml-auto h-6 w-6" />}
-        {provider ? <span className="ml-auto truncate text-[10px] font-medium normal-case tracking-normal text-muted" data-ml-mt-provider="">{provider}</span> : null}
       </div>
       {st.k === 'done' ? (
         <div className="ml-tr text-[1.08em] font-semibold leading-snug text-text" data-ml-mt-text="">

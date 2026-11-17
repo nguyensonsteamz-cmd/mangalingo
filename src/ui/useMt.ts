@@ -8,8 +8,9 @@ import { getTranslator, machineTranslate, mtAvailability, translatorReady } from
  * Starts the one-time model download only if the user has just clicked (Chrome requires a gesture);
  * otherwise waits for a download started elsewhere (preload, "Tải mô hình dịch" button).
  */
-export function useMt(text: string | undefined, s: Settings): string | null | undefined {
-  const on = s.reading.translationMode === 'machine' && !!text?.trim();
+export function useMt(text: string | undefined, s: Settings, always = false): string | null | undefined {
+  // `always`: translate whatever the translation mode is (example sentences) unless the reader wants English only
+  const on = (always ? s.reading.targetLanguage !== 'en' : s.reading.translationMode === 'machine') && !!text?.trim();
   const [out, setOut] = useState<string | null | undefined>(on ? undefined : null);
   useEffect(() => {
     if (!on) {

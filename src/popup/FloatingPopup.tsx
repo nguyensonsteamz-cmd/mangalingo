@@ -6,7 +6,9 @@ import { IconBack, IconBookmark, IconCheck, IconCopy, IconEdit, IconGear, IconPa
 import {
   ChunksView, GrammarView, NotesView, PosBadge, SourceLine, TagBadges, VocabHints, WordContextView, WordExamples, WordGrammar,
   WordMeaning,
+  ExampleLine,
 } from '@/ui/views';
+import { relevantExamples } from '@/ui/examples';
 import { canSpeak, speak } from '@/ui/speech';
 import { computePopupPosition } from './position';
 import { OcrMeaning } from './OcrMeaning';
@@ -382,7 +384,7 @@ function PhraseView({ r, s, canBack, tab, context }: { r: PhraseLookup; s: Setti
   const vi = r.senses.filter((x) => x.vi?.length);
   const en = r.senses.filter((x) => x.en);
   const typeVi = { phrasal: 'cụm động từ', idiom: 'thành ngữ', slang: 'tiếng lóng', expression: 'cụm cố định', collocation: 'collocation', compound: 'từ ghép' };
-  const examples = r.senses.flatMap((x) => x.examples ?? []);
+  const examples = relevantExamples(r.senses.flatMap((x) => x.examples ?? []), r.phrase).slice(0, 6);
   return (
     <>
       <Header
@@ -437,7 +439,7 @@ function PhraseView({ r, s, canBack, tab, context }: { r: PhraseLookup; s: Setti
           </div>
         )}
         {active === 'examples' && (examples.length ? (
-          <ul className="space-y-1.5">{examples.map((e, i) => <li key={i} className="ml-glass-card rounded-xl border-l-[3px] border-l-accent/50 px-2.5 py-1.5 text-[13px] italic">{e}</li>)}</ul>
+          <ul className="space-y-1.5">{examples.map((e) => <ExampleLine key={e} text={e} s={s} />)}</ul>
         ) : <Notice>Không có ví dụ trong dữ liệu.</Notice>)}
         {active === 'grammar' && <ChunksView chunks={r.chunks} onLookup={(t) => A.drillDown(t)} />}
         <SourceLine sources={r.sources} />

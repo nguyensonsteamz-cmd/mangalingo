@@ -13,6 +13,7 @@ import type { UsageSettings } from '@/modules/usage/types';
 import { copyText } from '@/mobile/ios';
 import { LocalModelSection } from './LocalModelSection';
 import { refreshAccountUsage } from '@/ui/usage-client';
+import { getSmartSetup } from '@/ui/smart-setup-client';
 
 /** "Đọc từ Google": the account-wide figure (all platforms). Tried silently when the page opens; the button may ask for Google access. */
 function AccountSync() {
@@ -117,6 +118,11 @@ export function UsageSection() {
   const [keyText, setKeyText] = useState('');
   const [msg, setMsg] = useState<{ tone: 'info' | 'warn' | 'error'; text: string } | null>(null);
   const [confirmReset, setConfirmReset] = useState(false);
+  // does this build offer Google sign-in (Smart Setup)? Then "finish the set-up" is one tap away
+  const [signInOffered, setSignInOffered] = useState(false);
+  useEffect(() => {
+    void getSmartSetup().configured().then(setSignInOffered, () => setSignInOffered(false));
+  }, []);
 
   const save = async (patch: Partial<UsageSettings>) => {
     try {
@@ -164,6 +170,23 @@ export function UsageSection() {
             ]}
           />
         </Field>
+        {google && !snap.hasKey && (
+          <div className="py-3" data-ml-usage-setup-needed="">
+            <Notice tone="warn" title="Cần hoàn tất thiết lập để dùng Google Cloud">
+              <span className="block">
+                Chưa có khoá Google Cloud nên LingoLens vẫn đang dịch trên máy.{' '}
+                {signInOffered ? 'Đăng nhập Google và hoàn tất Smart Setup (chọn dự án, bật thanh toán, tạo khoá) để dùng Google Cloud, hoặc dán khoá API của bạn bên dưới.' : 'Dán khoá API Google Cloud của bạn bên dưới để dùng Google Cloud.'}
+              </span>
+              {signInOffered && (
+                <span className="mt-2 block">
+                  <Button size="sm" variant="primary" onClick={() => (location.hash = 'setup')} data-ml-usage-finish-setup="">
+                    Hoàn tất thiết lập
+                  </Button>
+                </span>
+              )}
+            </Notice>
+          </div>
+        )}
         {google && (
           <Field label="Khoá API Google Cloud" description={snap.hasKey ? `Đã lưu trên thiết bị này (…${snap.keyHint}). Không bao giờ hiển thị lại đầy đủ.` : 'Chưa có khoá: LingoLens sẽ tiếp tục dịch trên máy cho tới khi bạn nhập khoá.'} stacked>
             <div className="flex flex-wrap items-center gap-2">

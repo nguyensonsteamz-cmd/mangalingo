@@ -3,11 +3,12 @@
  * visible: Vietnamese meanings from curated data, English definitions from WordNet, rule-based
  * analysis marked as such, and missing data shown as missing.
  */
-import { Fragment, type ReactNode } from 'react';
+import { type ReactNode } from 'react';
 import type { Chunk, ContextNote, GrammarReport, Pos, Sense, SourceInfo, VocabHint, WordLookup } from '@/shared/types';
 import type { Settings } from '@/shared/settings';
 import { Badge, Notice, SectionTitle, Spinner, cx } from './components';
 import { useMt } from './useMt';
+import { relevantExamples } from './examples';
 
 export const POS_VI: Record<Pos, string> = {
   noun: 'danh từ', verb: 'động từ', adj: 'tính từ', adv: 'trạng từ', pron: 'đại từ', det: 'hạn định từ', prep: 'giới từ',
@@ -45,23 +46,9 @@ export function TagBadges({ tags }: { tags: string[] }) {
   );
 }
 
-export function SourceLine({ sources }: { sources: SourceInfo[] }) {
-  if (!sources.length) return null;
-  return (
-    <div className="mt-3 border-t border-border/60 pt-2 text-[11px] leading-snug text-subtle">
-      Nguồn:{' '}
-      {sources.map((s, i) => (
-        <Fragment key={s.id}>
-          {i > 0 && ' · '}
-          <span title={s.license}>
-            {s.name}
-            {s.kind === 'curated' && ' (chưa kiểm duyệt chuyên môn)'}
-            {s.kind === 'rules' && ' (quy tắc)'}
-          </span>
-        </Fragment>
-      ))}
-    </div>
-  );
+/** The data sources are credited in Settings → Giới thiệu & quyền riêng tư (licences), not under every result. */
+export function SourceLine(_props: { sources: SourceInfo[] }) {
+  return null;
 }
 
 function groupByPos(senses: Sense[]): [Pos, Sense[]][] {
@@ -105,7 +92,7 @@ export function WordMeaning({ r, s, max = 6, posInHeader = false }: { r: WordLoo
             <div key={pos}>
               {/* the header already shows the part of speech: repeat it only to tell several groups apart */}
               {s.dictionary.showPos && !(posInHeader && groupByPos(vi).length === 1) && <div className="mb-0.5"><PosBadge pos={pos} /></div>}
-              <ul className="ml-tr space-y-0.5 text-text">
+              <ul className="ml-tr ml-glass-card space-y-0.5 rounded-xl border-l-[3px] border-l-accent/50 px-2.5 py-1.5 text-text" data-ml-meaning-card="">
                 {list.map((x, i) => (
                   <li key={i} className="flex gap-1.5">
                     <span className="text-subtle">•</span>
@@ -183,6 +170,17 @@ function MtWordMeaning({ r, s, hasEnglish, noDict, secondary = false }: { r: Wor
 }
 
 /** Vietnamese machine translation of one English definition (only for words without Vietnamese data). */
+/** One example sentence with its Vietnamese translation under it. */
+export function ExampleLine({ text, s }: { text: string; s: Settings }) {
+  const vi = useMt(text, s, true);
+  return (
+    <li className="ml-glass-card rounded-xl border-l-[3px] border-l-accent/50 px-2.5 py-1.5 text-[13px] text-text" data-ml-example="">
+      <span className="block italic">{text}</span>
+      {vi && <span className="mt-0.5 block text-[12.5px] text-muted" data-ml-example-vi="">→ {vi}</span>}
+    </li>
+  );
+}
+
 function MtDefinition({ text, s }: { text: string; s: Settings }) {
   const vi = useMt(text, s);
   if (!vi) return null;
@@ -247,7 +245,7 @@ export function WordContextView({ r }: { r: WordLookup }) {
 }
 
 export function WordExamples({ r, s, onLookup }: { r: WordLookup; s: Settings; onLookup?: (t: string) => void }) {
-  const examples = r.senses.flatMap((x) => (x.examples ?? []).map((e) => ({ e, pos: x.pos }))).slice(0, 8);
+  const examples = relevantExamples(r.senses.flatMap((x) => x.examples ?? []), r.lemma, r.query).slice(0, 6);
   const Phr = ({ items }: { items: { phrase: string; vi?: string }[] }) => (
     <ul className="space-y-0.5">
       {items.map((p) => (
@@ -268,10 +266,8 @@ export function WordExamples({ r, s, onLookup }: { r: WordLookup; s: Settings; o
         <>
           <SectionTitle>Ví dụ</SectionTitle>
           <ul className="space-y-1">
-            {examples.map((x, i) => (
-              <li key={i} className="ml-glass-card rounded-xl border-l-[3px] border-l-accent/50 px-2.5 py-1.5 text-[13px] italic text-text">
-                {x.e}
-              </li>
+            {examples.map((e) => (
+              <ExampleLine key={e} text={e} s={s} />
             ))}
           </ul>
         </>

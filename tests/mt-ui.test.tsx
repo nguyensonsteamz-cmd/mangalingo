@@ -83,7 +83,7 @@ describe('MachineTranslation with the downloaded model', () => {
     expect(state.started).toBe(1);
     const done = host.querySelector('[data-ml-mt-text]');
     expect(done?.textContent).toContain('EN(Xin chào các bạn');
-    expect(host.querySelector('[data-ml-mt-provider]')?.textContent).toContain('OPUS-MT'); // the user sees which provider translated
+    expect(host.querySelector('[data-ml-mt-provider]')).toBeNull(); // product decision: no provider label under the translation
   });
 
   it('with the model already on the device it translates without any prompt', async () => {
