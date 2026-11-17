@@ -297,6 +297,9 @@ final class WebReaderViewModel: ObservableObject {
 
     /// Bubbles read on the page: the sidebar lists them (Dịch tab) so each can be analysed.
     func bubblesFound(_ blocks: [[String: Any]], fresh: Bool, from c: WebReaderController) {
+        // the scan is done: show the translations right away (the sidebar translates every bubble by itself)
+        sidebarOpen = true
+        sidebar.ensureLoaded()
         let all = c.addBubbles(blocks, fresh: fresh)
         let result: [String: Any] = [
             "key": "reader-\(Int(Date().timeIntervalSince1970))",

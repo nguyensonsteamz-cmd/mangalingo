@@ -94,12 +94,22 @@ final class Speaker: NSObject, AVSpeechSynthesizerDelegate {
     func speak(_ text: String, rate: Double) {
         let t = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !t.isEmpty else { return }
-        if synth.isSpeaking || queued > 0 {
+        if synth.isSpeaking || synth.isPaused {
             // start the new text once the engine has really stopped (see the class comment)
             next = (t, rate)
             synth.stopSpeaking(at: .immediate)
+            // If the engine reports nothing back (no "cancelled" callbacks) the request must not wait for ever: start it anyway.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) { [weak self] in
+                guard let self = self, let n = self.next else { return }
+                self.next = nil
+                self.queued = 0
+                self.start(n.text, rate: n.rate)
+            }
             return
         }
+        // nothing is speaking: forget utterances whose end was never reported (they would block every later request)
+        queued = 0
+        next = nil
         start(t, rate: rate)
     }
 
@@ -109,15 +119,10 @@ final class Speaker: NSObject, AVSpeechSynthesizerDelegate {
         let r = Float(AVSpeechUtteranceDefaultSpeechRate) * Float(max(0.5, min(1.6, rate)))
         for piece in Self.pieces(text) {
             let u = AVSpeechUtterance(string: piece)
-            if let voice, voice.quality != .default {
-                u.voice = voice
-            } else if #available(iOS 17.0, *) {
-                // only compact voices installed: use the voice chosen in the iPhone's Spoken Content settings
-                u.prefersAssistiveTechnologySettings = true
-                u.voice = voice
-            } else {
-                u.voice = voice
-            }
+            // ALWAYS an English voice: an utterance without a voice (or one that follows the phone's Spoken Content voice, which on a
+            // Vietnamese phone is a Vietnamese voice) reads English words and sentences in the wrong language
+            u.voice = voice ?? AVSpeechSynthesisVoice(language: "en-US") ?? AVSpeechSynthesisVoice(language: "en-GB")
+            if #available(iOS 17.0, *) { u.prefersAssistiveTechnologySettings = false }
             u.rate = max(AVSpeechUtteranceMinimumSpeechRate, min(AVSpeechUtteranceMaximumSpeechRate, r))
             u.pitchMultiplier = 1
             u.volume = 1

@@ -66,6 +66,11 @@ function pickVoice(): SpeechSynthesisVoice | undefined {
   return [...any].sort((a, b) => rank(a) - rank(b))[0];
 }
 
+// The pieces of one text are spoken ONE AT A TIME (the next starts when the previous ends): queueing them all at once makes Chrome drop
+// or cut utterances, and an utterance that nothing refers to can be garbage-collected before it ends (its "end" event never comes).
+let chain = 0;
+let alive: SpeechSynthesisUtterance[] = [];
+
 /** Speaks English text; `rate` multiplies the user's speed (e.g. 0.95 for single words). */
 export function speak(text: string, rate = 1): boolean {
   const clean = naturalCase(text.replace(/\s+/g, ' ').trim()).slice(0, 5000);
@@ -82,15 +87,25 @@ export function speak(text: string, rate = 1): boolean {
     const busy = synth.speaking || synth.pending;
     synth.cancel();
     const v = pickVoice();
-    const say = () => {
-      for (const piece of splitForSpeech(clean)) {
-        const u = new SpeechSynthesisUtterance(piece);
-        u.lang = 'en-US';
-        u.rate = r * 0.95;
-        if (v) u.voice = v;
-        synth.speak(u);
-      }
+    const id = ++chain; // a newer request ends this chain
+    const pieces = splitForSpeech(clean);
+    alive = [];
+    const sayAt = (i: number) => {
+      if (id !== chain || i >= pieces.length) return;
+      const u = new SpeechSynthesisUtterance(pieces[i]);
+      u.lang = 'en-US';
+      u.rate = r * 0.95;
+      if (v) u.voice = v;
+      const next = () => sayAt(i + 1);
+      u.onend = next;
+      u.onerror = (e) => {
+        // 'interrupted' / 'canceled' = a newer request took over; any other error: go on with the next piece instead of stopping
+        if (e.error !== 'interrupted' && e.error !== 'canceled') next();
+      };
+      alive.push(u);
+      synth.speak(u);
     };
+    const say = () => sayAt(0);
     // Chrome drops a speak() issued right after cancel(): give the engine a moment when it was busy
     if (busy) setTimeout(say, 60);
     else say();

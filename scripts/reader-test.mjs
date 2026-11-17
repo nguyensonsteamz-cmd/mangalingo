@@ -268,36 +268,20 @@ try {
     await reset();
   });
 
-  await step('after a scan the bubbles are translated by themselves (one request at a time) and the pick mode ends by itself; the translation can be hidden', async () => {
-    await reset();
-    const bub = async () => (await log()).filter((m) => m.t === 'lookup' && m.src === 'bubble');
-    await p.evaluateMain(`window.__mlr.scanScreen()`);
-    const scr = (await log()).filter((m) => m.t === 'ocrRegion').pop();
-    await p.evaluateMain(`window.__mlr.ocrResult({ id: ${scr.id}, blocks: [{ id: 'a', text: 'HELLO THERE', box: { x: 0.1, y: 0.1, w: 0.4, h: 0.2 } }, { id: 'b', text: 'GOOD BYE', box: { x: 0.1, y: 0.5, w: 0.4, h: 0.2 } }] })`);
-    let q = await bub();
-    assert(q.length === 1 && q[0].text === 'HELLO THERE' && q[0].mode === 'sentence', 'only the first bubble is requested: ' + JSON.stringify(q));
-    await p.evaluateMain(`window.__mlr.show({ id: ${q[0].id}, title: 'Bản dịch câu', mt: 'XIN CHÀO BẠN' })`);
-    q = await bub();
-    assert(q.length === 2 && q[1].text === 'GOOD BYE', 'the second bubble follows the first answer');
-    await p.evaluateMain(`window.__mlr.show({ id: ${q[1].id}, title: 'Bản dịch câu', mt: 'TẠM BIỆT' })`);
-    const labels = await p.evaluateMain(`[...document.querySelectorAll('mangalingo-reader-ocr [data-mlr-trlabel]')].map(e => e.textContent)`);
-    assert(labels.join('|') === 'XIN CHÀO BẠN|TẠM BIỆT', 'translations are written over the bubbles: ' + labels.join('|'));
-    // hide / show
-    await p.evaluateMain(`[...window.__mlrTest.root.querySelectorAll('.bar button')].find(b => b.textContent.includes('chữ gốc')).click()`);
-    assert(await p.evaluateMain(`[...document.querySelectorAll('mangalingo-reader-ocr [data-mlr-trlabel]')].every(e => e.style.display === 'none')`), 'translations hidden');
-    await p.evaluateMain(`[...window.__mlrTest.root.querySelectorAll('.bar button')].find(b => b.textContent.includes('bản dịch')).click()`);
-    assert(await p.evaluateMain(`[...document.querySelectorAll('mangalingo-reader-ocr [data-mlr-trlabel]')].every(e => e.style.display === 'flex')`), 'translations shown again');
-    // picking an image: the mode ends by itself once the image has been read
+  await step('after a scan nothing is written over the page (the app shows the translation itself); the pick mode ends by itself, no "Xong" to press', async () => {
     await reset();
     await p.evaluateMain(`window.__mlr.ocrMode(true)`);
     assert(await p.evaluateMain(`window.__mlrTest.state().ocrOn === true`), 'pick mode on');
     await p.evaluateMain(`window.__mlr.scanScreen()`);
-    const scr2 = (await log()).filter((m) => m.t === 'ocrRegion').pop();
+    const scr = (await log()).filter((m) => m.t === 'ocrRegion').pop();
     await p.evaluateMain(`window.__mlr.ocrMode(true)`);
-    await p.evaluateMain(`window.__mlr.ocrResult({ id: ${scr2.id}, blocks: [{ id: 'a', text: 'ONE', box: { x: 0.1, y: 0.1, w: 0.4, h: 0.2 } }] })`);
+    await p.evaluateMain(`window.__mlr.ocrResult({ id: ${scr.id}, blocks: [{ id: 'a', text: 'HELLO THERE', box: { x: 0.1, y: 0.1, w: 0.4, h: 0.2 } }] })`);
     assert(await p.evaluateMain(`window.__mlrTest.state().ocrOn === false`), 'pick mode ended by itself');
     assert((await log()).some((m) => m.t === 'ocrCancel'), 'the app is told');
-    await open('article.html'); // clean page for the next steps
+    assert(await p.evaluateMain(`!document.querySelector('mangalingo-reader-ocr [data-mlr-trlabel]')`), 'no translation is drawn over the bubbles');
+    assert(!(await log()).some((m) => m.t === 'lookup' && m.src === 'bubble'), 'no per-bubble look-ups from the page');
+    assert((await log()).some((m) => m.t === 'ocrBubbles' && m.blocks.length === 1), 'the bubbles are handed to the app (its sidebar translates them)');
+    await open('article.html');
     await sleep(900);
     await reset();
   });
@@ -314,6 +298,21 @@ try {
     await p.evaluateMain(`window.__mlr.ocrResult({ id: ${scr.id}, blocks: [{ id: 'a', text: 'ONE', box: { x: 0.1, y: 0.1, w: 0.3, h: 0.1 } }] })`);
     const bar = await p.evaluateMain(`(() => { const b = window.__mlrTest.root.querySelector('.bar'); const r = b.getBoundingClientRect(); return { top: r.top, vh: innerHeight, pe: getComputedStyle(b).pointerEvents }; })()`);
     assert(bar.top > bar.vh * 0.6 && bar.pe === 'none', 'bubble bar at the bottom: ' + JSON.stringify(bar));
+    await open('article.html');
+    await sleep(900);
+    await reset();
+  });
+
+  await step('while a scan runs the notices and bubble boxes are hidden (the snapshot must not show them); they return with the answer; the bar buttons are small', async () => {
+    await reset();
+    const vis = () => p.evaluateMain(`(() => { const h = document.querySelector('mangalingo-reader'); return h ? getComputedStyle(h).visibility : 'none'; })()`);
+    await p.evaluateMain(`window.__mlr.scanScreen()`);
+    assert((await vis()) === 'hidden', 'hidden while the scan is out');
+    const scr = (await log()).filter((m) => m.t === 'ocrRegion').pop();
+    await p.evaluateMain(`window.__mlr.ocrResult({ id: ${scr.id}, blocks: [{ id: 'a', text: 'ONE', box: { x: 0.1, y: 0.1, w: 0.3, h: 0.1 } }] })`);
+    assert((await vis()) === 'visible', 'visible again with the answer');
+    const fs = await p.evaluateMain(`parseFloat(getComputedStyle(window.__mlrTest.root.querySelector('.bar button')).fontSize)`);
+    assert(fs <= 12.5, 'small bar buttons: ' + fs);
     await open('article.html');
     await sleep(900);
     await reset();

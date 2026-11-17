@@ -251,6 +251,16 @@ final class WebReaderController: NSObject, WKNavigationDelegate, WKUIDelegate {
         let config = WKSnapshotConfiguration()
         config.rect = rect
         config.afterScreenUpdates = true
+        // the notices drawn by the page are hidden while the scan runs: give the page a moment to repaint without them, and tell the user
+        // with a native notice (it is not part of the page, so it never ends up in the snapshot)
+        model?.toast("Đang nhận dạng chữ…")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
+            guard let self = self else { return }
+            self.takeRegionSnapshot(id: id, config: config)
+        }
+    }
+
+    private func takeRegionSnapshot(id: Int, config: WKSnapshotConfiguration) {
         web.takeSnapshot(with: config) { [weak self] image, _ in
             guard let self = self, let data = image?.pngData() else {
                 self?.ocrFail(id, "Không chụp được vùng này.")

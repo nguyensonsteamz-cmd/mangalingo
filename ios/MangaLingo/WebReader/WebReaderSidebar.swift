@@ -108,7 +108,7 @@ struct ReaderToolsDrawer: View {
 
     private let tileW: CGFloat = 76
     private let tileH: CGFloat = 70
-    private let handleSize: CGFloat = 52
+    private let handleSize: CGFloat = 38
     private let margin: CGFloat = 6
     private let gap: CGFloat = 8
 
@@ -176,12 +176,12 @@ struct ReaderToolsDrawer: View {
 
     private func handle(size: CGSize) -> some View {
         Image(systemName: open ? "xmark" : (onRight ? "chevron.left" : "chevron.right"))
-            .font(.system(size: 18, weight: .bold))
-            .foregroundColor(.white)
+            .font(.system(size: 14, weight: .bold))
+            .foregroundColor(Color.white.opacity(0.78))
             .frame(width: handleSize, height: handleSize)
-            .background(Circle().fill(ReaderPalette.accentFill.opacity(0.92)))
-            .overlay(Circle().stroke(Color.white.opacity(0.25), lineWidth: 1))
-            .shadow(color: Color.black.opacity(0.35), radius: 6, x: 0, y: 2)
+            .background(Circle().fill(Color(red: 0.07, green: 0.08, blue: 0.11).opacity(0.9)))
+            .overlay(Circle().stroke(Color.white.opacity(0.16), lineWidth: 1))
+            .shadow(color: Color.black.opacity(0.35), radius: 4, x: 0, y: 1)
             .contentShape(Circle())
             .onTapGesture { open.toggle() }
             .gesture(
