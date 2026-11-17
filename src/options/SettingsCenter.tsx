@@ -505,7 +505,7 @@ function Typography({ s, update }: { s: Settings; update: Update }) {
       <div className="py-3">
         <div className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-subtle">Xem trước</div>
         <div className="text-text">“I'm gonna give up on this dream…”</div>
-        <div className="ml-tr text-muted">tôi sẽ bỏ cuộc giấc mơ này…</div>
+        <div className="ml-tr text-muted">Tôi sẽ từ bỏ giấc mơ này.</div>
       </div>
     </Page>
   );
