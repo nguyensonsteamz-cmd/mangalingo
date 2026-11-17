@@ -70,6 +70,12 @@ export function AuthScreen({ goToSetup }: { goToSetup?: () => void }) {
           {error && (
             <Notice tone="error" title={ERROR_INFO[error.code]?.title ?? 'Không đăng nhập được'}>
               {ERROR_INFO[error.code] ? `${ERROR_INFO[error.code].cause} ${ERROR_INFO[error.code].fix}` : error.message}
+              {error.detail && (
+                <span className="mt-2 block break-words font-mono text-[11px] opacity-80" data-ml-auth-detail="">
+                  Chi tiết kỹ thuật: {error.detail}
+                  {(globalThis as { chrome?: { runtime?: { id?: string } } }).chrome?.runtime?.id ? ` · ID extension: ${(globalThis as { chrome?: { runtime?: { id?: string } } }).chrome!.runtime!.id}` : ''}
+                </span>
+              )}
             </Notice>
           )}
         </div>
