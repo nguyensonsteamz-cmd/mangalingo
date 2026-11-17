@@ -56,12 +56,43 @@ describe('English definitions: the sense that fits comes first', () => {
   it('keeps the data order without context', () => {
     expect(pickDefinitions(r(), senses as never).map((s) => s.en)[0]).toBe('a facility where things can be deposited');
   });
-  it('keeps only the part of speech the word has in the sentence, with the best sense first', () => {
+  it('puts the part of speech of the sentence first but KEEPS the others (a noun that is also a verb shows both), best sense first', () => {
     const out = pickDefinitions(r({ likelyPos: 'noun', bestSense: 2 }), senses as never);
-    expect(out.map((s) => s.pos)).toEqual(['noun', 'noun', 'noun']);
+    expect(out.map((s) => s.pos)).toEqual(['noun', 'noun', 'noun', 'verb']);
     expect(out[0].en).toBe('a person to whom a secret is entrusted');
   });
   it('falls back to every sense when none has the likely part of speech', () => {
     expect(pickDefinitions(r({ likelyPos: 'adverb' as never }), senses as never)).toHaveLength(4);
+  });
+});
+
+import { firstDefinitions } from '@/ui/views';
+import { sentenceCaseIfShouting } from '@/translation/chrome-mt';
+
+describe('every part of speech is listed', () => {
+  const sn = [
+    { pos: 'noun', en: 'n1' },
+    { pos: 'noun', en: 'n2' },
+    { pos: 'noun', en: 'n3' },
+    { pos: 'verb', en: 'v1' },
+    { pos: 'adjective', en: 'a1' },
+  ];
+  it('the first view has the first sense of EVERY part of speech even when several nouns come first', () => {
+    const out = firstDefinitions(sn as never, 3).map((s) => s.en);
+    expect(out).toEqual(['n1', 'v1', 'a1']);
+  });
+  it('fills up to the minimum with further senses, in the original order', () => {
+    expect(firstDefinitions(sn.slice(0, 3) as never, 3).map((s) => s.en)).toEqual(['n1', 'n2', 'n3']);
+  });
+});
+
+describe('shouted (all-capital) lettering is translated as a sentence', () => {
+  it('turns several capital words into a sentence', () => {
+    expect(sentenceCaseIfShouting("I'M GONNA GIVE UP! WHAT NOW?")).toBe("I'm gonna give up! What now?");
+  });
+  it('leaves normal text, short text and Title Case alone', () => {
+    expect(sentenceCaseIfShouting('High School Private Dick Cracks Another Tough One!!')).toBe('High School Private Dick Cracks Another Tough One!!');
+    expect(sentenceCaseIfShouting('OK')).toBe('OK');
+    expect(sentenceCaseIfShouting('NASA')).toBe('NASA');
   });
 });

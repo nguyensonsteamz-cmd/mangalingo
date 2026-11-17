@@ -117,9 +117,24 @@ export function getTranslator(onProgress?: (loaded: number) => void, pair?: Lang
   return p;
 }
 
-/** Prepares OCR/bubble text: re-joins words hyphenated across lines and collapses whitespace. */
+/**
+ * Manga lettering is ALL CAPS, and translators read shouted text badly (names become common words, the sentence loses its shape).
+ * A text of several words that is (nearly) all capitals is written as a normal sentence first.
+ */
+export function sentenceCaseIfShouting(text: string): string {
+  const letters = text.replace(/[^A-Za-z]/g, '');
+  if (letters.length < 6 || (text.match(/[A-Za-z]+/g) ?? []).length < 3) return text;
+  if (letters.replace(/[^A-Z]/g, '').length / letters.length < 0.85) return text;
+  return text
+    .toLowerCase()
+    .replace(/\bi\b/g, 'I')
+    .replace(/\bi'(m|ll|ve|d)\b/g, "I'$1")
+    .replace(/(^|[.!?]\s+)([a-z])/g, (_m, a: string, b: string) => a + b.toUpperCase());
+}
+
+/** Prepares OCR/bubble text: re-joins words hyphenated across lines, collapses whitespace, un-shouts all-capital text. */
 export function prepareForMt(text: string): string {
-  return text.replace(/([A-Za-z])-\s+([a-z])/gi, '$1$2').replace(/\s+/g, ' ').trim();
+  return sentenceCaseIfShouting(text.replace(/([A-Za-z])-\s+([a-z])/gi, '$1$2').replace(/\s+/g, ' ').trim());
 }
 
 const cache = new Map<string, Promise<string>>();

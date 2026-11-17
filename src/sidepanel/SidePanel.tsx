@@ -36,6 +36,8 @@ export function SidePanel({ topBar }: { topBar?: ReactNode } = {}) {
   const [compact, setCompact] = useState(false);
   const { snap: usageSnap } = useUsage();
   const [entry, setEntry] = useState<Entry | null>(null);
+  // the pages the user came from (a word tapped inside a sentence analysis): "Quay lại" returns to the previous one, not to the bubble list
+  const [trail, setTrail] = useState<Entry[]>([]);
   const requestedTab = useRef(false);
   // the phone's scan screen can ask for a tab ("Phân tích câu · từng từ" → Từ vựng)
   useEffect(() => {
@@ -70,8 +72,13 @@ export function SidePanel({ topBar }: { topBar?: ReactNode } = {}) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loaded]);
 
-  const runLookup = useCallback(async (text: string, context?: string, source?: Entry['source'], preset?: LookupResult) => {
+  const entryRef = useRef<Entry | null>(null);
+  entryRef.current = entry;
+  const runLookup = useCallback(async (text: string, context?: string, source?: Entry['source'], preset?: LookupResult, fromEntry = false) => {
     if (!text.trim()) return;
+    // opened from inside the current page: remember that page; a fresh look-up (from the web page, the scan list) starts a new trail
+    const here = entryRef.current;
+    setTrail((t) => (fromEntry && here ? [...t, here] : []));
     setEntry({ text, context, loading: !preset, result: preset, source });
     if (preset) return;
     try {
@@ -245,7 +252,25 @@ export function SidePanel({ topBar }: { topBar?: ReactNode } = {}) {
         ) : ocr && !entry ? (
           <OcrPanel ocr={ocr} tab={tab} s={s} onAnalyze={(t) => void runLookup(t, undefined, ocr.source)} />
         ) : entry ? (
-          <EntryView s={s} entry={entry} tab={tab} compact={compact} onLookup={(t, c) => void runLookup(t, c, entry.source)} onBackToOcr={ocr ? () => setEntry(null) : undefined} />
+          <EntryView
+            s={s}
+            entry={entry}
+            tab={tab}
+            compact={compact}
+            onLookup={(t, c) => void runLookup(t, c, entry.source, undefined, true)}
+            backLabel={trail.length ? `← Quay lại “${trail[trail.length - 1].text.slice(0, 28)}${trail[trail.length - 1].text.length > 28 ? '…' : ''}”` : ocr ? '← Quay lại kết quả OCR' : undefined}
+            onBack={
+              trail.length
+                ? () => {
+                    const prev = trail[trail.length - 1];
+                    setTrail(trail.slice(0, -1));
+                    setEntry(prev);
+                  }
+                : ocr
+                  ? () => setEntry(null)
+                  : undefined
+            }
+          />
         ) : (
           <Empty title={IN_APP ? 'Tra từ hoặc câu tiếng Anh' : 'Chưa có nội dung'} icon={<IconLogo size={44} className="ml-float" />}>
             {IN_APP
@@ -305,12 +330,12 @@ function saveHint(v: VocabHint, sentence?: string, source?: Entry['source']) {
   void vocabStore.add({ word: v.word, lemma: v.lemma, meaning: v.vi ?? v.en ?? '', pos: v.pos, sentence, sourceUrl: source?.url, sourceTitle: source?.title });
 }
 
-function EntryView({ s, entry, tab, compact, onLookup, onBackToOcr }: { s: Settings; entry: Entry; tab: SidebarTab; compact: boolean; onLookup: (t: string, c?: string) => void; onBackToOcr?: () => void }) {
+function EntryView({ s, entry, tab, compact, onLookup, onBack, backLabel }: { s: Settings; entry: Entry; tab: SidebarTab; compact: boolean; onLookup: (t: string, c?: string) => void; onBack?: () => void; backLabel?: string }) {
   const saved = useSavedLemmas();
   const r = entry.result;
-  const back = onBackToOcr && (
-    <button type="button" className="mb-2 text-[12px] text-accent hover:underline" onClick={onBackToOcr}>
-      ← Quay lại kết quả OCR
+  const back = onBack && (
+    <button type="button" className="mb-2 text-[12px] text-accent hover:underline" onClick={onBack} data-ml-entry-back="">
+      {backLabel ?? '← Quay lại'}
     </button>
   );
   if (entry.loading || (!r && !entry.error)) {

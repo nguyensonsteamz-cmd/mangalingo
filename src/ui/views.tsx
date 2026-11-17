@@ -194,9 +194,22 @@ function MtDefinition({ text, s }: { text: string; s: Settings }) {
 export function pickDefinitions(r: WordLookup, en: Sense[]): Sense[] {
   const best = r.context?.bestSense !== undefined ? r.senses[r.context.bestSense] : undefined;
   const pos = r.context?.likelyPos;
-  const samePos = pos ? en.filter((x) => x.pos === pos) : [];
-  const pool = samePos.length ? samePos : en;
-  return best && pool.includes(best) ? [best, ...pool.filter((x) => x !== best)] : pool;
+  // the part of speech of the sentence first, the sense that fits first of all; every other part of speech follows (a word that is a noun
+  // AND a verb must show both)
+  const byPos = pos ? [...en.filter((x) => x.pos === pos), ...en.filter((x) => x.pos !== pos)] : en;
+  return best && byPos.includes(best) ? [best, ...byPos.filter((x) => x !== best)] : byPos;
+}
+
+/** What is shown first: the first sense of EVERY part of speech, then more senses up to `min`; the rest waits behind "Xem thêm". */
+export function firstDefinitions(ordered: Sense[], min: number): Sense[] {
+  const firsts: Sense[] = [];
+  const seen = new Set<string>();
+  for (const x of ordered) if (!seen.has(x.pos)) (seen.add(x.pos), firsts.push(x));
+  for (const x of ordered) {
+    if (firsts.length >= min) break;
+    if (!firsts.includes(x)) firsts.push(x);
+  }
+  return ordered.filter((x) => firsts.includes(x));
 }
 
 const FIRST_DEFS = 3;
@@ -205,8 +218,8 @@ function EnglishDefinitions({ r, en: allEn, s, max, title }: { r: WordLookup; en
   const translateDefs = s.reading.targetLanguage !== 'en';
   const [more, setMore] = useState(false);
   const ordered = pickDefinitions(r, allEn);
-  const en = more ? ordered.slice(0, max) : ordered.slice(0, Math.min(max, FIRST_DEFS));
-  const hidden = Math.min(max, ordered.length) - en.length;
+  const en = more ? ordered.slice(0, Math.max(max, 12)) : firstDefinitions(ordered, FIRST_DEFS);
+  const hidden = Math.min(Math.max(max, 12), ordered.length) - en.length;
   if (!ordered.length) return null;
   return (
     <>

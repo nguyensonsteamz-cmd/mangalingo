@@ -35,8 +35,8 @@ describe('machine translation (Chrome Translator API, opt-in)', () => {
     (globalThis as { Translator?: unknown }).Translator = { availability, create };
     expect(await mt.mtAvailability()).toBe('available');
     expect(availability).toHaveBeenCalledWith({ sourceLanguage: 'en', targetLanguage: 'vi' });
-    expect(await mt.machineTranslate("T-THAT'S IMPOSSI-\n BLE!!")).toBe("VI(T-THAT'S IMPOSSIBLE!!)");
-    expect(await mt.machineTranslate("T-THAT'S  IMPOSSI- BLE!!")).toBe("VI(T-THAT'S IMPOSSIBLE!!)");
+    expect(await mt.machineTranslate("T-THAT'S IMPOSSI-\n BLE!!")).toBe("VI(T-that's impossible!!)");
+    expect(await mt.machineTranslate("T-THAT'S  IMPOSSI- BLE!!")).toBe("VI(T-that's impossible!!)");
     expect(translate).toHaveBeenCalledTimes(1); // cached
     expect(create).toHaveBeenCalledTimes(1); // one translator instance
   });

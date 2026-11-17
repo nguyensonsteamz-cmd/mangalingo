@@ -231,9 +231,11 @@
     '.spin{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.25);border-top-color:#9fb2ff;border-radius:50%;animation:r .7s linear infinite;vertical-align:-2px;margin-right:6px}' +
     '@keyframes r{to{transform:rotate(360deg)}}' +
     '.chipbtn{position:fixed;z-index:2147483647;border:0;border-radius:99px;padding:7px 14px;font:600 14px -apple-system,system-ui,sans-serif;color:#fff;background:#3451d1;box-shadow:0 8px 22px rgba(0,0,0,.45)}' +
-    '.hint{position:fixed;z-index:2147483647;left:12px;right:12px;top:calc(env(safe-area-inset-top,0px) + 8px);display:flex;gap:10px;align-items:center;' +
-    'background:rgba(22,25,34,.96);color:#eef1f7;border:1px solid rgba(124,156,255,.5);border-radius:14px;padding:9px 12px;font:600 14px -apple-system,system-ui,sans-serif}' +
-    '.bar{position:fixed;z-index:2147483646;right:10px;top:calc(env(safe-area-inset-top,0px) + 60px);display:flex;gap:6px}' +
+    '.hint{position:fixed;z-index:2147483647;left:10px;right:10px;bottom:calc(env(safe-area-inset-bottom,0px) + 58px);display:flex;gap:10px;align-items:center;pointer-events:none;' +
+    'background:rgba(22,25,34,.94);color:#eef1f7;border:1px solid rgba(124,156,255,.5);border-radius:14px;padding:7px 10px;font:600 13px -apple-system,system-ui,sans-serif}' +
+    '.hint button{pointer-events:auto}' +
+    '.bar{position:fixed;z-index:2147483646;left:10px;right:10px;bottom:calc(env(safe-area-inset-bottom,0px) + 8px);display:flex;gap:6px;justify-content:center;pointer-events:none}' +
+    '.bar button{pointer-events:auto}' +
     '.bar button.b{background:rgba(22,25,34,.96);border:1px solid rgba(255,255,255,.18);box-shadow:0 4px 14px rgba(0,0,0,.4)}' +
     '.hint span{flex:1}.toast{position:fixed;z-index:2147483647;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 90px);transform:translateX(-50%);background:rgba(22,25,34,.97);color:#eef1f7;' +
     'border:1px solid rgba(255,255,255,.14);border-radius:12px;padding:8px 14px;font:600 13.5px -apple-system,system-ui,sans-serif;max-width:86vw;text-align:center}';

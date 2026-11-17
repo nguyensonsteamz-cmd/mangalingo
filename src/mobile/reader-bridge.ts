@@ -85,11 +85,17 @@ export function createReaderBridge(deps: ReaderDeps) {
           if (r.kind === 'word') {
             const p: ReaderPayload = { title: r.query, ipa: r.ipa, pos: r.posList.slice(0, 4).map((x) => deps.posLabel(x)), saveable: r.found };
             const groups = groupVi(r.senses);
-            p.meanings = groups.slice(0, 4).map(([pos, vi]) => ({ pos: groups.length > 1 ? deps.posLabel(pos) : undefined, vi: uniq(vi).slice(0, 3).join('; ') }));
+            p.meanings = groups.slice(0, 6).map(([pos, vi]) => ({ pos: groups.length > 1 ? deps.posLabel(pos) : undefined, vi: uniq(vi).slice(0, 5).join('; ') }));
             if (!groups.length) {
-              // no Vietnamese data: the machine translation of the word (guarded), English definitions as the cross-check
-              p.english = uniq(r.senses.map((s) => s.en ?? '')).slice(0, 2);
+              // no Vietnamese data: the machine translation of the word (guarded) on top, then one translated definition for EVERY part of speech
+              // (a word that is a noun and a verb shows both), the English definitions as the cross-check
               await mtLine(text.toLowerCase(), p, 'Dịch máy');
+              const firstPerPos: { pos: Pos; en: string }[] = [];
+              for (const s of r.senses) if (s.en && !firstPerPos.some((x) => x.pos === s.pos)) firstPerPos.push({ pos: s.pos, en: s.en });
+              const shown = firstPerPos.slice(0, 4);
+              const vis = await Promise.all(shown.map((x) => deps.translate(x.en).catch(() => '')));
+              p.meanings = shown.map((x, i) => ({ pos: deps.posLabel(x.pos), vi: vis[i] || x.en })).filter((m) => m.vi);
+              p.english = shown.map((x) => x.en).slice(0, 3);
             }
             p.saved = r.found ? await deps.hasLemma(r.lemma) : false;
             return p;

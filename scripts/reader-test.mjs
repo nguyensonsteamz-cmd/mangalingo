@@ -302,6 +302,23 @@ try {
     await reset();
   });
 
+  await step('notice bars sit at the bottom (they never cover the top of the page) and let touches through', async () => {
+    await reset();
+    await p.evaluateMain(`window.__mlr.regionMode(true)`);
+    const hint = await p.evaluateMain(`(() => { const h = window.__mlrTest.root.querySelector('.hint'); const r = h.getBoundingClientRect(); return { top: r.top, bottom: r.bottom, vh: innerHeight, pe: getComputedStyle(h).pointerEvents, btn: getComputedStyle(h.querySelector('button')).pointerEvents }; })()`);
+    assert(hint.top > hint.vh * 0.6, 'hint is in the lower part: ' + JSON.stringify(hint));
+    assert(hint.pe === 'none' && hint.btn === 'auto', 'only its button takes touches');
+    await p.evaluateMain(`window.__mlr.regionMode(false)`);
+    await p.evaluateMain(`window.__mlr.scanScreen()`);
+    const scr = (await log()).filter((m) => m.t === 'ocrRegion').pop();
+    await p.evaluateMain(`window.__mlr.ocrResult({ id: ${scr.id}, blocks: [{ id: 'a', text: 'ONE', box: { x: 0.1, y: 0.1, w: 0.3, h: 0.1 } }] })`);
+    const bar = await p.evaluateMain(`(() => { const b = window.__mlrTest.root.querySelector('.bar'); const r = b.getBoundingClientRect(); return { top: r.top, vh: innerHeight, pe: getComputedStyle(b).pointerEvents }; })()`);
+    assert(bar.top > bar.vh * 0.6 && bar.pe === 'none', 'bubble bar at the bottom: ' + JSON.stringify(bar));
+    await open('article.html');
+    await sleep(900);
+    await reset();
+  });
+
   await step('the site’s own click handlers still run (nothing is stopped or prevented)', async () => {
     await reset();
     await p.evaluateMain(`window.siteClicks = 0`);

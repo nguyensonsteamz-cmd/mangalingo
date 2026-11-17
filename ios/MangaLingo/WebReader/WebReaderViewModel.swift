@@ -7,6 +7,19 @@ import SwiftUI
 final class ReaderPresenter: ObservableObject {
     static let shared = ReaderPresenter()
     @Published var isPresented = false
+    private var scanObserver: NSObjectProtocol?
+
+    init() {
+        // a new screenshot arrived (Shortcut "Quét ảnh với LingoLens"): the scan screen lives under the Reader, so the Reader steps aside
+        // (its tabs are kept) instead of leaving the user on the web page
+        scanObserver = NotificationCenter.default.addObserver(forName: .mlNewScan, object: nil, queue: .main) { [weak self] _ in
+            if self?.isPresented == true { self?.dismiss() }
+        }
+    }
+
+    deinit {
+        if let scanObserver { NotificationCenter.default.removeObserver(scanObserver) }
+    }
 
     lazy var model: WebReaderViewModel = {
         let m = WebReaderViewModel()
