@@ -122,7 +122,7 @@ export class SetupError extends Error {
   }
 }
 
-export type GoogleService = 'resourcemanager' | 'serviceusage' | 'billing' | 'apikeys' | 'translate';
+export type GoogleService = 'resourcemanager' | 'serviceusage' | 'billing' | 'apikeys' | 'translate' | 'monitoring';
 
 interface GoogleErrorBody {
   error?: { code?: number; message?: string; status?: string; details?: { '@type'?: string; reason?: string; metadata?: Record<string, string> }[] };

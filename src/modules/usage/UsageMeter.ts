@@ -9,6 +9,12 @@ export interface Active {
 }
 
 /** Counting and estimates. Everything here is a LOCAL estimate, not Google Cloud Billing data. */
+/** Characters used this month: Google's figure for the whole account when it was read, plus what this device added since; else the local count. */
+export function effectiveChars(m: { chars: number; accountChars?: number; accountLocalAt?: number }): number {
+  if (m.accountChars === undefined) return m.chars;
+  return m.accountChars + Math.max(0, m.chars - (m.accountLocalAt ?? 0));
+}
+
 export class UsageMeter {
   /** Warning level from the share of the quota used: 80 % approaching, 90 % high usage, 100 % reached (all configurable). */
   levelOf(usedChars: number, s: UsageSettings): WarningLevel {
@@ -30,7 +36,8 @@ export class UsageMeter {
 
   snapshot(state: UsageState, s: UsageSettings, key: string, now: Date, a: Active): UsageSnapshot {
     const m = state.ledgers[ledgerKey(a.provider, a.credentialId)] ?? emptyLedger(state.month, a.provider, a.credentialId, a.languagePair);
-    const billable = Math.max(0, m.chars - s.freeQuotaChars);
+    const used = effectiveChars(m);
+    const billable = Math.max(0, used - s.freeQuotaChars);
     const nextReset = firstOfNextMonth(now);
     return {
       settings: s,
@@ -42,10 +49,12 @@ export class UsageMeter {
       lastReset: state.lastReset,
       nextReset,
       nextResetAt: resetInstant(nextReset),
-      usedChars: m.chars,
+      usedChars: used,
+      accountChars: m.accountChars,
+      accountAt: m.accountAt,
       freeQuota: s.freeQuotaChars,
-      remainingFree: Math.max(0, s.freeQuotaChars - m.chars),
-      ratio: m.chars / s.freeQuotaChars,
+      remainingFree: Math.max(0, s.freeQuotaChars - used),
+      ratio: used / s.freeQuotaChars,
       billableChars: billable,
       estimatedCostUsd: this.costOf(billable, s),
       // reliable only for a metered provider (Google BYOK) with a configured price; never for on-device providers

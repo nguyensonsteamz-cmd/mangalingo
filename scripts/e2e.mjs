@@ -125,7 +125,7 @@ try {
     await waitFor(() => gp.evaluate(`!!document.querySelector('[data-ml-auth-skip]')`), { label: 'not-configured notice with the temporary continue button' });
     assert(await gp.evaluate(`!document.querySelector('[data-ml-setup-section], [data-ml-usage-section]')`), 'settings must be hidden behind the gate');
     await gp.evaluate(`document.querySelector('[data-ml-auth-skip]').click()`);
-    await waitFor(() => gp.evaluate(`!document.querySelector('[data-ml-auth-gate]') && !!document.body.innerText.includes('Cài đặt')`), { label: 'settings after continuing' });
+    await waitFor(() => gp.evaluate(`!document.querySelector('[data-ml-auth-gate]') && !!document.body.innerText.includes('Settings Center')`), { label: 'settings after continuing' });
     const rec = await sw.evaluate(`chrome.storage.local.get('auth:v1').then((r) => r['auth:v1'])`);
     assert(rec?.skipped === true, 'auth record stored: ' + JSON.stringify(rec));
     await browser.send('Target.closeTarget', { targetId: gid });

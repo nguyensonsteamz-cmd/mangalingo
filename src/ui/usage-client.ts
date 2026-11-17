@@ -3,6 +3,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { send } from '@/shared/messages';
 import type { UsageSettings, UsageSnapshot } from '@/modules/usage/types';
 import { invalidateGoogleActive } from '@/translation/chrome-mt';
+import { getSmartSetup } from '@/ui/smart-setup-client';
+import type { SetupError } from '@/modules/smart-setup';
 
 /** The usage snapshot, refreshed when the usage data in storage changes (any tab / the sidebar / the app). */
 export function useUsage(): { snap: UsageSnapshot | null; error: string; refresh: () => Promise<void> } {
@@ -72,3 +74,29 @@ export const authorizePaid = () =>
     authorize: () => usageActions.authorize(true),
     openBilling: openBillingPage,
   });
+
+export type AccountRefresh = { ok: true; chars: number } | { ok: false; reason: 'no-session' | 'no-project' | 'no-metric' | 'error'; error?: SetupError; byMetric?: Record<string, number> };
+
+/**
+ * Reads this month's characters as Google counts them for the whole project (every platform using the account), and stores them as the
+ * base of the ledger. `interactive: false` only uses a Google session the browser already has (never opens a window).
+ */
+export async function refreshAccountUsage(opts: { interactive: boolean }): Promise<AccountRefresh> {
+  const flow = getSmartSetup();
+  try {
+    if (!flow.hasSession) {
+      const st = await flow.connectSilent();
+      if (!st) {
+        if (!opts.interactive) return { ok: false, reason: 'no-session' };
+        await flow.connect();
+      }
+    }
+    const u = await flow.fetchAccountUsage();
+    if (u.chars === null) return { ok: false, reason: 'no-metric', byMetric: u.byMetric };
+    await send({ type: 'usage:set-account', chars: u.chars, month: u.month, credentialId: u.projectId });
+    return { ok: true, chars: u.chars };
+  } catch (e) {
+    const err = e as SetupError;
+    return { ok: false, reason: err.code === 'PROJECT_NOT_FOUND' ? 'no-project' : 'error', error: err };
+  }
+}

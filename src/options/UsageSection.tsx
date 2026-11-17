@@ -12,6 +12,39 @@ import { USAGE_DISCLAIMER } from '@/modules/usage/disclaimer';
 import type { UsageSettings } from '@/modules/usage/types';
 import { copyText } from '@/mobile/ios';
 import { LocalModelSection } from './LocalModelSection';
+import { refreshAccountUsage } from '@/ui/usage-client';
+
+/** "Đọc từ Google": the account-wide figure (all platforms). Tried silently when the page opens; the button may ask for Google access. */
+function AccountSync() {
+  const [state, setState] = useState<'idle' | 'busy' | 'done' | 'fail'>('idle');
+  const [note, setNote] = useState('');
+  const run = async (interactive: boolean) => {
+    setState('busy');
+    setNote('');
+    const r = await refreshAccountUsage({ interactive });
+    if (r.ok) setState('done');
+    else {
+      setState(interactive ? 'fail' : 'idle');
+      if (interactive)
+        setNote(
+          r.reason === 'no-project' ? 'Chưa kết nối dự án Google Cloud (Smart Setup).' : r.reason === 'no-metric' ? 'Google chưa trả số ký tự dịch cho dự án này (chưa dịch tháng này, hoặc chỉ số chưa có). Thử lại sau vài phút.' : (r.error?.detail || r.error?.message || 'Không đọc được số liệu từ Google.'),
+        );
+    }
+  };
+  useEffect(() => {
+    void run(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  return (
+    <span className="inline-flex items-center gap-2">
+      <Button size="sm" onClick={() => void run(true)} disabled={state === 'busy'} data-ml-usage-account-refresh="">
+        {state === 'busy' ? 'Đang đọc…' : 'Đọc từ Google'}
+      </Button>
+      {state === 'done' && <span className="text-[12px] text-ok">Đã cập nhật</span>}
+      {state === 'fail' && note && <span className="text-[12px] text-danger" role="alert">{note}</span>}
+    </span>
+  );
+}
 
 function Card({ title, desc, children }: { title: string; desc?: string; children: ReactNode }) {
   return (
@@ -215,9 +248,16 @@ export function UsageSection() {
           <span>
             Đặt lại tiếp theo: <b className="text-text" data-ml-usage-next-reset="">{fmtDate(snap.nextReset)}</b>
           </span>
-          <Badge tone="warn" title="Không phải dữ liệu thanh toán của Google">
-            ước tính cục bộ
-          </Badge>
+          {snap.accountAt ? (
+            <Badge tone="ok" title="Số ký tự Google ghi nhận cho cả dự án (mọi nền tảng), đọc qua Cloud Monitoring">
+              theo tài khoản Google
+            </Badge>
+          ) : (
+            <Badge tone="warn" title="Chưa đọc số của Google: đang là ước tính trên thiết bị này">
+              ước tính cục bộ
+            </Badge>
+          )}
+          <AccountSync />
         </div>
         <div className="py-3 text-[11.5px] leading-snug text-subtle">{USAGE_DISCLAIMER}</div>
       </Card>

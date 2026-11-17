@@ -51,6 +51,14 @@ export interface MonthlyUsage {
   /** first / last successful use (ms since epoch) */
   firstAt: number;
   lastAt: number;
+  /**
+   * Characters Google itself reports for the whole project this month (every device and platform that uses the account's
+   * key), read through Cloud Monitoring. `accountLocalAt` = this device's own count at that moment, so what was translated
+   * here AFTER the reading is added on top until the next refresh.
+   */
+  accountChars?: number;
+  accountLocalAt?: number;
+  accountAt?: number;
 }
 
 export interface RequestLogEntry {
@@ -94,6 +102,9 @@ export interface UsageSnapshot {
   /** "2026-12-01T00:00:00Z" */
   nextResetAt: string;
   usedChars: number;
+  /** Google's own figure for the project (all platforms) when it has been read; otherwise undefined and usedChars is a local estimate */
+  accountChars?: number;
+  accountAt?: number;
   freeQuota: number;
   remainingFree: number;
   /** used / free quota, 0..infinity (1 = 100 %) */

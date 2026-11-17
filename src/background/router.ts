@@ -97,6 +97,7 @@ export function createRouter(d: RouterDeps) {
       return true;
     },
     'usage:snapshot': () => d.usage.snapshot(),
+    'usage:set-account': (m) => d.usage.setAccountUsage(m.chars, m.month, m.credentialId),
     'usage:settings': async (m) => {
       if (m.patch) await d.usage.updateSettings(m.patch);
       if (m.apiKey !== undefined) await d.usage.setApiKey(m.apiKey);

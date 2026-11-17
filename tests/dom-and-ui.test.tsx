@@ -183,7 +183,9 @@ describe('colour settings', () => {
     expect(light.vars['--ml-surface']).toBe('255 251 235');
     const dark = popupSurface(mergeSettings(DEFAULT_SETTINGS, { popup: { background: '#3b0764' } }), 'light');
     expect(dark.theme).toBe('dark');
-    expect(popupSurface(DEFAULT_SETTINGS, 'dark')).toEqual({ theme: 'light', vars: {} });
+    const d = popupSurface(DEFAULT_SETTINGS, 'dark');
+    expect(d.theme).toBe('light');
+    expect(Object.keys(d.vars).sort()).toEqual(['--ml-accent', '--ml-accent-fg']); // only the accent kept readable on the surface
     expect(popupSurface(mergeSettings(DEFAULT_SETTINGS, { popup: { theme: 'follow' } }), 'dark').theme).toBe('dark');
   });
 });
@@ -201,7 +203,9 @@ describe('sidebar appearance settings', () => {
     const { sidebarSurface } = await import('@/ui/theme');
     expect(DEFAULT_SETTINGS.sidebar.theme).toBe('follow');
     expect(DEFAULT_SETTINGS.sidebar.background).toBe('');
-    expect(sidebarSurface(DEFAULT_SETTINGS, 'dark')).toEqual({ theme: 'dark', vars: {} });
+    const d = sidebarSurface(DEFAULT_SETTINGS, 'dark');
+    expect(d.theme).toBe('dark');
+    expect(Object.keys(d.vars).sort()).toEqual(['--ml-accent', '--ml-accent-fg']);
     expect(sidebarSurface(mergeSettings(DEFAULT_SETTINGS, { sidebar: { theme: 'light' } }), 'dark').theme).toBe('light');
     const cream = sidebarSurface(mergeSettings(DEFAULT_SETTINGS, { sidebar: { background: '#fffbeb' } }), 'dark');
     expect(cream.theme).toBe('light');

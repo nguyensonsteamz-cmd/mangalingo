@@ -112,8 +112,8 @@ export function BillingSection() {
       {msg && <Notice tone={msg.tone}>{msg.text}</Notice>}
 
       <section>
-        <h2 className="mb-1 text-[15px] font-semibold text-text">Lịch sử chi phí dịch (ước tính cục bộ)</h2>
-        <p className="mb-2 text-[12.5px] text-muted">Tính từ số ký tự đã dịch qua Lingolens trên thiết bị này, theo đơn giá bạn đặt ở mục Hạn mức dịch. Không phải hoá đơn của Google.</p>
+        <h2 className="mb-1 text-[15px] font-semibold text-text">Lịch sử chi phí dịch{snap.accountAt ? ' (tháng này theo tài khoản Google)' : ' (ước tính cục bộ)'}</h2>
+        <p className="mb-2 text-[12.5px] text-muted">Tháng này lấy số ký tự Google ghi nhận cho cả tài khoản (nếu đã đọc ở mục Hạn mức dịch), các tháng trước là ước tính trên thiết bị. Chi phí tính theo đơn giá bạn đặt ở mục Hạn mức dịch. Không phải hoá đơn của Google.</p>
         <div className="ml-glass-card overflow-x-auto rounded-[20px] p-4" data-ml-billing-history="">
           <table className="w-full text-left text-[12px] tabular-nums">
             <thead>

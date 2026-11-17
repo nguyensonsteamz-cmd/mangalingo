@@ -144,6 +144,21 @@ export class SmartSetupFlow {
     return this.save({ account: account ?? s.account });
   }
 
+  /**
+   * This month's characters as Google counts them for the whole project (all platforms). Needs a session (the caller tries
+   * connectSilent first); throws SetupError when Google refuses. `chars` is null when Monitoring has no character metric.
+   */
+  async fetchAccountUsage(now = new Date(this.now())): Promise<{ chars: number | null; month: string; projectId: string; byMetric: Record<string, number> }> {
+    return this.step('validate', async () => {
+      const s = await this.state();
+      const projectId = s.project?.id;
+      if (!projectId) throw new SetupError('PROJECT_NOT_FOUND', 'Chưa chọn dự án Google Cloud (Smart Setup).');
+      const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+      const u = await this.d.client.translateUsage(this.tok(), projectId, start, now);
+      return { ...u, month: `${start.getUTCFullYear()}-${String(start.getUTCMonth() + 1).padStart(2, '0')}`, projectId };
+    });
+  }
+
   /** Drops the OAuth session (revokes the token). Nothing else changes. */
   async endSession(): Promise<void> {
     const t = this.token;

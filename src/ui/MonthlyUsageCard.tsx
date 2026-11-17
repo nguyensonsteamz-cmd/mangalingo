@@ -1,8 +1,8 @@
 /**
  * Monthly translation usage, the same compact component on Chrome, iPhone and Android: progress bar with the warning marks,
  * characters used / quota / remaining, share used, operations, billing month (UTC) and the next reset, and an estimated cost
- * only when it is backed by a metered provider and a configured price. Every figure is a LOCAL estimate (this device,
- * requests made through LingoLens), never Google's billing meter.
+ * only when it is backed by a metered provider and a configured price. The figure is Google's own count for the whole account
+ * (all platforms) once it has been read from Cloud Monitoring; until then it is a LOCAL estimate (this device only).
  */
 import { useId } from 'react';
 import type { UsageSnapshot } from '@/modules/usage/types';
@@ -63,7 +63,11 @@ export function MonthlyUsageCard({ snap, compact = false }: { snap: UsageSnapsho
           )}
         </dl>
       )}
-      <div className={cx('mt-2 text-subtle', compact ? 'text-[10.5px]' : 'text-[11px]')}>Ước tính trên thiết bị này, không phải số liệu thanh toán của Google.</div>
+      <div className={cx('mt-2 text-subtle', compact ? 'text-[10.5px]' : 'text-[11px]')} data-ml-usage-source={snap.accountAt ? 'account' : 'local'}>
+        {snap.accountAt
+          ? `Theo tài khoản Google (mọi nền tảng) · đọc lúc ${new Date(snap.accountAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })} ${new Date(snap.accountAt).toLocaleDateString('vi-VN')}`
+          : 'Ước tính trên thiết bị này. Vào Cài đặt → Hạn mức dịch để đọc số của cả tài khoản Google.'}
+      </div>
     </div>
   );
 }

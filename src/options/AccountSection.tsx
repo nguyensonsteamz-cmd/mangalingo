@@ -143,7 +143,7 @@ export function AccountSection() {
           <dl className="mt-2 divide-y divide-border/60">
             <Row label="Sổ từ vựng">{counts ? `${counts.words} từ` : '…'}</Row>
             <Row label="Ghi chú">{counts ? `${counts.notes} ghi chú` : '…'}</Row>
-            <Row label="Hạn mức dịch tháng này">{snap.usedChars.toLocaleString('vi-VN')} ký tự (ước tính cục bộ)</Row>
+            <Row label="Hạn mức dịch tháng này">{snap.usedChars.toLocaleString('vi-VN')} ký tự {snap.accountAt ? '(theo tài khoản Google)' : '(ước tính cục bộ)'}</Row>
             <Row label="Đặt lại hạn mức">{fmtDate(snap.nextReset)}</Row>
           </dl>
           <div className="mt-2 text-[11.5px] leading-snug text-subtle">Khoá API được cất trong kho bảo mật của thiết bị và không bao giờ gửi cho Lingolens. Mỗi thiết bị tự thiết lập riêng; không có đồng bộ qua tài khoản.</div>

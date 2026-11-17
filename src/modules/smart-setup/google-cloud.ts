@@ -31,6 +31,7 @@ const SU = 'https://serviceusage.googleapis.com/v1';
 const BILLING = 'https://cloudbilling.googleapis.com/v1';
 const KEYS = 'https://apikeys.googleapis.com/v2';
 const TRANSLATE = 'https://translation.googleapis.com/language/translate/v2';
+const MONITORING = 'https://monitoring.googleapis.com/v3';
 
 export interface ClientOptions {
   fetchImpl?: FetchFn;
@@ -88,6 +89,39 @@ export class GoogleCloudClient {
       throw mapGoogleError(e.code === 7 ? 403 : e.code === 5 ? 404 : e.code === 8 ? 429 : 400, { error: { message: e.message, status: e.status } }, { service, op: kind });
     }
     return cur.response as Record<string, unknown> | undefined;
+  }
+
+  // ---- usage of the whole project (Cloud Monitoring)
+  /**
+   * Characters the project translated between `start` and `end` (every device and platform that used its key), from the quota
+   * usage metric of Cloud Translation. The quota metrics are summed per `quota_metric`; the ones that name characters are the
+   * answer. When none does, the breakdown is returned with `chars: null` so the caller can say what was found.
+   */
+  async translateUsage(token: string, projectId: string, start: Date, end: Date): Promise<{ chars: number | null; byMetric: Record<string, number> }> {
+    const span = Math.max(60, Math.ceil((end.getTime() - start.getTime()) / 1000));
+    const filter = 'metric.type="serviceruntime.googleapis.com/quota/rate/net_usage" AND resource.type="consumer_quota" AND resource.labels.service="translate.googleapis.com"';
+    const q = new URLSearchParams({
+      filter,
+      'interval.startTime': start.toISOString(),
+      'interval.endTime': end.toISOString(),
+      'aggregation.alignmentPeriod': `${span}s`,
+      'aggregation.perSeriesAligner': 'ALIGN_SUM',
+      'aggregation.crossSeriesReducer': 'REDUCE_SUM',
+      view: 'FULL',
+    });
+    q.append('aggregation.groupByFields', 'metric.label.quota_metric');
+    const r = (await this.call('monitoring', 'GET', `${MONITORING}/projects/${encodeURIComponent(projectId)}/timeSeries?${q.toString()}`, token)) as {
+      timeSeries?: { metric?: { labels?: Record<string, string> }; points?: { value?: { int64Value?: string; doubleValue?: number } }[] }[];
+    };
+    const byMetric: Record<string, number> = {};
+    for (const ts of r.timeSeries ?? []) {
+      const name = ts.metric?.labels?.quota_metric ?? 'unknown';
+      let sum = 0;
+      for (const p of ts.points ?? []) sum += Number(p.value?.int64Value ?? p.value?.doubleValue ?? 0);
+      byMetric[name] = (byMetric[name] ?? 0) + sum;
+    }
+    const chars = Object.entries(byMetric).filter(([k]) => /char/i.test(k));
+    return { chars: chars.length ? chars.reduce((a, [, v]) => a + v, 0) : Object.keys(byMetric).length ? null : 0, byMetric };
   }
 
   // ---- account

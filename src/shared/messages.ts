@@ -56,6 +56,8 @@ export type Request =
   /** an on-device provider processed this many characters (informational ledger, not metered) */
   | { type: 'usage:device-processed'; provider: string; chars: number; idempotencyKey?: string }
   | { type: 'usage:snapshot' }
+  /** characters Google reports for the whole account this month (read by the UI through Cloud Monitoring) */
+  | { type: 'usage:set-account'; chars: number; month: string; credentialId?: string }
   /** Update the usage settings and / or the API key (null removes it); answers with a fresh snapshot. */
   | { type: 'usage:settings'; patch?: Partial<UsageSettings>; apiKey?: string | null }
   /** The user's explicit consent to paid translation (or its withdrawal). */
@@ -107,6 +109,7 @@ export interface ResponseMap {
   'usage:operation': boolean;
   'usage:device-processed': boolean;
   'usage:snapshot': UsageSnapshot;
+  'usage:set-account': UsageSnapshot;
   'usage:settings': UsageSnapshot;
   'usage:authorize': UsageSnapshot;
   'usage:activate': UsageSnapshot;

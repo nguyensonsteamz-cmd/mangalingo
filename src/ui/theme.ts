@@ -16,9 +16,43 @@ export function luminance([r, g, b]: [number, number, number]): number {
   return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
 }
 
-/** Pick dark or light text on the accent colour. */
+/** WCAG contrast ratio (1..21) of two colours. */
+export function contrastRatio(a: [number, number, number], b: [number, number, number]): number {
+  const la = luminance(a);
+  const lb = luminance(b);
+  return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
+}
+
+/** Luminance where black and white text have the SAME contrast: lighter backgrounds take dark text, darker ones light text. */
+export const TEXT_FLIP = 0.179;
+
+/** Pick dark or light text on the accent colour (whichever has the higher contrast). */
 export function accentForeground(rgb: [number, number, number]): string {
-  return luminance(rgb) > 0.35 ? '10 12 20' : '255 255 255';
+  return luminance(rgb) > TEXT_FLIP ? '10 12 20' : '255 255 255';
+}
+
+/**
+ * The accent colour as TEXT / icons on `bg`: when it is too close to the background (a light accent on a light popup, a dark one
+ * on a dark popup) it is moved toward black or white until the contrast is at least `min` (WCAG AA for text = 4.5).
+ */
+export function readableOn(color: [number, number, number], bg: [number, number, number], min = 4.5): [number, number, number] {
+  if (contrastRatio(color, bg) >= min) return color;
+  const target: [number, number, number] = luminance(bg) > TEXT_FLIP ? [0, 0, 0] : [255, 255, 255];
+  let c = color;
+  for (let i = 1; i <= 20; i++) {
+    c = color.map((v, k) => Math.round(v + (target[k] - v) * (i / 20))) as [number, number, number];
+    if (contrastRatio(c, bg) >= min) return c;
+  }
+  return c;
+}
+
+const DARK_SURFACE: [number, number, number] = [22, 25, 33];
+const LIGHT_SURFACE: [number, number, number] = [255, 255, 255];
+/** Accent variables that stay readable on a surface (used by the popup and the sidebar, whose backgrounds can be customised). */
+function accentVars(accentHex: string, surface: [number, number, number]): Record<string, string> {
+  const base = hexToRgb(accentHex);
+  const a = readableOn(base, surface);
+  return { '--ml-accent': a.join(' '), '--ml-accent-fg': accentForeground(a) };
 }
 
 const mix = (a: [number, number, number], b: [number, number, number], t: number) => a.map((v, i) => Math.round(v + (b[i] - v) * t)).join(' ');
@@ -56,13 +90,25 @@ export function popupMaterialVars(material: Settings['popup']['material'], alpha
 export function popupSurface(s: Settings, pageTheme: 'dark' | 'light'): { theme: 'dark' | 'light'; vars: Record<string, string> } {
   const bg = s.popup.background;
   const material = { ...popupMaterialVars(s.popup.material, s.popup.glassAlpha), ...(!s.appearance.glass ? { '--ml-glass-off': '1' } : {}) };
-  if (!/^#[0-9a-f]{6}$/i.test(bg)) return { theme: s.popup.theme === 'follow' ? pageTheme : s.popup.theme, vars: material };
+  if (!/^#[0-9a-f]{6}$/i.test(bg)) {
+    const theme = s.popup.theme === 'follow' ? pageTheme : s.popup.theme;
+    const base = theme === 'dark' ? DARK_SURFACE : LIGHT_SURFACE;
+    const vars: Record<string, string> = { ...material, ...accentVars(s.appearance.accent, base) };
+    // clear glass lets the page show through: tint it to the theme and keep it dense enough that the text never melts into the page
+    if (s.popup.material === 'clear') {
+      vars['--ml-surface'] = base.join(' ');
+      const floor = theme === 'dark' ? 0.5 : 0.6;
+      if (Number(vars['--ml-glass-alpha'] ?? 0) < floor) vars['--ml-glass-alpha'] = String(floor);
+      if (Number(vars['--ml-glass-card-alpha'] ?? 0) < floor * 0.8) vars['--ml-glass-card-alpha'] = String(floor * 0.8);
+    }
+    return { theme, vars };
+  }
   const rgb = hexToRgb(bg);
-  const light = luminance(rgb) > 0.4;
+  const light = luminance(rgb) > TEXT_FLIP;
   const toward: [number, number, number] = light ? [0, 0, 0] : [255, 255, 255];
   return {
     theme: light ? 'light' : 'dark',
-    vars: { ...material, '--ml-surface': rgb.join(' '), '--ml-elevated': mix(rgb, toward, 0.06), '--ml-border': mix(rgb, toward, 0.16) },
+    vars: { ...material, ...accentVars(s.appearance.accent, rgb), '--ml-surface': rgb.join(' '), '--ml-elevated': mix(rgb, toward, 0.06), '--ml-border': mix(rgb, toward, 0.16) },
   };
 }
 
@@ -127,13 +173,17 @@ export function themeVars(s: Settings, surface: 'popup' | 'sidebar' | 'page'): R
  */
 export function sidebarSurface(s: Settings, pageTheme: 'dark' | 'light'): { theme: 'dark' | 'light'; vars: Record<string, string> } {
   const bg = s.sidebar.background;
-  if (!/^#[0-9a-f]{6}$/i.test(bg)) return { theme: s.sidebar.theme === 'follow' ? pageTheme : s.sidebar.theme, vars: {} };
+  if (!/^#[0-9a-f]{6}$/i.test(bg)) {
+    const theme = s.sidebar.theme === 'follow' ? pageTheme : s.sidebar.theme;
+    return { theme, vars: accentVars(s.appearance.accent, theme === 'dark' ? DARK_SURFACE : LIGHT_SURFACE) };
+  }
   const rgb = hexToRgb(bg);
-  const light = luminance(rgb) > 0.4;
+  const light = luminance(rgb) > TEXT_FLIP;
   const contrast: [number, number, number] = light ? [0, 0, 0] : [255, 255, 255];
   return {
     theme: light ? 'light' : 'dark',
     vars: {
+      ...accentVars(s.appearance.accent, rgb),
       '--ml-bg': rgb.join(' '),
       '--ml-surface': light ? mix(rgb, [255, 255, 255], 0.55) : mix(rgb, contrast, 0.05),
       '--ml-elevated': mix(rgb, contrast, light ? 0.05 : 0.1),

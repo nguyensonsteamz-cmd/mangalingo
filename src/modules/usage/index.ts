@@ -77,6 +77,26 @@ export class UsageService {
     });
   }
 
+  /**
+   * The account-wide figure read from Google (Cloud Monitoring, every platform using this account's project): it replaces the
+   * local estimate as the base of this month's ledger. Ignored for another month or another credential.
+   */
+  async setAccountUsage(chars: number, month: string, credentialId?: string): Promise<UsageSnapshot> {
+    await this.protection.run(async () => {
+      const now = this.clock();
+      const state = await this.repo.load(now);
+      const active = await this.active();
+      if (month === state.month && (!credentialId || credentialId === active.credentialId || active.credentialId === 'default')) {
+        const m = this.meter.ledger(state, active);
+        m.accountChars = Math.max(0, Math.round(chars));
+        m.accountLocalAt = m.chars;
+        m.accountAt = now.getTime();
+        await this.repo.save(state);
+      }
+    });
+    return this.snapshot();
+  }
+
   /** Translation entry point. Device mode (default) tells the caller to use the on-device translator. */
   async translate(text: string, opts: TranslateOptions = {}): Promise<TranslateOutcome> {
     const settings = await this.repo.loadSettings();

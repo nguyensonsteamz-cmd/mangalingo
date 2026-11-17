@@ -1,5 +1,5 @@
 import type { BlockedDecision, MonthlyUsage, UsageSettings, UsageState } from './types';
-import { UsageMeter } from './UsageMeter';
+import { UsageMeter, effectiveChars } from './UsageMeter';
 
 export type QuotaDecision = { action: 'allow'; billableChars: number; estimatedCostUsd: number } | { action: 'block'; decision: BlockedDecision };
 
@@ -24,7 +24,7 @@ export class QuotaManager {
       return block('request-too-long', `Văn bản dài ${chars.toLocaleString('en-US')} ký tự, vượt giới hạn ${s.maxCharsPerRequest.toLocaleString('en-US')} ký tự cho mỗi yêu cầu.`, 0);
     }
 
-    const used = (ledger?.chars ?? 0) + pending;
+    const used = (ledger ? effectiveChars(ledger) : 0) + pending;
     const after = used + chars;
     const free = s.freeQuotaChars;
     const hardLimit = Math.round(free * s.hardStopRatio);

@@ -1,5 +1,5 @@
 /** Settings Center: every option is validated, saved to chrome.storage.local and applied live. */
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react';
 import { LOGOS, LogoMark } from '@/ui/logos';
 import { send, type DictStats } from '@/shared/messages';
 import { DEFAULT_SETTINGS, normalizeHost, type DeepPartial, type Settings } from '@/shared/settings';
@@ -19,24 +19,28 @@ import { AccountSection } from './AccountSection';
 
 type Update = (p: DeepPartial<Settings>) => void;
 
+// most used first: the account and the translation set-up, then the tools used while reading, then looks and data
 const SECTIONS = [
-  { id: 'appearance', label: 'Giao diện' },
+  { id: 'account', label: 'Tài khoản' },
+  { id: 'usage', label: 'Hạn mức dịch' },
+  { id: 'setup', label: 'Smart Setup' },
+  { id: 'billing', label: 'Billing' },
   { id: 'popup', label: 'Floating Popup' },
   { id: 'sidebar', label: 'Sidebar' },
-  { id: 'typography', label: 'Chữ' },
+  { id: 'ocr', label: 'OCR' },
   { id: 'dictionary', label: 'Từ điển' },
   { id: 'reading', label: 'Hành vi đọc' },
-  { id: 'account', label: 'Tài khoản' },
-  { id: 'setup', label: 'Smart Setup' },
-  { id: 'usage', label: 'Hạn mức dịch' },
-  { id: 'billing', label: 'Billing' },
-  { id: 'ocr', label: 'OCR' },
+  { id: 'appearance', label: 'Giao diện' },
+  { id: 'typography', label: 'Chữ' },
   { id: 'shortcuts', label: 'Phím tắt' },
   { id: 'vocab', label: 'Sổ từ vựng' },
   { id: 'data', label: 'Dữ liệu' },
   { id: 'about', label: 'Giới thiệu & quyền riêng tư' },
 ] as const;
 type SectionId = (typeof SECTIONS)[number]['id'];
+/** a divider is drawn AFTER these sections (account + translation | reading tools | looks | data) */
+const GROUP_END: string[] = ['billing', 'dictionary', 'typography'];
+const FEATURED = 'account';
 
 /** One line under each row of the phone settings list. */
 const SECTION_DESC: Record<string, string> = {
@@ -67,8 +71,8 @@ export function SettingsCenter({ hidden = [], topBar }: { hidden?: string[]; top
   const { settings: s, update, reset, loaded, saveState } = useSettings('page');
   // a section can be requested from elsewhere in the phone app (e.g. "Cho phép dịch có phí" without billing → Billing)
   const requested = (globalThis as { __mlNextSettingsSection?: string }).__mlNextSettingsSection as SectionId | undefined;
-  const initial = (requested ?? decodeURIComponent(location.hash.slice(1))) as SectionId || 'appearance';
-  const [section, setSection] = useState<SectionId>(SECTIONS.some((x) => x.id === initial) ? initial : 'appearance');
+  const initial = (requested ?? decodeURIComponent(location.hash.slice(1))) as SectionId || 'account';
+  const [section, setSection] = useState<SectionId>(SECTIONS.some((x) => x.id === initial) ? initial : 'account');
   // list mode (phone app): the list is the first screen, a row opens its page; a section asked for from elsewhere opens straight on it
   const IS_APP = isApp();
   const [detailOpen, setDetailOpen] = useState(IS_APP && !!requested && SECTIONS.some((x) => x.id === requested));
@@ -104,7 +108,7 @@ export function SettingsCenter({ hidden = [], topBar }: { hidden?: string[]; top
           {topBar}
           <ul className="divide-y divide-border/60 px-3 pb-28 pt-1">
             {SECTIONS.filter((x) => !hidden.includes(x.id)).map((x) => (
-              <li key={x.id}>
+              <li key={x.id} className={cx(x.id === FEATURED && 'mb-2 mt-1 rounded-2xl bg-accent/10 px-3 ring-1 ring-accent/30', GROUP_END.includes(x.id) && 'border-b-4 border-border/40')}>
                 <button
                   type="button"
                   data-ml-settings-row={x.id}
@@ -149,7 +153,8 @@ export function SettingsCenter({ hidden = [], topBar }: { hidden?: string[]; top
         <ul className="relative flex gap-1 overflow-x-auto md:flex-col">
           <GlassIndicator activeKey={section} className="rounded-full md:rounded-xl" />
           {SECTIONS.filter((x) => !hidden.includes(x.id)).map((x) => (
-            <li key={x.id}>
+            <Fragment key={x.id}>
+            <li className={cx(x.id === FEATURED && 'md:mb-1')}>
               <button
                 type="button"
                 {...fastTap(() => {
@@ -158,11 +163,19 @@ export function SettingsCenter({ hidden = [], topBar }: { hidden?: string[]; top
                   if (!document.documentElement.dataset.app) history.replaceState(null, '', `#${x.id}`);
                 })}
                 data-ml-active={section === x.id}
-                className={cx('ml-focus ml-press relative z-[1] w-full whitespace-nowrap rounded-full px-3 py-1.5 text-left text-[13px] md:rounded-xl', section === x.id ? 'ml-sel-text border border-transparent font-semibold' : 'border border-transparent text-muted hover:bg-text/[0.05] hover:text-text')}
+                data-ml-featured={x.id === FEATURED ? '' : undefined}
+                className={cx(
+                  'ml-focus ml-press relative z-[1] w-full whitespace-nowrap rounded-full px-3 py-1.5 text-left text-[13px] md:rounded-xl',
+                  x.id === FEATURED && 'md:py-2.5 md:text-[14.5px] md:font-bold',
+                  section === x.id ? 'ml-sel-text border border-transparent font-semibold' : x.id === FEATURED ? 'border border-accent/40 bg-accent/10 font-semibold text-text hover:bg-accent/15' : 'border border-transparent text-muted hover:bg-text/[0.05] hover:text-text',
+                )}
               >
+                {x.id === FEATURED ? '👤 ' : ''}
                 {x.label}
               </button>
             </li>
+            {GROUP_END.includes(x.id) && <li aria-hidden="true" className="hidden h-px shrink-0 bg-border/60 md:mx-2 md:my-1.5 md:block" />}
+            </Fragment>
           ))}
         </ul>
         <div className="mt-4 hidden text-[11.5px] text-subtle md:block">
