@@ -3,11 +3,16 @@ import WebKit
 
 /// Dark palette shared with the LingoLens app (the web UI uses the same colours).
 enum ReaderPalette {
-    static let background = Color(red: 16 / 255, green: 18 / 255, blue: 24 / 255)
-    static let surface = Color(red: 30 / 255, green: 34 / 255, blue: 44 / 255)
-    static let accent = Color(red: 124 / 255, green: 156 / 255, blue: 255 / 255)
+    private static var light: Bool { WebReaderSettings.shared.isLight }
+    static var background: Color { light ? Color(red: 245 / 255, green: 246 / 255, blue: 250 / 255) : Color(red: 16 / 255, green: 18 / 255, blue: 24 / 255) }
+    static var surface: Color { light ? Color(red: 230 / 255, green: 233 / 255, blue: 240 / 255) : Color(red: 30 / 255, green: 34 / 255, blue: 44 / 255) }
+    static var accent: Color { light ? Color(red: 52 / 255, green: 81 / 255, blue: 209 / 255) : Color(red: 124 / 255, green: 156 / 255, blue: 255 / 255) }
     static let accentFill = Color(red: 52 / 255, green: 81 / 255, blue: 209 / 255)
-    static let muted = Color(red: 154 / 255, green: 164 / 255, blue: 184 / 255)
+    static var muted: Color { light ? Color(red: 96 / 255, green: 104 / 255, blue: 124 / 255) : Color(red: 154 / 255, green: 164 / 255, blue: 184 / 255) }
+    /// Main text / icon colour.
+    static var text: Color { light ? Color(red: 22 / 255, green: 25 / 255, blue: 35 / 255) : Color.white }
+    /// Hairlines and outlines.
+    static func line(_ opacity: Double) -> Color { light ? Color.black.opacity(opacity) : ReaderPalette.line(opacity) }
 }
 
 /// Shows the current tab's web view (the tabs own their web views, so switching tabs swaps the view inside this container).
@@ -42,6 +47,7 @@ struct WebReaderView: View {
     @ObservedObject private var library = WebLibrary.shared
     @ObservedObject private var settings = WebReaderSettings.shared
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.colorScheme) private var colorScheme
     @FocusState private var addressFocused: Bool
     @FocusState private var quickFocused: Bool
     @State private var quickText = ""
@@ -56,7 +62,7 @@ struct WebReaderView: View {
                     ReaderWebHost(web: model.controller.web)
                         .id(model.current.id)
                     if let error = model.error { errorView(error) }
-                    if model.error == nil { ReaderToolsDrawer(model: model) }
+                    if model.error == nil && settings.showTools { ReaderToolsDrawer(model: model) }
                 }
                 .overlay(alignment: .bottom) { toast }
                 bottomBar
@@ -66,7 +72,7 @@ struct WebReaderView: View {
             if model.sidebarOpen { ReaderSidebarPanel(model: model) }
         }
         .animation(.easeOut(duration: 0.22), value: model.sidebarOpen)
-        .preferredColorScheme(.dark)
+        .preferredColorScheme(WebReaderSettings.shared.scheme)
         .sheet(isPresented: $model.showLibrary) {
             WebReaderLibraryView(model: model, library: library)
         }
@@ -76,6 +82,9 @@ struct WebReaderView: View {
         .sheet(isPresented: $model.showTabs) {
             WebReaderTabsView(model: model)
         }
+        .onAppear { settings.systemLight = (colorScheme == .light) }
+        .onChange(of: colorScheme) { scheme in settings.systemLight = (scheme == .light) }
+        .onChange(of: settings.theme) { _ in model.controller.pushSettings() }
         .onChange(of: scenePhase) { phase in
             // the app went to the background: stop video / audio of the pages and remember the tabs
             if phase != .active {
@@ -125,7 +134,7 @@ struct WebReaderView: View {
             .padding(.horizontal, 12)
             .frame(height: 46)
             .background(Capsule().fill(ReaderPalette.surface))
-            .overlay(Capsule().stroke(Color.white.opacity(0.08), lineWidth: 1))
+            .overlay(Capsule().stroke(ReaderPalette.line(0.08), lineWidth: 1))
 
             Button {
                 if model.isLoading { model.controller.stop() } else { model.controller.reload() }
@@ -136,7 +145,7 @@ struct WebReaderView: View {
             }
             .accessibilityLabel(model.isLoading ? "Dừng tải" : "Tải lại")
         }
-        .foregroundColor(.white)
+        .foregroundColor(ReaderPalette.text)
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
     }
@@ -168,7 +177,7 @@ struct WebReaderView: View {
             }
         }
         .frame(height: 44)
-        .foregroundColor(.white)
+        .foregroundColor(ReaderPalette.text)
     }
 
     private func tabChip(_ tab: ReaderTab, index: Int) -> some View {
@@ -184,7 +193,7 @@ struct WebReaderView: View {
                 Image(systemName: "xmark")
                     .font(.system(size: 12, weight: .bold))
                     .frame(width: 24, height: 24)
-                    .foregroundColor(selected ? .white : ReaderPalette.muted)
+                    .foregroundColor(selected ? ReaderPalette.text : ReaderPalette.muted)
             }
             .accessibilityLabel("Đóng tab")
         }
@@ -192,7 +201,7 @@ struct WebReaderView: View {
         .padding(.trailing, 6)
         .frame(height: 36)
         .background(Capsule().fill(selected ? ReaderPalette.accentFill.opacity(0.55) : ReaderPalette.surface))
-        .overlay(Capsule().stroke(selected ? ReaderPalette.accent.opacity(0.7) : Color.white.opacity(0.06), lineWidth: 1))
+        .overlay(Capsule().stroke(selected ? ReaderPalette.accent.opacity(0.7) : ReaderPalette.line(0.06), lineWidth: 1))
     }
 
     private var progressBar: some View {
@@ -210,7 +219,7 @@ struct WebReaderView: View {
 
     private var bottomBar: some View {
         VStack(spacing: 0) {
-            quickBar
+            if settings.showQuickBar { quickBar }
             HStack(spacing: 0) {
                 barButton("chevron.left", label: "Quay lại", enabled: model.canGoBack) { model.controller.goBack() }
                 barButton("chevron.right", label: "Tiến tới", enabled: model.canGoForward) { model.controller.goForward() }
@@ -224,7 +233,7 @@ struct WebReaderView: View {
         }
         .padding(.horizontal, 6)
         .background(ReaderPalette.background)
-        .overlay(alignment: .top) { Rectangle().fill(Color.white.opacity(0.07)).frame(height: 1) }
+        .overlay(alignment: .top) { Rectangle().fill(ReaderPalette.line(0.07)).frame(height: 1) }
     }
 
     /// Region scan and a quick look-up field: type a word or a sentence and the answer rises from the bottom edge of the page.
@@ -238,7 +247,7 @@ struct WebReaderView: View {
                 .padding(.horizontal, 14)
                 .frame(height: 46)
                 .background(Capsule().fill(model.regionMode ? ReaderPalette.accentFill : ReaderPalette.surface))
-                .overlay(Capsule().stroke(model.regionMode ? ReaderPalette.accent : Color.white.opacity(0.1), lineWidth: 1))
+                .overlay(Capsule().stroke(model.regionMode ? ReaderPalette.accent : ReaderPalette.line(0.1), lineWidth: 1))
             }
             .accessibilityLabel("Quét vùng")
 
@@ -261,9 +270,9 @@ struct WebReaderView: View {
             .padding(.horizontal, 14)
             .frame(height: 46)
             .background(Capsule().fill(ReaderPalette.surface))
-            .overlay(Capsule().stroke(Color.white.opacity(0.1), lineWidth: 1))
+            .overlay(Capsule().stroke(ReaderPalette.line(0.1), lineWidth: 1))
         }
-        .foregroundColor(.white)
+        .foregroundColor(ReaderPalette.text)
         .padding(.horizontal, 4)
         .padding(.top, 8)
     }
@@ -281,12 +290,12 @@ struct WebReaderView: View {
             model.showTabs = true
         } label: {
             ZStack {
-                RoundedRectangle(cornerRadius: 6).stroke(Color.white, lineWidth: 1.8).frame(width: 25, height: 25)
+                RoundedRectangle(cornerRadius: 6).stroke(ReaderPalette.text, lineWidth: 1.8).frame(width: 25, height: 25)
                 Text("\(model.tabs.count)").font(.system(size: 13, weight: .bold))
             }
             .frame(maxWidth: .infinity, minHeight: 50)
         }
-        .foregroundColor(.white)
+        .foregroundColor(ReaderPalette.text)
         .accessibilityLabel("Các tab (\(model.tabs.count))")
     }
 
@@ -305,7 +314,7 @@ struct WebReaderView: View {
                 .font(.system(size: 24, weight: .medium))
                 .frame(maxWidth: .infinity, minHeight: 50)
         }
-        .foregroundColor(.white)
+        .foregroundColor(ReaderPalette.text)
         .accessibilityLabel("Thêm")
     }
 
@@ -318,7 +327,7 @@ struct WebReaderView: View {
                     RoundedRectangle(cornerRadius: 12).fill(filled ? (tint ?? ReaderPalette.accent).opacity(0.22) : Color.clear).padding(.horizontal, 4)
                 )
         }
-        .foregroundColor(tint ?? (enabled ? .white : ReaderPalette.muted.opacity(0.45)))
+        .foregroundColor(tint ?? (enabled ? ReaderPalette.text : ReaderPalette.muted.opacity(0.45)))
         .disabled(!enabled)
         .accessibilityLabel(label)
     }
@@ -351,7 +360,7 @@ struct WebReaderView: View {
                     .buttonStyle(ReaderButtonStyle(primary: false))
             }
         }
-        .foregroundColor(.white)
+        .foregroundColor(ReaderPalette.text)
         .padding(24)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(ReaderPalette.background)
@@ -362,7 +371,7 @@ struct WebReaderView: View {
             HStack(spacing: 10) {
                 Text(text)
                     .font(.system(size: 13.5, weight: .semibold))
-                    .foregroundColor(.white)
+                    .foregroundColor(ReaderPalette.text)
                 if let action = model.toastAction {
                     Button(action.title) {
                         action.run()
@@ -376,7 +385,7 @@ struct WebReaderView: View {
             .padding(.horizontal, 14)
             .padding(.vertical, 9)
             .background(Capsule().fill(ReaderPalette.surface))
-            .overlay(Capsule().stroke(Color.white.opacity(0.12), lineWidth: 1))
+            .overlay(Capsule().stroke(ReaderPalette.line(0.12), lineWidth: 1))
             .padding(.bottom, 16)
             .transition(.opacity)
         }
@@ -420,7 +429,7 @@ struct WebReaderTabsView: View {
                 ToolbarItem(placement: .navigationBarTrailing) { Button("Xong") { dismiss() } }
             }
         }
-        .preferredColorScheme(.dark)
+        .preferredColorScheme(WebReaderSettings.shared.scheme)
     }
 }
 
@@ -472,10 +481,10 @@ struct ReaderTabCard: View {
             .buttonStyle(.plain)
             .accessibilityLabel("Mở tab \(tab.label)")
         }
-        .foregroundColor(.white)
+        .foregroundColor(ReaderPalette.text)
         .background(ReaderPalette.surface)
         .clipShape(RoundedRectangle(cornerRadius: 18))
-        .overlay(RoundedRectangle(cornerRadius: 18).stroke(selected ? ReaderPalette.accent : Color.white.opacity(0.08), lineWidth: selected ? 2.5 : 1))
+        .overlay(RoundedRectangle(cornerRadius: 18).stroke(selected ? ReaderPalette.accent : ReaderPalette.line(0.08), lineWidth: selected ? 2.5 : 1))
     }
 }
 

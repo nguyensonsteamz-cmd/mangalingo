@@ -61,14 +61,14 @@ struct ReaderSidebarPanel: View {
                         }
                         .accessibilityLabel("Đóng thanh bên")
                     }
-                    .foregroundColor(.white)
+                    .foregroundColor(ReaderPalette.text)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 8)
                     ReaderWebHost(web: model.sidebar.ensureLoaded())
                 }
                 .frame(width: width)
                 .background(ReaderPalette.background)
-                .overlay(alignment: .leading) { Rectangle().fill(Color.white.opacity(0.1)).frame(width: 1) }
+                .overlay(alignment: .leading) { Rectangle().fill(ReaderPalette.line(0.1)).frame(width: 1) }
                 .transition(.move(edge: .trailing))
             }
         }
@@ -163,7 +163,7 @@ struct ReaderToolsDrawer: View {
                         .frame(width: tileW, height: tileH - 2)
                         .background(RoundedRectangle(cornerRadius: 14).fill(t.active ? ReaderPalette.accentFill.opacity(0.5) : Color.clear))
                     }
-                    .foregroundColor(.white)
+                    .foregroundColor(ReaderPalette.text)
                     .accessibilityLabel(t.label)
                 }
             }
@@ -171,7 +171,7 @@ struct ReaderToolsDrawer: View {
         }
         .frame(width: width, height: height)
         .background(RoundedRectangle(cornerRadius: 20).fill(ReaderPalette.surface.opacity(0.97)))
-        .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.white.opacity(0.12), lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: 20).stroke(ReaderPalette.line(0.12), lineWidth: 1))
     }
 
     private func handle(size: CGSize) -> some View {

@@ -318,6 +318,54 @@ try {
     await reset();
   });
 
+  await step('region scan: the hint hides while the user draws and returns after a tap; the answer is the POPUP first (sidebar untouched); only a screen scan is flagged for the sidebar', async () => {
+    await reset();
+    const hintShown = () => p.evaluateMain(`(() => { const h = window.__mlrTest.root.querySelector('.hint'); return !!h && h.style.display !== 'none'; })()`);
+    await p.evaluateMain(`window.__mlr.regionMode(true)`);
+    assert(await hintShown(), 'hint visible before drawing');
+    await p.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 60, y: 120 });
+    await p.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: 60, y: 120, button: 'left', clickCount: 1 });
+    assert(!(await hintShown()), 'hint hidden while the finger is down');
+    await p.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: 62, y: 122, button: 'left', clickCount: 1 }); // a tap, too small
+    assert(await hintShown(), 'hint is back after a tap');
+    await p.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 60, y: 120 });
+    await p.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: 60, y: 120, button: 'left', clickCount: 1 });
+    await p.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 200, y: 220 });
+    await p.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: 200, y: 220, button: 'left', clickCount: 1 });
+    await sleep(400);
+    const reg = (await log()).filter((m) => m.t === 'ocrRegion').pop();
+    await p.evaluateMain(`window.__mlr.ocrResult({ id: ${reg.id}, blocks: [{ id: 'a', text: 'HELLO THERE', box: { x: 0.1, y: 0.1, w: 0.4, h: 0.3 } }] })`);
+    const lk = (await log()).filter((m) => m.t === 'lookup').pop();
+    assert(lk && lk.src === 'ocr' && /HELLO/.test(lk.text), 'the popup lookup starts right after a region scan: ' + JSON.stringify(lk));
+    assert(await p.evaluateMain(`!!window.__mlrTest.root.querySelector('.card.sheet')`), 'the popup (sheet) is open');
+    const bub = (await log()).filter((m) => m.t === 'ocrBubbles').pop();
+    assert(bub && bub.screen === false, 'a region scan is not flagged as a screen scan');
+    await p.evaluateMain(`window.__mlr.hide()`);
+    await p.evaluateMain(`window.__mlr.scanScreen()`);
+    const scr = (await log()).filter((m) => m.t === 'ocrRegion').pop();
+    await p.evaluateMain(`window.__mlr.ocrResult({ id: ${scr.id}, blocks: [{ id: 'a', text: 'ONE', box: { x: 0.1, y: 0.1, w: 0.3, h: 0.1 } }] })`);
+    const bub2 = (await log()).filter((m) => m.t === 'ocrBubbles').pop();
+    assert(bub2 && bub2.screen === true, 'a screen scan is flagged (the app opens the sidebar for it)');
+    assert(await p.evaluateMain(`!window.__mlrTest.root.querySelector('.card')`), 'a screen scan opens no popup by itself');
+    await open('article.html');
+    await sleep(900);
+    await reset();
+  });
+
+  await step('theme and feature switches: the light theme restyles the popup; the speaker button can be switched off', async () => {
+    await reset();
+    await p.evaluateMain(`window.__mlr.configure({ theme: 'light', speaker: false })`);
+    await p.evaluateMain(`window.__mlr.lookupText('village')`);
+    const lk = (await log()).filter((m) => m.t === 'lookup').pop();
+    await p.evaluateMain(`window.__mlr.show({ id: ${lk.id}, title: 'village', meanings: [{ pos: 'n.', vi: 'làng' }] })`);
+    const st = await p.evaluateMain(`(() => { const c = window.__mlrTest.root.querySelector('.card'); return { light: document.querySelector('mangalingo-reader').classList.contains('light'), bg: getComputedStyle(c).backgroundColor, speaker: !!window.__mlrTest.root.querySelector('.row .x svg') }; })()`);
+    assert(st.light && /255, 255, 255/.test(st.bg), 'light popup: ' + JSON.stringify(st));
+    assert(st.speaker === false, 'no speaker button when it is switched off');
+    await p.evaluateMain(`window.__mlr.configure({ theme: 'dark', speaker: true })`);
+    assert(await p.evaluateMain(`!document.querySelector('mangalingo-reader').classList.contains('light')`), 'dark again');
+    await reset();
+  });
+
   await step('the site’s own click handlers still run (nothing is stopped or prevented)', async () => {
     await reset();
     await p.evaluateMain(`window.siteClicks = 0`);

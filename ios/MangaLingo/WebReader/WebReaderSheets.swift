@@ -47,7 +47,7 @@ struct WebReaderLibraryView: View {
                 ToolbarItem(placement: .navigationBarTrailing) { Button("Xong") { dismiss() } }
             }
         }
-        .preferredColorScheme(.dark)
+        .preferredColorScheme(WebReaderSettings.shared.scheme)
     }
 
     private func placeholder(_ text: String) -> some View {
@@ -67,7 +67,7 @@ struct WebReaderLibraryView: View {
                 Text(url).font(.system(size: 12)).foregroundColor(ReaderPalette.muted).lineLimit(1)
             }
         }
-        .foregroundColor(.white)
+        .foregroundColor(ReaderPalette.text)
         .listRowBackground(Color.clear)
     }
 }
@@ -81,6 +81,21 @@ struct WebReaderSettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
+                Section("Giao diện") {
+                    Picker("Chế độ", selection: $settings.theme) {
+                        ForEach(WebReaderSettings.Theme.allCases) { Text($0.label).tag($0) }
+                    }
+                    .pickerStyle(.segmented)
+                    Text("Áp dụng cho trình đọc và cửa sổ dịch trên trang.")
+                        .font(.footnote)
+                        .foregroundColor(ReaderPalette.muted)
+                }
+                Section("Tính năng") {
+                    Toggle("Nút công cụ nổi (mũi tên)", isOn: $settings.showTools)
+                    Toggle("Thanh quét vùng và tra nhanh", isOn: $settings.showQuickBar)
+                    Toggle("Nút phát âm trong cửa sổ dịch", isOn: $settings.popupSpeaker)
+                    Toggle("Tự mở thanh bên sau khi quét toàn màn hình", isOn: $settings.autoOpenSidebar)
+                }
                 Section("Tra cứu") {
                     Toggle("Chạm vào từ để tra", isOn: $settings.clickToLookup)
                     Toggle("Chọn chữ để dịch", isOn: $settings.selectToLookup)
@@ -143,6 +158,6 @@ struct WebReaderSettingsView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .navigationBarTrailing) { Button("Xong") { dismiss() } } }
         }
-        .preferredColorScheme(.dark)
+        .preferredColorScheme(WebReaderSettings.shared.scheme)
     }
 }

@@ -37,6 +37,8 @@ enum ReaderScript {
     fontSize: 15,
     ocrEnabled: true,
     blockAds: true,
+    theme: 'dark', // dark | light (the popup and notices on the page)
+    speaker: true,
   };
 
   var SIZES = { small: 264, medium: 328, large: 392 };
@@ -244,15 +246,33 @@ enum ReaderScript {
     '.hint span{flex:1}.toast{position:fixed;z-index:2147483647;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 90px);transform:translateX(-50%);background:rgba(22,25,34,.97);color:#eef1f7;' +
     'border:1px solid rgba(255,255,255,.14);border-radius:12px;padding:8px 14px;font:600 13.5px -apple-system,system-ui,sans-serif;max-width:86vw;text-align:center}';
 
+  var LIGHT_CSS =
+    ':host(.light) .card{color:#161923;background:rgba(255,255,255,.98);border-color:rgba(0,0,0,.14);box-shadow:0 18px 48px rgba(0,0,0,.28)}' +
+    ':host(.light) .grab{background:rgba(0,0,0,.25)}' +
+    ':host(.light) .x{background:rgba(0,0,0,.07);color:#3a4152}' +
+    ':host(.light) .ipa,:host(.light) .grp b{color:#5b6477}' +
+    ':host(.light) .orig,:host(.light) .en{color:#4a5265}' +
+    ':host(.light) .chip{background:rgba(52,81,209,.12);color:#2a3fae}' +
+    ':host(.light) .mt{background:rgba(52,81,209,.09);border-color:rgba(52,81,209,.28)}' +
+    ':host(.light) .mt small{color:#2a3fae}' +
+    ':host(.light) button.b{color:#161923;background:rgba(0,0,0,.07)}' +
+    ':host(.light) button.b.p{background:#3451d1;color:#fff}' +
+    ':host(.light) .hint,:host(.light) .toast,:host(.light) .bar button.b{background:rgba(255,255,255,.97);color:#161923;border-color:rgba(0,0,0,.16)}' +
+    ':host(.light) .spin{border-color:rgba(0,0,0,.18);border-top-color:#3451d1}';
+  function applyTheme() {
+    if (host) host.classList.toggle('light', S.theme === 'light');
+  }
+
   function ensureHost() {
     if (host && host.isConnected) return;
     host = document.createElement('mangalingo-reader');
     host.setAttribute('style', 'all:initial;position:static;');
     root = host.attachShadow({ mode: TEST ? 'open' : 'closed' });
     var st = document.createElement('style');
-    st.textContent = CSS;
+    st.textContent = CSS + LIGHT_CSS;
     root.appendChild(st);
     (document.documentElement || document.body).appendChild(host);
+    applyTheme();
     if (TEST) window.__mlrTest = { root: root, state: function () { return { cur: cur, S: S, ocrOn: ocrOn }; } };
   }
   function clearUi(sel) {
@@ -430,7 +450,7 @@ enum ReaderScript {
     t.appendChild(document.createTextNode(p.title || cur.text));
     if (p.ipa) t.appendChild(el('span', 'ipa', p.ipa));
     head.appendChild(t);
-    if (p.canSpeak !== false) {
+    if (p.canSpeak !== false && S.speaker) {
       var sp = el('button', 'x');
       sp.innerHTML = SPEAKER;
       sp.type = 'button';
@@ -738,15 +758,20 @@ enum ReaderScript {
 
   /** Region mode: drag a rectangle over text the scan missed (or over any text); only that area is read and its bubbles are ADDED. */
   var regionLayer = null;
+  var hintEl = null;
   function regionMode(on, pick) {
     regionOn = !!on;
     ensureHost();
     clearUi('.hint');
+    clearUi('.bar'); // out of the way while the user draws (it comes back with updateBubbleBar)
     if (regionLayer) {
       regionLayer.remove();
       regionLayer = null;
     }
-    if (!regionOn) return;
+    if (!regionOn) {
+      updateBubbleBar();
+      return;
+    }
     ocrMode(false);
     closePopup();
     var layer = document.createElement('mangalingo-reader-region');
@@ -769,6 +794,7 @@ enum ReaderScript {
     layer.addEventListener('pointerdown', function (e) {
       e.preventDefault();
       start = pt(e);
+      hintEl.style.display = 'none'; // nothing over the page while the user draws
       try { layer.setPointerCapture(e.pointerId); } catch (x) {}
       draw(start, start);
     });
@@ -782,6 +808,7 @@ enum ReaderScript {
       start = null;
       if (rr.w < 14 || rr.h < 14) {
         box.style.display = 'none';
+        hintEl.style.display = ''; // a tap, not a drag: the hint comes back
         return;
       }
       regionMode(false);
@@ -793,6 +820,7 @@ enum ReaderScript {
       }, 80);
     });
     var h = el('div', 'hint');
+    hintEl = h;
     h.appendChild(el('span', '', pick ? 'Kéo quanh chữ của bong bóng này để đọc lại' : 'Kéo quanh chữ cần quét hoặc thêm bong bóng'));
     h.appendChild(
       btn('Huỷ', '', function () {
@@ -841,6 +869,8 @@ enum ReaderScript {
     ocrOn = !!on;
     ensureHost();
     clearUi('.hint');
+    if (ocrOn) clearUi('.bar');
+    else updateBubbleBar();
     if (ocrOn) {
       closePopup();
       var h = el('div', 'hint');
@@ -895,6 +925,7 @@ enum ReaderScript {
     var overlay = document.createElement('mangalingo-reader-ocr');
     overlay.setAttribute('style', 'all:initial;position:absolute;z-index:2147483646;pointer-events:none;left:' + left + 'px;top:' + top + 'px;width:' + width + 'px;height:' + height + 'px;');
     var texts = [];
+    var firstD = null;
     res.blocks.forEach(function (b) {
       var n = ++ocrBlockSeq;
       texts.push({ id: 'b' + n, text: b.text });
@@ -916,12 +947,23 @@ enum ReaderScript {
         startLookup({ text: b.text, context: b.text, paragraph: b.text, mode: modeOf(b.text) === 'word' ? 'word' : 'sentence', rect: { x: rr.left, y: rr.top, w: rr.width, h: rr.height }, src: 'ocr', bubble: d });
       });
       overlay.appendChild(d);
+      if (!firstD) firstD = d;
     });
     (document.documentElement || document.body).appendChild(overlay);
     ocrOverlays.push(overlay);
     updateBubbleBar();
-    // the app shows the list of bubbles in its sidebar
-    post({ t: 'ocrBubbles', id: res.id, fresh: ocrOverlays.length === 1, blocks: res.blocks.map(function (b, i) { return { text: b.text, box: b.box, n: ocrBlockSeq - res.blocks.length + i + 1 }; }) });
+    // a region scan (or a re-read / added bubble): the translation popup comes up first, nothing else opens by itself
+    if (src.rect && src.append && firstD) {
+      var joined = res.blocks
+        .map(function (b) {
+          return b.text;
+        })
+        .join(' ');
+      var fr = firstD.getBoundingClientRect();
+      startLookup({ text: joined, context: joined, paragraph: joined, mode: modeOf(joined) === 'word' ? 'word' : 'sentence', rect: { x: fr.left, y: fr.top, w: fr.width, h: fr.height }, src: 'ocr', bubble: firstD });
+    }
+    // the app keeps the list of bubbles for its sidebar (opened by the user)
+    post({ t: 'ocrBubbles', id: res.id, screen: !!(src.rect && !src.append), fresh: ocrOverlays.length === 1, blocks: res.blocks.map(function (b, i) { return { text: b.text, box: b.box, n: ocrBlockSeq - res.blocks.length + i + 1 }; }) });
   }
 
   // ------------------------------------------------------------------ hidden ads
@@ -990,6 +1032,7 @@ enum ReaderScript {
       for (var k in s) if (Object.prototype.hasOwnProperty.call(s, k) && k in S) S[k] = s[k];
       if (!S.ocrEnabled && ocrOn) ocrMode(false);
       if (!S.ocrEnabled && regionOn) regionMode(false);
+      applyTheme();
       if (cur) place(cur.rect);
     },
     show: show,

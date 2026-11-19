@@ -221,7 +221,7 @@ final class WebReaderController: NSObject, WKNavigationDelegate, WKUIDelegate {
         case "regionDone":
             model?.regionMode = false
         case "ocrBubbles":
-            if let blocks = body["blocks"] as? [[String: Any]] { model?.bubblesFound(blocks, fresh: (body["fresh"] as? Bool) ?? false, from: self) }
+            if let blocks = body["blocks"] as? [[String: Any]] { model?.bubblesFound(blocks, fresh: (body["fresh"] as? Bool) ?? false, screen: (body["screen"] as? Bool) ?? false, from: self) }
         case "speak":
             if let text = body["text"] as? String { Speaker.shared.speak(text, rate: 1) }
         case "selection":
