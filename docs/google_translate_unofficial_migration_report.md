@@ -158,3 +158,14 @@ Theo yêu cầu "bỏ mô hình OPUS và Google, Google Dịch thay thế cho Go
 - Người đã chọn "Trên máy" giữ nguyên lựa chọn. Provider `google` (Cloud) cũ được đọc thành `google-web`.
 - Hệ quả cần biết: khi Google chặn (như đã gặp trên mạng thử nghiệm), một bản cài mới **không dịch được** cho tới khi người dùng chọn "Trên máy": ứng dụng không tự chuyển nguồn. Nếu muốn tự động dùng bộ dịch trên máy khi Google bị chặn, đó là một thay đổi riêng (cần quyết định vì nó thay đổi chuyện văn bản có rời máy hay không).
 - Bộ test và e2e ghim "Trên máy" khi chạy để không gửi request thật tới Google; chỉ bước "Nguồn dịch" kiểm tra mặc định.
+
+### Kiểm tra live bổ sung (2026-11-23): nguyên nhân chặn
+
+| Ngày (UTC) | Cách gửi | Số request | Kết quả |
+|---|---|---|---|
+| 2026-11-20 13:24 | `curl` (User-Agent mặc định của curl) | 1 | **HTTP 429**, trang "Sorry… automated queries" |
+| 2026-11-23 08:37 | Chrome 157 thật (có cửa sổ), service worker của extension LingoLens, đúng URL và đường đi của provider, không thêm header nào, không giả mạo gì | 1 | **HTTP 200**, `[[["Chào buổi sáng","Good morning",…]]]`, `Access-Control-Allow-Origin: *` |
+
+Kết luận có điều kiện: cùng máy, cùng mạng, nhưng `curl` (và `python-requests` của benchmark đầu) bị chặn còn Chrome thật thì không. Nghĩa là Google đang phân biệt **kiểu client**, chưa chắc là IP. Lúc này **không** có bằng chứng IP bị cấm. `Access-Control-Allow-Origin: *` cho thấy việc gọi từ trang/WebView không bị CORS chặn (chưa thử trong WebView thật).
+
+Vẫn chưa biết: độ ổn định lâu dài, ngưỡng tần suất (chỉ 1 request), hành vi trong Android/iOS WebView, và Google có thể đổi quy tắc bất cứ lúc nào. Một lần thành công không chứng minh độ tin cậy. Trạng thái tổng thể vẫn `READY_WITH_LIMITATIONS` chứ chưa phải `READY`.
