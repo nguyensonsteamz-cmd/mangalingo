@@ -7,7 +7,7 @@
  *  - Apple Translation / ML Kit: no published per-call limit → conservative size
  * Every value is configurable through the options of the runner; these are the defaults.
  */
-export type ProviderId = 'google-v2' | 'google-web' | 'device-chrome' | 'device-apple' | 'device-mlkit' | 'device-local' | 'device';
+export type ProviderId = 'google-v2' | 'google-web' | 'device-chrome' | 'device-apple' | 'device-mlkit' | 'device';
 
 export interface ProviderLimits {
   /** preferred chunk size (code points) */
@@ -30,8 +30,6 @@ export const PROVIDER_LIMITS: Record<ProviderId, ProviderLimits> = {
   'device-chrome': { targetChars: 4500, maxChars: 5000, maxBytes: 200_000, concurrency: 1, metered: false, label: 'Chrome Translator (trên thiết bị)' },
   'device-apple': { targetChars: 4500, maxChars: 5000, maxBytes: 200_000, concurrency: 1, metered: false, label: 'Apple Translation (trên thiết bị)' },
   'device-mlkit': { targetChars: 4500, maxChars: 5000, maxBytes: 200_000, concurrency: 1, metered: false, label: 'ML Kit (trên thiết bị)' },
-  // downloaded OPUS-MT model: 512-token window, ~145 characters / second on a laptop CPU → small chunks so progress / cancel stay responsive
-  'device-local': { targetChars: 1500, maxChars: 1800, maxBytes: 200_000, concurrency: 1, metered: false, label: 'Mô hình dịch tải về (OPUS-MT)' },
   device: { targetChars: 4500, maxChars: 5000, maxBytes: 200_000, concurrency: 1, metered: false, label: 'Dịch máy trên thiết bị' },
 };
 

@@ -4,8 +4,7 @@
  * cannot translate EN→VI. The dictionary gloss stays visible underneath as a cross-check.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { EN_VI, MtError, VI_EN, modelForPair, type LanguagePair } from '@/modules/mt';
-import { localAvailability, localProvider, messageBackend } from '@/translation/mt-providers';
+import { EN_VI, VI_EN, type LanguagePair } from '@/modules/mt';
 import { detectLanguage } from '@/language/detect';
 import type { Settings } from '@/shared/settings';
 import { UsageBlockedError, getTranslator, machineTranslate, machineTranslateLong, mtAvailability, needsChunking, type MtAvailability } from '@/translation/chrome-mt';
@@ -21,9 +20,6 @@ type State =
   | { k: 'checking' }
   | { k: 'unsupported' | 'unavailable' }
   | { k: 'need-download' }
-  /** the platform translator cannot do this pair (or the user chose the downloaded model): offer the local model, with its size */
-  | { k: 'need-local' }
-  | { k: 'downloading-local'; p: number }
   | { k: 'downloading'; p: number }
   | { k: 'translating'; progress?: JobProgress }
   | { k: 'done'; text: string }
@@ -65,7 +61,7 @@ export function MachineTranslation({ text, s, className, onState, pair: pairProp
       setSt({ k: 'translating' });
       machineTranslate(text, pair).then(
         (out) => alive() && setSt({ k: 'done', text: out }),
-        (e: Error) => alive() && setSt(e instanceof UsageBlockedError ? { k: 'blocked', decision: e.decision } : e instanceof MtError && e.code === 'needs-download' ? { k: 'need-local' } : { k: 'error', msg: e.message }),
+        (e: Error) => alive() && setSt(e instanceof UsageBlockedError ? { k: 'blocked', decision: e.decision } : { k: 'error', msg: e.message }),
       );
       return;
     }
@@ -81,7 +77,7 @@ export function MachineTranslation({ text, s, className, onState, pair: pairProp
         if (blocked && !r.cancelled) return setSt({ k: 'blocked', decision: blocked.errorDetail as BlockedDecision });
         setSt({ k: 'partial', result: r });
       },
-      (e: Error) => alive() && setSt(e instanceof MtError && e.code === 'needs-download' ? { k: 'need-local' } : { k: 'error', msg: e.message }),
+      (e: Error) => alive() && setSt({ k: 'error', msg: e.message }),
     );
   };
   const cancel = () => abort.current?.abort();
@@ -103,15 +99,7 @@ export function MachineTranslation({ text, s, className, onState, pair: pairProp
         const active = (navigator as Navigator & { userActivation?: { isActive: boolean } }).userActivation?.isActive;
         if (active) download();
         else setSt({ k: 'need-download' });
-      }
-      else {
-        // the platform translator cannot do this pair here: is the downloaded model an option?
-        void localAvailability(pair).then((la) => {
-          if (!alive) return;
-          if (la === 'available') run(isAlive);
-          else setSt(la === 'downloadable' ? { k: 'need-local' } : { k: a });
-        });
-      }
+      } else setSt({ k: a });
     });
     return () => {
       alive = false;
@@ -144,15 +132,6 @@ export function MachineTranslation({ text, s, className, onState, pair: pairProp
           </Button>
         </div>
       </div>
-    );
-  }
-
-  function downloadLocal() {
-    // explicit user action: the size is shown on the button; nothing is downloaded before this click
-    setSt({ k: 'downloading-local', p: 0 });
-    localProvider.prepare(pair, (p) => setSt({ k: 'downloading-local', p })).then(
-      () => run(() => true),
-      (e: Error) => setSt({ k: 'error', msg: e.message }),
     );
   }
 
@@ -214,23 +193,6 @@ export function MachineTranslation({ text, s, className, onState, pair: pairProp
           <div>Chrome cần tải mô hình dịch {viEn ? 'Việt → Anh' : 'Anh → Việt'} một lần (từ Google). Sau đó mọi câu được dịch ngay trên máy, không gửi đi đâu.</div>
           <Button size="sm" variant="primary" onClick={download}>
             Tải mô hình dịch
-          </Button>
-        </div>
-      ) : st.k === 'need-local' ? (
-        <div className="space-y-1.5 text-[12px] text-muted" data-ml-mt-need-local="">
-          <div>
-            Bộ dịch có sẵn trên máy này chưa dịch được {viEn ? 'Việt → Anh' : 'Anh → Việt'}. Bạn có thể tải mô hình dịch OPUS-MT (giấy phép Apache-2.0) một lần — sau đó dịch hoàn toàn trên máy, không gửi văn bản đi đâu.
-          </div>
-          <Button size="sm" variant="primary" onClick={downloadLocal} data-ml-mt-download-local="">
-            Tải mô hình (~{Math.round((modelForPair(pair)?.downloadBytes ?? 0) / 2 ** 20)} MB)
-          </Button>
-        </div>
-      ) : st.k === 'downloading-local' ? (
-        <div className="space-y-1 text-[12px] text-muted" data-ml-mt-downloading-local="">
-          <div>Đang tải mô hình dịch… {Math.round(st.p * 100)}%</div>
-          <Progress value={st.p} />
-          <Button size="sm" onClick={() => { const m = modelForPair(pair); if (m) void messageBackend.cancel?.(m).then(() => setSt({ k: 'need-local' })); }} data-ml-mt-cancel-local="">
-            Huỷ
           </Button>
         </div>
       ) : st.k === 'downloading' ? (

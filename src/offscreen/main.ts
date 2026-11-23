@@ -7,7 +7,6 @@ import { clampCrop, computeScale, grayscaleStretch } from '@/ocr/preprocess';
 import { extractLines, groupLines, medianWordHeight, type RawBlock, type RawLine } from '@/ocr/result';
 import { extendMask, findBalloons, floodBubble, mergeMasks, padRect, rectsIntersect, touchesBorder, unionRect, type BubbleRegion, type Rect } from '@/ocr/bubbles';
 import { sha256 } from '@/storage/ocr-cache';
-import { LocalMtEngine, LocalModelHost } from '@/modules/mt';
 import type { OffscreenProgress, OffscreenRequest, PrepareResult, RecognizeResult, RefinedBubble } from './protocol';
 
 const engine = new TesseractEngine({
@@ -15,14 +14,6 @@ const engine = new TesseractEngine({
   corePath: chrome.runtime.getURL('vendor/tesseract/core'),
   langPath: chrome.runtime.getURL('vendor/tesseract/lang'),
 });
-
-// Local translation model: the worker is created on first use and freed with the page (10 min idle).
-const mtHost = new LocalModelHost(
-  new LocalMtEngine(
-    () => new Worker(new URL('../modules/mt/local/worker.ts', import.meta.url), { type: 'module' }) as never,
-    chrome.runtime.getURL('vendor/ort/'),
-  ),
-);
 
 const prepared = new Map<string, { blob: Blob; width: number; height: number; canvas: OffscreenCanvas }>();
 let idleTimer: ReturnType<typeof setTimeout> | undefined;
@@ -387,27 +378,6 @@ chrome.runtime.onMessage.addListener((msg: OffscreenRequest, _sender, sendRespon
         prepared.delete(msg.jobId);
         await engine.cancel();
         return true;
-      case 'mt-local':
-        switch (msg.op) {
-          case 'cached':
-            return mtHost.cached(msg.modelId!);
-          case 'start':
-            return mtHost.start(msg.modelId!);
-          case 'status':
-            return mtHost.status(msg.modelId!);
-          case 'translate':
-            return mtHost.translate(msg.modelId!, msg.text ?? '');
-          case 'release':
-            await mtHost.release();
-            return true;
-          case 'cancel':
-            return mtHost.cancel(msg.modelId!);
-          case 'verify':
-            return mtHost.verify(msg.modelId!);
-          case 'remove':
-            await mtHost.remove(msg.modelId!);
-            return true;
-        }
     }
   };
   run()

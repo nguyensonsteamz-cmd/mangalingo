@@ -4,7 +4,6 @@
  */
 import type { LookupRequest, LookupResult, OcrProgress, OcrResult } from './types';
 import type { TranslateOutcome, UsageSettings, UsageSnapshot } from '@/modules/usage/types';
-import type { LocalStatus } from '@/modules/mt/local/host';
 
 export interface ScanTarget {
   /** Image URL to fetch at full resolution (optional). */
@@ -40,15 +39,6 @@ export type Request =
   | { type: 'dict:import'; name: string; format: 'json' | 'csv'; text: string }
   | { type: 'dict:clear-user' }
   | { type: 'shortcuts:open' }
-  /** the downloaded local translation model (OPUS-MT): see src/modules/mt/local */
-  | { type: 'mtlocal:cached'; modelId: string }
-  | { type: 'mtlocal:start'; modelId: string }
-  | { type: 'mtlocal:status'; modelId: string }
-  | { type: 'mtlocal:translate'; modelId: string; text: string }
-  | { type: 'mtlocal:release' }
-  | { type: 'mtlocal:remove'; modelId: string }
-  | { type: 'mtlocal:cancel'; modelId: string }
-  | { type: 'mtlocal:verify'; modelId: string }
   /** Machine translation through the quota guard: tells the caller to use the device, or returns Google's text, or a block. */
   | { type: 'usage:translate'; text: string; /** stable key of a chunk: a retry is counted once */ idempotencyKey?: string; keepBreaks?: boolean; languagePair?: string }
   /** a finished translation job (any number of chunks) = one operation */
@@ -98,14 +88,6 @@ export interface ResponseMap {
   'dict:clear-user': boolean;
   'shortcuts:open': boolean;
   'usage:translate': TranslateOutcome;
-  'mtlocal:cached': boolean;
-  'mtlocal:start': LocalStatus;
-  'mtlocal:status': LocalStatus;
-  'mtlocal:translate': string;
-  'mtlocal:release': boolean;
-  'mtlocal:remove': boolean;
-  'mtlocal:cancel': LocalStatus;
-  'mtlocal:verify': 'ok' | 'missing' | 'corrupt';
   'usage:operation': boolean;
   'usage:device-processed': boolean;
   'usage:snapshot': UsageSnapshot;

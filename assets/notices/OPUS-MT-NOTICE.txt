@@ -1,7 +1,0 @@
-Optional downloaded translation model (not bundled; downloaded only after the user agrees)
-
-OPUS-MT English-Vietnamese and Vietnamese-English (Marian) by Helsinki-NLP / the OPUS-MT project (University of Helsinki).
-  Checkpoints: Helsinki-NLP/opus-mt-en-vi, Helsinki-NLP/opus-mt-vi-en - licence: Apache-2.0 (as stated on the model cards).
-  ONNX conversion used by the app: Xenova/opus-mt-en-vi, Xenova/opus-mt-vi-en (Hugging Face), q8 quantisation.
-  Training data: OPUS / Tatoeba corpora (see the model cards).
-Runtime: ONNX Runtime Web (MIT, Microsoft) and Transformers.js (Apache-2.0, Hugging Face).

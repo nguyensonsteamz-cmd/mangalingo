@@ -1,6 +1,6 @@
 /**
  * Drives the REAL Android app (debug build) in the emulator through the WebView's DevTools socket:
- * ML Kit en→vi / vi→en (model availability, download, translation, errors) and the downloaded OPUS-MT model
+ * ML Kit en→vi / vi→en (model availability, download, translation, errors)
  * (download, translate both directions, chunked long text, cancel, UI responsiveness, memory) in the real Android WebView.
  *   adb install the debug APK, start the app, then: node scripts/android-emulator-test.mjs
  */
@@ -77,105 +77,6 @@ await step('ML Kit: both directions return different, correct-language output fo
 await step('ML Kit: unsupported op / pair is rejected by the bridge (no crash)', async () => {
   const r = await ev(`new Promise((res) => { const old = window.__mlMt; window.__mlMt = (id, ok, text) => { window.__mlMt = old; res({ ok, text }); }; MangaLingoNative.mt(99999, 'translate:fr>de', 'x'); setTimeout(() => res({ timeout: true }), 4000); })`);
   assert(r.ok === false && /unsupported/.test(r.text), JSON.stringify(r));
-});
-
-// ---------- OPUS-MT in the real WebView ----------
-const EN = 'local-opus-mt-en-vi';
-const VI = 'local-opus-mt-vi-en';
-await step('OPUS-MT: not on the device before the user agrees', async () => assert((await msg({ type: 'mtlocal:cached', modelId: EN })) === false, 'cached'));
-const download = async (id) => {
-  await msg({ type: 'mtlocal:start', modelId: id });
-  const t0 = Date.now();
-  for (;;) {
-    const st = await msg({ type: 'mtlocal:status', modelId: id });
-    if (st.state === 'error') throw new Error(st.error);
-    if (st.state === 'ready') return;
-    if (Date.now() - t0 > 600000) throw new Error('download timeout');
-    await sleep(1000);
-  }
-};
-let baseMem = mem();
-await step('OPUS-MT en→vi: download in the Android WebView worker + translate', async () => {
-  await download(EN);
-  assert((await msg({ type: 'mtlocal:cached', modelId: EN })) === true, 'not cached after download');
-  const out = await msg({ type: 'mtlocal:translate', modelId: EN, text: 'Where is the nearest train station?' });
-  assert(out.length > 5, 'empty');
-  return out;
-});
-await step('OPUS-MT vi→en: download + translate', async () => {
-  await download(VI);
-  const out = await msg({ type: 'mtlocal:translate', modelId: VI, text: 'Tôi muốn đặt một bàn cho bốn người.' });
-  assert(/table|four|reserv/i.test(out), out);
-  return out;
-});
-await step('OPUS-MT latency (warm) and app memory (PSS) with both models loaded', async () => {
-  const t = Date.now();
-  await msg({ type: 'mtlocal:translate', modelId: EN, text: 'The meeting has been postponed until Friday.' });
-  const warm = Date.now() - t;
-  const m = Math.round(mem());
-  return `warm sentence ${warm} ms, app + WebView renderer PSS ${m} MB (before the models: ${Math.round(baseMem)} MB)`;
-});
-await step('UI thread stays responsive while the model translates (real WebView)', async () => {
-  const r = await ev(`(async () => {
-    let last = performance.now(), maxGap = 0;
-    const t = setInterval(() => { const n = performance.now(); maxGap = Math.max(maxGap, n - last); last = n; }, 60);
-    const text = ${JSON.stringify(Array(6).fill('The weather is nice today and we are going to the market.').join(' '))};
-    const t0 = performance.now();
-    await chrome.runtime.sendMessage({ type: 'mtlocal:translate', modelId: ${JSON.stringify(EN)}, text });
-    clearInterval(t);
-    return { maxGap: Math.round(maxGap), ms: Math.round(performance.now() - t0) };
-  })()`);
-  assert(r.maxGap < 500, JSON.stringify(r));
-  return `max event-loop gap ${r.maxGap} ms during ${r.ms} ms of translation`;
-});
-await step('OPUS-MT: SHA-256 verification of the downloaded files passes in the real WebView', async () => assert((await msg({ type: 'mtlocal:verify', modelId: EN })) === 'ok', 'verify'));
-await step('OPUS-MT: cancel a download halfway → nothing left behind → can be downloaded again', async () => {
-  await msg({ type: 'mtlocal:remove', modelId: VI });
-  await msg({ type: 'mtlocal:start', modelId: VI });
-  await sleep(1500);
-  const st = await msg({ type: 'mtlocal:cancel', modelId: VI });
-  assert(st.state === 'idle', JSON.stringify(st));
-  assert((await msg({ type: 'mtlocal:cached', modelId: VI })) === false, 'partial counted as downloaded');
-  await download(VI);
-  assert((await msg({ type: 'mtlocal:verify', modelId: VI })) === 'ok', 'verify after restart');
-});
-await step('OPUS-MT: a damaged file is detected and the model is removed (re-download required)', async () => {
-  await ev(`(async () => { const c = await caches.open('transformers-cache'); for (const r of await c.keys()) if (r.url.includes('opus-mt-en-vi') && r.url.includes('encoder_model_quantized')) { const n = (await (await c.match(r)).blob()).size; await c.put(r, new Response(new Uint8Array(n).fill(7))); } })()`);
-  assert((await msg({ type: 'mtlocal:verify', modelId: EN })) === 'corrupt', 'corruption not detected');
-  await msg({ type: 'mtlocal:release' });
-  let err = '';
-  try { await msg({ type: 'mtlocal:translate', modelId: EN, text: 'Hello there.' }); } catch (e) { err = e.message; }
-  assert(/hỏng|tải lại/.test(err), err);
-  assert((await msg({ type: 'mtlocal:cached', modelId: EN })) === false, 'still cached');
-  await download(EN);
-  assert((await msg({ type: 'mtlocal:verify', modelId: EN })) === 'ok', 'repair');
-});
-await step('OPUS-MT survives the app going to the background and coming back', async () => {
-  adb('shell', 'input keyevent KEYCODE_HOME');
-  await sleep(3000);
-  adb('shell', 'am start -n app.mangalingo/.MainActivity');
-  await sleep(2500);
-  const out = await msg({ type: 'mtlocal:translate', modelId: EN, text: 'Good morning.' });
-  assert(out.length > 2, 'no output after resume');
-  assert((await msg({ type: 'mtlocal:cached', modelId: EN })) === true, 'cache lost');
-  return out;
-});
-await step('model files persist across an app restart (Cache storage), no re-download', async () => {
-  adb('shell', 'am force-stop app.mangalingo');
-  await sleep(1000);
-  adb('shell', 'am start -n app.mangalingo/.MainActivity');
-  await sleep(5000);
-  const newPid = adb('shell', 'pidof app.mangalingo').trim();
-  const s2 = adb('shell', 'cat /proc/net/unix').split('\n').map((l) => l.match(/@(webview_devtools_remote_(\d+))/)).filter(Boolean).find((m) => m[2] === newPid);
-  adb('forward', 'tcp:9333', `localabstract:${s2[1]}`);
-  const l2 = await (await fetch('http://127.0.0.1:9333/json')).json();
-  ws.close();
-  const w2 = new WebSocket(l2.find((t) => t.type === 'page').webSocketDebuggerUrl);
-  await new Promise((r) => (w2.onopen = r));
-  const ask = (expression) => new Promise((res) => { w2.onmessage = (e) => res(JSON.parse(e.data)); w2.send(JSON.stringify({ id: 1, method: 'Runtime.evaluate', params: { expression, awaitPromise: true, returnByValue: true } })); });
-  const r = await ask(`chrome.runtime.sendMessage({ type: 'mtlocal:cached', modelId: ${JSON.stringify(EN)} })`);
-  assert(r.result.result.value?.data === true, 'model not cached after restart: ' + JSON.stringify(r.result.result.value));
-  w2.close();
 });
 
 const bad = results.filter((r) => !r.ok);

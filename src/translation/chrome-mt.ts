@@ -12,7 +12,7 @@ import { DEFAULT_TARGET } from '@/modules/translation';
 import { translateLongText, type LongTextDeps, type LongTextOptions } from './long-text';
 import type { BlockedDecision } from '@/modules/usage/types';
 import { EN_VI, type LanguagePair } from '@/modules/mt';
-import { localAvailability, resolveDevice, describeActive } from './mt-providers';
+import { resolveDevice, describeActive } from './mt-providers';
 
 /** A translation the quota guard did not let through (needs the user's consent, or a limit was reached). */
 export class UsageBlockedError extends Error {
@@ -79,9 +79,6 @@ export async function mtAvailability(pair?: LanguagePair): Promise<MtAvailabilit
   if (await googleActive()) return 'available';
   const native = await nativeAvailability(pair);
   if (native === 'available' || native === 'downloading') return native;
-  const local = await localAvailability(pair);
-  if (local === 'available') return 'available';
-  // 'downloadable' of the native translator wins (it is the default); the local model is offered separately (see MachineTranslation)
   return native;
 }
 

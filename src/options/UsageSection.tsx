@@ -11,7 +11,6 @@ import { authorizePaid, fmtDate, fmtInt, fmtPct, fmtUsd, usageActions, useUsage 
 import { USAGE_DISCLAIMER } from '@/modules/usage/disclaimer';
 import type { UsageSettings } from '@/modules/usage/types';
 import { copyText } from '@/mobile/ios';
-import { LocalModelSection } from './LocalModelSection';
 import { refreshAccountUsage } from '@/ui/usage-client';
 import { getSmartSetup } from '@/ui/smart-setup-client';
 
@@ -405,7 +404,6 @@ export function UsageSection() {
         )}
       </Card>
 
-      <LocalModelSection />
 
       {msg && <Notice tone={msg.tone}>{msg.text}</Notice>}
     </div>

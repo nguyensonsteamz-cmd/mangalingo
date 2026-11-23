@@ -14,15 +14,6 @@ import { SettingsStore } from '@/storage/settings-store';
 import { UserDictProvider } from '@/storage/user-dict';
 import { UsageService } from '@/modules/usage';
 import { createMobileSecretStore } from './setup-native';
-import { LocalMtEngine, LocalModelHost } from '@/modules/mt';
-
-// Local translation model: runs in a Web Worker of the app page (never blocks the UI); the model is downloaded only after the user agrees.
-const mtLocal = new LocalModelHost(
-  new LocalMtEngine(
-    () => new Worker(new URL('../modules/mt/local/worker.ts', import.meta.url), { type: 'module' }) as never,
-    new URL('./vendor/ort/', location.href).href,
-  ),
-);
 
 const settings = new SettingsStore(chromeLocal());
 
@@ -39,7 +30,6 @@ const broadcast = async (e: PageEvent) => {
 };
 
 const route = createRouter({
-  mtLocal,
   // the API key lives in the Keychain (iPhone) / Android Keystore, never in plain storage
   usage: new UsageService(chromeLocal(), { secrets: createMobileSecretStore(chromeLocal()) }),
   lookup: async (req) => {

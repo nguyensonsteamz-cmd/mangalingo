@@ -11,8 +11,7 @@ export function sharedConfig() {
     configFile: false,
     root,
     plugins: [react()],
-    // onnxruntime-web → its WASM-only build (the default build embeds WebGPU and needs a 21 MB wasm; we only use the CPU / WASM path)
-    resolve: { alias: [{ find: '@', replacement: resolve(root, 'src') }, { find: /^onnxruntime-web$/, replacement: 'onnxruntime-web/wasm' }] },
+    resolve: { alias: [{ find: '@', replacement: resolve(root, 'src') }] },
     worker: { format: 'es' },
     css: { postcss: { plugins: [tailwindcss(tailwindConfig), remToPx()] } },
     define: { 'process.env.NODE_ENV': JSON.stringify('production') },

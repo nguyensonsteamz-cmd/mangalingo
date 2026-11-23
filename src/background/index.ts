@@ -7,7 +7,6 @@ import { drawLogo } from '@/ui/logo-data';
 import { lemmaCandidates } from '@/language/morphology';
 import { isSiteEnabled, type Settings } from '@/shared/settings';
 import { callOffscreen } from './offscreen-client';
-import type { LocalHost } from '@/modules/mt/local/host';
 import { createDictionary } from '@/dictionary/create';
 import { parseDictionaryImport } from '@/dictionary/import';
 import { UserDictProvider } from '@/storage/user-dict';
@@ -113,25 +112,8 @@ function openSidePanel(tab: { id?: number; windowId?: number; url?: string }): P
 // the API key lives only as AES-GCM ciphertext; the (non-extractable) key is in IndexedDB
 const usage = new UsageService(chromeLocal(), { secrets: new WebCryptoSecretStore(chromeLocal(), idbKeyStorage()) });
 
-/** The local translation model lives in the offscreen document (a service worker cannot run ONNX Runtime Web). */
-const mtLocal: LocalHost = {
-  cached: (modelId) => callOffscreen<boolean>({ target: 'offscreen', type: 'mt-local', op: 'cached', modelId }),
-  start: (modelId) => callOffscreen({ target: 'offscreen', type: 'mt-local', op: 'start', modelId }),
-  status: (modelId) => callOffscreen({ target: 'offscreen', type: 'mt-local', op: 'status', modelId }),
-  translate: (modelId, text) => callOffscreen<string>({ target: 'offscreen', type: 'mt-local', op: 'translate', modelId, text }),
-  cancel: (modelId) => callOffscreen({ target: 'offscreen', type: 'mt-local', op: 'cancel', modelId }),
-  verify: (modelId) => callOffscreen({ target: 'offscreen', type: 'mt-local', op: 'verify', modelId }),
-  remove: async (modelId) => {
-    await callOffscreen({ target: 'offscreen', type: 'mt-local', op: 'remove', modelId });
-  },
-  release: async () => {
-    await callOffscreen({ target: 'offscreen', type: 'mt-local', op: 'release' }).catch(() => {});
-  },
-};
-
 const route = createRouter({
   usage,
-  mtLocal,
   lookup: async (req) => {
     if (!req.assumeEnglish) {
       const s = await settings.load();

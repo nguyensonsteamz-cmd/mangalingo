@@ -1,27 +1,20 @@
 /**
  * The app's translation providers as MtProviders + the registry that selects between them (see docs/MT_ENGINE_PROVIDER_REGISTRY.md).
  *  - native   : the platform translator (Chrome Translator API / Apple Translation / ML Kit) – unchanged code, wrapped
- *  - local    : the downloaded OPUS-MT model (src/modules/mt/local) – opt-in, downloaded only after the user agrees
  *  - google   : the user's own Google Cloud key (BYOK) – goes through the quota guard, selected by the existing usage settings
  * Selection (registry.select) never sends text to a cloud provider unless the user selected it, and never falls back from a
  * local provider to a cloud one.
  */
 import { send } from '@/shared/messages';
-import { chromeLocal } from '@/storage/kv';
 import { countChars } from '@/modules/usage/count';
 import {
   EN_VI,
-  LOCAL_MODEL_ID,
-  LocalModelProvider,
   MtError,
   ProviderRegistry,
   VI_EN,
-  modelForPair,
   pairKey,
   type Availability,
   type LanguagePair,
-  type LocalBackend,
-  type LocalModelSpec,
   type MtProvider,
   type Platform,
   type SelectionConfig,
@@ -101,74 +94,15 @@ export function googleWebProvider(): MtProvider {
   };
 }
 
-/** Reaches the model host (offscreen document in the extension, in-page worker in the phone apps) through the router. */
-export const messageBackend: LocalBackend = {
-  cached: (spec: LocalModelSpec) => send({ type: 'mtlocal:cached', modelId: spec.id }).catch(() => false),
-  async prepare(spec, onProgress, signal) {
-    let st = await send({ type: 'mtlocal:start', modelId: spec.id });
-    while (st.state === 'downloading') {
-      if (signal?.aborted) throw new MtError('aborted', 'Đã hủy.');
-      onProgress?.(st.loaded, st.total);
-      await new Promise((r) => setTimeout(r, 400));
-      st = await send({ type: 'mtlocal:status', modelId: spec.id });
-    }
-    if (st.state === 'error') throw new MtError('provider-error', st.error ?? 'Tải mô hình thất bại.', { retryable: true });
-    onProgress?.(st.total, st.total);
-  },
-  translate: (spec, text) => send({ type: 'mtlocal:translate', modelId: spec.id, text }),
-  release: () => send({ type: 'mtlocal:release' }).then(() => undefined),
-  cancel: (spec) => send({ type: 'mtlocal:cancel', modelId: spec.id }).then(() => undefined),
-  verify: (spec) => send({ type: 'mtlocal:verify', modelId: spec.id }),
-  remove: (spec) => send({ type: 'mtlocal:remove', modelId: spec.id }).then(() => undefined),
-};
-
-export const localProvider = new LocalModelProvider(messageBackend, () => typeof WebAssembly !== 'undefined');
-
-/**
- * The downloaded OPUS-MT model is switched OFF in the product (decision 2026-11-17: Google Cloud Translation first, the platform
- * translator second). The code, tests and download tooling stay, so it can be switched back on without rework.
- */
-let localModelEnabled = false;
-export const isLocalModelEnabled = () => localModelEnabled;
-export function setLocalModelEnabled(on: boolean) {
-  localModelEnabled = on;
-  registry = null;
-}
-
 let registry: ProviderRegistry | null = null;
-/** Registry with every provider of this platform. Priority: native first (today's behaviour), then the downloaded model. */
+/** Registry with every provider of this platform. Selection never sends text to a cloud provider unless the user chose it. */
 export function getRegistry(): ProviderRegistry {
   if (!registry) {
     registry = new ProviderRegistry().register(googleProvider(), 1).register(googleWebProvider(), 2).register(nativeProvider(), 10);
-    if (localModelEnabled) registry.register(localProvider, 20);
   }
   return registry;
 }
 export const resetRegistryForTests = () => (registry = null);
-
-// ---- user preference: "use the downloaded model instead of the platform translator" (off by default; changing defaults needs the user)
-const PREFS_KEY = 'mt.prefs';
-export interface MtPrefs {
-  /** 'auto' = platform translator first (default); 'local' = the downloaded model */
-  preferred: 'auto' | 'local';
-}
-export async function getMtPrefs(): Promise<MtPrefs> {
-  try {
-    const p = await chromeLocal().get<MtPrefs>(PREFS_KEY);
-    return { preferred: p?.preferred === 'local' ? 'local' : 'auto' };
-  } catch {
-    return { preferred: 'auto' };
-  }
-}
-export async function setMtPrefs(p: MtPrefs): Promise<void> {
-  await chromeLocal().set({ [PREFS_KEY]: p });
-}
-
-export async function localAvailability(pair?: LanguagePair): Promise<Availability> {
-  const p = pair ?? EN_VI;
-  if (!localModelEnabled || !modelForPair(p) || !localProvider.capabilities.platforms.includes(currentPlatform())) return 'unsupported'; // iOS: not verified on a device → not offered
-  return localProvider.availability(p);
-}
 
 export interface DeviceRoute {
   provider: MtProvider;
@@ -177,23 +111,14 @@ export interface DeviceRoute {
   translate(text: string, opts?: { signal?: AbortSignal }): Promise<string>;
 }
 
-/** Which on-device provider translates `pair` right now (user choice, else the platform translator, else a downloaded model). */
+/** Which on-device provider translates the pair right now: the platform translator (Chrome Translator / Apple Translation / ML Kit). */
 export async function resolveDevice(pair: LanguagePair = EN_VI): Promise<DeviceRoute> {
-  const prefs = await getMtPrefs();
-  const cfg: SelectionConfig = { preferred: prefs.preferred === 'local' ? LOCAL_MODEL_ID : 'auto', platform: currentPlatform(), cloudReady: false };
-  let sel;
-  try {
-    sel = await getRegistry().select(pair, cfg);
-  } catch (e) {
-    // the chosen model is not usable (e.g. not downloaded): explain, never switch silently
-    if (prefs.preferred === 'local' && e instanceof MtError) throw e;
-    throw e;
-  }
+  const cfg: SelectionConfig = { preferred: 'auto', platform: currentPlatform(), cloudReady: false };
+  const sel = await getRegistry().select(pair, cfg);
   const p = sel.provider;
-  const limitsId: ProviderId = p.id === LOCAL_MODEL_ID ? 'device-local' : (p.id as ProviderId);
   return {
     provider: p,
-    limitsId,
+    limitsId: p.id as ProviderId,
     translate: async (text, o) => {
       const r = await getRegistry().translate({ text, pair, signal: o?.signal }, cfg);
       return r.text;
