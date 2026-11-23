@@ -58,18 +58,20 @@ describe('character counting (Unicode code points)', () => {
 });
 
 describe('settings: only the providers that exist', () => {
-  it('the default is on-device; the retired Google Cloud provider is not accepted and falls back to on-device', () => {
-    expect(DEFAULT_USAGE_SETTINGS.provider).toBe('device');
-    expect(sanitizeUsageSettings({ provider: 'google' as never })).toEqual({ provider: 'device' });
-    expect(sanitizeUsageSettings({ provider: 'google-web' })).toEqual({ provider: 'google-web' });
-    expect(sanitizeUsageSettings(undefined)).toEqual({ provider: 'device' });
+  it('the default is Google Translate (web); the retired Google Cloud provider maps to it; on-device stays when chosen', () => {
+    expect(DEFAULT_USAGE_SETTINGS.provider).toBe('google-web');
+    expect(sanitizeUsageSettings({ provider: 'google' as never })).toEqual({ provider: 'google-web' });
+    expect(sanitizeUsageSettings({ provider: 'device' })).toEqual({ provider: 'device' });
+    expect(sanitizeUsageSettings({ provider: 'nonsense' as never })).toEqual({ provider: 'google-web' });
+    expect(sanitizeUsageSettings(undefined)).toEqual({ provider: 'google-web' });
   });
-  it('a stored "google" setting from an older version loads as on-device (text is never sent anywhere by surprise)', async () => {
-    const kv = memoryKV();
-    await kv.set({ 'usage:settings:v1': { provider: 'google', freeQuotaChars: 500000 } });
-    const svc = new UsageService(kv);
-    expect((await svc.getSettings()).provider).toBe('device');
-    expect(await svc.translate('hello world')).toEqual({ source: 'device' });
+  it('a stored "device" choice is respected; a stored "google" (old) setting loads as Google Translate (web)', async () => {
+    const a = memoryKV();
+    await a.set({ 'usage:settings:v1': { provider: 'device' } });
+    expect((await new UsageService(a).getSettings()).provider).toBe('device');
+    const b = memoryKV();
+    await b.set({ 'usage:settings:v1': { provider: 'google', freeQuotaChars: 500000 } });
+    expect((await new UsageService(b).getSettings()).provider).toBe('google-web');
   });
   it('credentials left by the retired Google Cloud feature (API key, credential id, sign-in record) are removed', async () => {
     const kv = memoryKV();
@@ -80,8 +82,9 @@ describe('settings: only the providers that exist', () => {
 });
 
 describe('metering, cache and the device default', () => {
-  it('device mode (default) tells the caller to use the on-device translator and sends nothing', async () => {
+  it('device mode tells the caller to use the on-device translator and sends nothing', async () => {
     const svc = new UsageService(memoryKV());
+    await svc.updateSettings({ provider: 'device' });
     expect(await svc.translate('hello world')).toEqual({ source: 'device' });
     expect((await svc.snapshot()).usedChars).toBe(0);
   });

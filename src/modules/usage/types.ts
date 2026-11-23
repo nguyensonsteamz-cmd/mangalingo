@@ -4,7 +4,7 @@
  * official quota or billing at all.
  */
 
-/** 'device' (default): on-device translation. 'google-web': Google Translate web (unofficial, no key, no billing; the text is sent to Google). */
+/** 'google-web' (default): Google Translate web (unofficial, no key, no billing; the text is sent to Google). 'device': on-device translation (nothing leaves the device). */
 export type TranslationProvider = 'device' | 'google-web';
 
 export interface UsageSettings {

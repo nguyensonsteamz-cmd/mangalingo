@@ -276,12 +276,15 @@ describe('UsageService with Google Translate web (no key, no billing, no quota)'
     expect(e.message).not.toMatch(/diary|googleapis|http/);
   });
 
-  it('device mode (default) and Google Cloud mode are untouched', async () => {
+  it('a fresh install uses Google Translate (web) by default; switching to on-device stops all network use', async () => {
     const net = fakeNet();
-    const svc = new UsageService(memoryKV(), { webFetch: net.f });
-    expect(await svc.translate('Hello', {})).toEqual({ source: 'device' }); // default: nothing is sent anywhere
-    expect(net.urls).toHaveLength(0);
-    expect((await svc.getSettings()).provider).toBe('device');
+    const svc = new UsageService(memoryKV(), { webFetch: net.f, webGate: { minIntervalMs: 0, retryPauseMs: 0, sleep: async () => {} } });
+    expect((await svc.getSettings()).provider).toBe('google-web');
+    expect(await svc.translate('Hello', {})).toMatchObject({ source: 'google' });
+    expect(net.urls).toHaveLength(1);
+    await svc.updateSettings({ provider: 'device' });
+    expect(await svc.translate('Hello again', {})).toEqual({ source: 'device' });
+    expect(net.urls).toHaveLength(1); // nothing more was sent
   });
 });
 

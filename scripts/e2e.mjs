@@ -113,6 +113,8 @@ try {
       }
       if (m.method === 'Runtime.exceptionThrown') consoleErrors.push(m.params.exceptionDetails?.exception?.description ?? m.params.exceptionDetails?.text);
     });
+    // the product default is Google Dịch (web); the test run uses the on-device translator so NOTHING is sent to Google (see the Nguồn dịch step for the default)
+    await sw.evaluate(`chrome.storage.local.set({ 'usage:settings:v1': { provider: 'device' } })`);
     return `id ${extId}`;
   });
 
@@ -790,34 +792,36 @@ try {
     return 'theme light → persisted → reset to dark (sites cleared)';
   });
 
-  await step('Settings → Nguồn dịch: two sources only (on-device default, Google Dịch web); no API key, billing or quota anywhere; choice persists', async () => {
+  await step('Settings → Nguồn dịch: Google Dịch (web) is the default; two sources only; no API key, billing or quota anywhere; choice persists', async () => {
+    // a fresh profile has no stored choice: the default applies. (The test run pins on-device at start so no real request goes to Google.)
+    await sw.evaluate(`chrome.storage.local.remove('usage:settings:v1')`);
     await opt.evaluate(`location.hash = 'usage'`);
     const txt = await waitFor(() => opt.evaluate(`document.querySelector('[data-ml-usage-section]')?.innerText ?? null`), { label: 'usage section' });
     assert(txt.includes('Nguồn dịch') && txt.includes('Google Dịch (web)') && txt.includes('Trên máy'), 'both sources offered');
     assert(!/Dán khoá|Khoá API Google|Billing|hạn mức miễn phí|500\.000|Smart Setup/i.test(txt), 'no key / billing / quota wording: ' + txt.slice(0, 200));
     assert(await opt.evaluate(`!document.querySelector('[data-ml-usage-key]') && !document.querySelector('[data-ml-usage-input]')`), 'no key or quota fields');
     const resp = await opt.evaluate(`chrome.runtime.sendMessage({ type: 'usage:snapshot' })`);
-    assert(resp.ok && resp.data.settings.provider === 'device', 'default: on-device');
+    assert(resp.ok && resp.data.settings.provider === 'google-web', 'default: Google Dịch (web)');
     assert(!('hasKey' in resp.data) && !('freeQuota' in resp.data), 'no key / quota in the snapshot');
-    const dev = await opt.evaluate(`chrome.runtime.sendMessage({ type: 'usage:translate', text: 'hello' })`);
-    assert(dev.ok && dev.data.source === 'device', 'on-device translation sends nothing to Google');
-    // choosing Google Dịch (web) through the UI persists; the note about the unofficial service is shown. NO translation is requested here: nothing is sent to Google.
-    await opt.evaluate(`[...document.querySelectorAll('button')].find((b) => b.textContent === 'Google Dịch (web)').click()`);
-    await waitFor(() => sw.evaluate(`chrome.storage.local.get('usage:settings:v1').then((r) => r['usage:settings:v1']?.provider === 'google-web')`), { label: 'provider saved' });
     const note = await waitFor(() => opt.evaluate(`document.querySelector('[data-ml-usage-web-note]')?.innerText ?? null`), { label: 'web note' });
     assert(/không có hạn mức hay hoá đơn chính thức/.test(note), 'unofficial-service note shown');
-    await opt.evaluate(`chrome.runtime.sendMessage({ type: 'usage:settings', patch: { provider: 'device' } })`);
+    // choosing "Trên máy" through the UI persists and stops all use of Google. NO translation is requested while Google is selected here.
+    await opt.evaluate(`[...document.querySelectorAll('button')].find((b) => b.textContent === 'Trên máy').click()`);
+    await waitFor(() => sw.evaluate(`chrome.storage.local.get('usage:settings:v1').then((r) => r['usage:settings:v1']?.provider === 'device')`), { label: 'provider saved' });
+    const dev = await opt.evaluate(`chrome.runtime.sendMessage({ type: 'usage:translate', text: 'hello' })`);
+    assert(dev.ok && dev.data.source === 'device', 'on-device translation sends nothing to Google');
     await opt.evaluate(`chrome.runtime.sendMessage({ type: 'usage:reset' })`);
     await opt.evaluate(`location.hash = 'appearance'`);
   });
 
-  await step('Google Cloud, Smart Setup, the downloaded OPUS-MT model and the Google sign-in gate are gone: no such sections, no identity permission, an old stored Google provider loads as on-device', async () => {
+  await step('Google Cloud, Smart Setup, the downloaded OPUS-MT model and the Google sign-in gate are gone: no such sections, no identity permission, an old stored Google provider loads as Google Dịch (web)', async () => {
     const perms = await sw.evaluate(`(() => { const m = chrome.runtime.getManifest(); return !m.permissions.includes('identity') && !m.oauth2; })()`);
     assert(perms, 'manifest: no identity permission, no oauth2 block');
-    // an old stored provider 'google' (retired) loads as on-device (the purge of the old key / sign-in record runs at start-up: unit-tested)
+    // an old stored provider 'google' (retired) loads as Google Dịch (web) (the purge of the old key / sign-in record runs at start-up: unit-tested)
     await sw.evaluate('chrome.storage.local.set({ "usage:settings:v1": { provider: "google", freeQuotaChars: 1 } })');
     const snap = await opt.evaluate('chrome.runtime.sendMessage({ type: "usage:snapshot" })');
-    assert(snap.ok && snap.data.settings.provider === 'device', 'a stored "google" provider loads as on-device');
+    assert(snap.ok && snap.data.settings.provider === 'google-web', 'a stored "google" provider loads as Google Dịch (web)');
+    await sw.evaluate('chrome.storage.local.set({ "usage:settings:v1": { provider: "device" } })'); // back to on-device: the rest of the run must not contact Google
     for (const sec of ['setup', 'billing', 'account']) {
       await opt.evaluate(`location.hash = '${sec}'`);
       const shown = await opt.evaluate(`new Promise((r) => setTimeout(() => r(!!document.querySelector('[data-ml-setup-section], [data-ml-account-section]') || /Smart Setup|Billing/.test(document.body.innerText)), 400))`);

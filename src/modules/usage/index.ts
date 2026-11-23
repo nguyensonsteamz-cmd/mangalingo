@@ -1,6 +1,6 @@
 /**
- * Translation usage bookkeeping for the two providers LingoLens uses: on-device translation (default, free, local) and Google
- * Translate web (optional, unofficial, no key, no billing). Every number is a LOCAL counter kept on this device: neither provider
+ * Translation usage bookkeeping for the two providers LingoLens uses: on-device translation (free, local) and Google
+ * Translate web (the default: unofficial, no key, no billing). Every number is a LOCAL counter kept on this device: neither provider
  * has a quota or bill that LingoLens could measure or enforce. Google Cloud Translation (API key, billing, quota) was removed.
  */
 import type { KV } from '@/storage/kv';
@@ -62,7 +62,7 @@ export class UsageService {
   }
 
   /**
-   * Translation entry point. Device mode (default) tells the caller to use the on-device translator. Google Translate web goes
+   * Translation entry point. Device mode tells the caller to use the on-device translator. Google Translate web goes
    * through the guard (cache, idempotency, in-flight sharing, counters) and the gate (one request at a time, spacing, cooldown
    * after a block). Errors keep their code (message code 'gweb-<CODE>').
    */

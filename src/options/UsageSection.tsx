@@ -81,7 +81,7 @@ export function UsageSection() {
       <div>
         <h1 className="text-[20px] font-semibold tracking-tight text-text">Nguồn dịch</h1>
         <p className="mt-1 text-[13px] text-muted">
-          Chọn nơi dịch diễn ra: trên thiết bị của bạn (mặc định, không gửi văn bản đi đâu) hoặc Google Dịch (web), không cần khoá API, tài khoản hay thanh toán.
+          Chọn nơi dịch diễn ra: Google Dịch (web) (mặc định, không cần khoá API, tài khoản hay thanh toán; văn bản được gửi tới Google) hoặc trên thiết bị của bạn (không gửi văn bản đi đâu).
         </p>
       </div>
 
@@ -91,7 +91,7 @@ export function UsageSection() {
           description={
             web
               ? 'Văn bản được gửi trực tiếp từ thiết bị tới Google Dịch (web). Không cần khoá API, không tính phí. Đây không phải API chính thức của Google: Google có thể giới hạn hoặc chặn bất cứ lúc nào, khi đó hãy dùng dịch trên máy.'
-              : 'Dịch trên máy (Chrome Translator / Apple Translation / ML Kit): không gửi văn bản đi đâu, không tính phí.'
+              : 'Dịch trên máy (Chrome Translator / Apple Translation / ML Kit): không gửi văn bản đi đâu, không tính phí. Chất lượng và ngôn ngữ phụ thuộc bộ dịch của thiết bị.'
           }
         >
           <Segmented

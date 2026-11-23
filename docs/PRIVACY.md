@@ -3,7 +3,8 @@
 ## Nguyên tắc
 
 - **Local-first**: tra từ, phân tích câu, nhận diện ngôn ngữ và OCR đều chạy trên máy.
-- **Không gửi nội dung truyện, ảnh hay từ đã tra** tới bất kỳ máy chủ nào. Không có tracking, analytics,
+- **Dịch bằng Google Dịch (web) là mặc định** và gửi văn bản cần dịch tới Google (xem mục cuối). Tra từ điển, ngữ pháp và OCR vẫn chạy trên máy; chọn “Trên máy” để không gửi gì. Ảnh không bao giờ được gửi đi.
+- Ngoài phần dịch: không gửi nội dung truyện hay từ đã tra tới máy chủ nào. Không có tracking, analytics,
   telemetry, quảng cáo, tài khoản hay API key.
 - **Quyền `scripting`**: chỉ dùng để khởi động LingoLens trong các tab **đã mở sẵn** (trước khi cài/cập nhật
   tiện ích) của những trang bạn bật — để không phải tải lại trang. Không chèn mã nào khác ngoài `content.js` của gói.
@@ -60,9 +61,9 @@ Không lưu toàn bộ nội dung trang. Gỡ tiện ích sẽ xóa toàn bộ d
 - Xuất CSV vô hiệu hóa công thức bảng tính (`=`, `+`, `-`, `@` ở đầu ô).
 - Sự kiện chuột/bàn phím trong UI của tiện ích không lan ra trang (tránh trang đọc truyện tự lật trang).
 
-## Google Dịch (web, không chính thức): tuỳ chọn, tắt theo mặc định
+## Google Dịch (web, không chính thức): nguồn dịch MẶC ĐỊNH
 
-*Cài đặt → Nguồn dịch → Dịch bằng → **Google Dịch (web)**.* Chỉ khi bạn chọn mục này, văn bản bạn dịch được gửi **trực tiếp từ thiết bị của bạn** tới `translate.googleapis.com` (một lần cho mỗi đoạn tối đa 1.500 ký tự, từng yêu cầu một). Không cần tài khoản, khoá API hay thanh toán.
+*Cài đặt → Nguồn dịch → Dịch bằng → **Google Dịch (web)**.* **Mặc định (cài mới) là mục này**, nên văn bản bạn dịch (từ, câu, đoạn, chữ quét từ ảnh) được gửi **trực tiếp từ thiết bị của bạn** tới `translate.googleapis.com` (một lần cho mỗi đoạn tối đa 1.500 ký tự, từng yêu cầu một). Không cần tài khoản, khoá API hay thanh toán.
 
 | Câu hỏi | Trả lời |
 |---|---|
@@ -70,4 +71,4 @@ Không lưu toàn bộ nội dung trang. Gỡ tiện ích sẽ xóa toàn bộ d
 | Có máy chủ của LingoLens không? | Không. Không có proxy hay máy chủ trung gian. |
 | Nhật ký / lưu trữ? | LingoLens không ghi văn bản vào nhật ký; thông báo lỗi không chứa văn bản hay URL. Bộ nhớ đệm bản dịch (tối đa 300 mục) và bộ đếm ký tự nằm cục bộ trên thiết bị (`chrome.storage.local` / bộ nhớ ứng dụng). Google có thể lưu yêu cầu theo chính sách riêng của họ; LingoLens không kiểm soát việc đó. |
 | Google hỗ trợ không? | **Không.** Đây không phải API chính thức, không có hợp đồng, hạn mức hay cam kết. Google có thể giới hạn hoặc chặn bất cứ lúc nào (xem `docs/google_translate_unofficial_migration_report.md`). Khi đó LingoLens dừng, hiển thị thông báo và tạm ngừng 15 phút, không tìm cách vượt qua. |
-| Tắt thế nào? | Chọn lại “Trên máy” trong cùng mục; không còn gì được gửi đi. |
+| Tắt thế nào? | Chọn “Trên máy” trong *Cài đặt → Nguồn dịch*; không còn gì được gửi đi. Ai đã chọn “Trên máy” từ trước thì lựa chọn đó được giữ nguyên khi cập nhật. |

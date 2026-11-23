@@ -151,3 +151,10 @@ Theo yêu cầu "bỏ mô hình OPUS và Google, Google Dịch thay thế cho Go
 - Mã native chỉ còn là code chết: `android/.../GoogleAuth.kt`, `SecretVault.kt`, intent-filter `oauth2redirect` + biến `LINGOLENS_OAUTH_ANDROID_CLIENT_ID` trong `build.gradle.kts`, `ios/MangaLingo/Setup/*`, các hàm cầu nối `secret*`/`oauth*` trong `src/mobile/native.ts`. Không xoá vì không thể biên dịch Android/iOS trên máy này; nên gỡ sau khi CI biên dịch được.
 - Các loại `cloud-byok` / `local-model` trong `src/modules/mt` là phần tổng quát của registry (còn dùng trong test), không còn provider nào dùng.
 - Tài liệu lịch sử `MT_ENGINE_*`, `TRANSLATION_*` được gắn banner "đã gỡ", không viết lại.
+
+### Mặc định = Google Dịch (web) (2026-11-23, theo yêu cầu của chủ dự án)
+
+- `DEFAULT_USAGE_SETTINGS.provider` là `google-web` trên Chrome, Android và iOS. Cài mới gửi văn bản dịch tới Google ngay từ lần dịch đầu; `docs/PRIVACY.md` và trang *Nguồn dịch* nói rõ điều này.
+- Người đã chọn "Trên máy" giữ nguyên lựa chọn. Provider `google` (Cloud) cũ được đọc thành `google-web`.
+- Hệ quả cần biết: khi Google chặn (như đã gặp trên mạng thử nghiệm), một bản cài mới **không dịch được** cho tới khi người dùng chọn "Trên máy": ứng dụng không tự chuyển nguồn. Nếu muốn tự động dùng bộ dịch trên máy khi Google bị chặn, đó là một thay đổi riêng (cần quyết định vì nó thay đổi chuyện văn bản có rời máy hay không).
+- Bộ test và e2e ghim "Trên máy" khi chạy để không gửi request thật tới Google; chỉ bước "Nguồn dịch" kiểm tra mặc định.
