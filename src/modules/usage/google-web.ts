@@ -140,7 +140,7 @@ export async function googleWebTranslate(text: string, pair: string, o: WebTrans
   const timer = setTimeout(() => {
     timedOut = true;
     ctl.abort();
-  }, o.timeoutMs ?? 15_000);
+  }, o.timeoutMs ?? 10_000);
   const onAbort = () => ctl.abort();
   o.signal?.addEventListener('abort', onAbort, { once: true });
   try {

@@ -2,7 +2,7 @@
  * iPhone scan screen: the screenshot (from the Shortcuts action or the photo library) fitted to the
  * screen – pinch to zoom, drag to pan, double tap to zoom – with a frame to drag onto a bubble /
  * sentence / word: “Quét vùng này”, or “Quét toàn màn hình” for every bubble (numbered).
- * Results live in a bottom sheet: every bubble with its natural translation (Apple Translation,
+ * Results live in a bottom sheet: every bubble with its natural translation (Google Translate web by default, else Apple Translation,
  * all bubbles in one request), dictionary gloss and words (save each word, add your own notes).
  * Bubbles can be re-framed (drag the corners of the selected bubble → only that area is read
  * again). Text recognition is Apple Vision on the device.
@@ -23,6 +23,7 @@ import { copyText, recognize, translateBatch } from './ios';
 import { Assist, type AssistItem } from './Assist';
 import { IconCopy } from '@/ui/icons';
 import { prepareForMt } from '@/translation/chrome-mt';
+import { translateBatchViaGoogle } from '@/translation/batch';
 import { isMostlyUpper, naturalCase } from '@/translation/casing';
 
 type Box = { x: number; y: number; w: number; h: number }; // normalised 0..1 of the image
@@ -84,7 +85,10 @@ function useBatchTranslation(blocks: OcrBlock[]): Record<string, Mt> {
     void (async () => {
       const names = await findNames(todo);
       try {
-        const out = await translateBatch(todo.map((t) => prepareForMt(naturalCase(t, (w) => names.has(w)))));
+        const prepared = todo.map((t) => prepareForMt(naturalCase(t, (w) => names.has(w))));
+        // Google Translate (web) is the default source: the bubbles go to it (few requests, verified split). Only when the user chose
+        // 'Trên máy' does the phone's own translator (Apple Translation) do it. A Google failure is shown, never hidden by switching.
+        const out = (await translateBatchViaGoogle(prepared)) ?? (await translateBatch(prepared));
         todo.forEach((t, i) => cache.current.set(t, out ? { state: 'done', text: out[i] } : { state: 'off' }));
       } catch (e) {
         todo.forEach((t) => cache.current.set(t, { state: 'error', error: (e as Error).message }));
