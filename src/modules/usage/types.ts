@@ -1,6 +1,7 @@
 /** Shared types of the translation usage module. All numbers are LOCAL estimates kept on this device (BYOK only). */
 
-export type TranslationProvider = 'device' | 'google';
+/** 'google' = Google Cloud Translation with the user's own key (optional, advanced); 'google-web' = Google Translate web (unofficial, no key, no billing) */
+export type TranslationProvider = 'device' | 'google' | 'google-web';
 
 export interface UsageSettings {
   /** 'device' (default): on-device translation. 'google': Google Cloud Translation with the user's own key (BYOK). */

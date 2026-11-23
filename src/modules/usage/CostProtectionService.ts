@@ -16,6 +16,8 @@ export interface ProtectContext extends Active {
   idempotencyKey?: string;
   /** chunk of a long text: keep its line breaks */
   keepBreaks?: boolean;
+  /** false = no billing and no quota exist for this provider (Google web): nothing is checked against the free quota or the paid limits */
+  metered?: boolean;
 }
 
 /**
@@ -126,6 +128,11 @@ export class CostProtectionService {
       const state = await this.repo.load(now);
       // already counted under this key (a retry): nothing new to reserve or to enforce
       if (this.meter.isCommitted(state, ctx.idempotencyKey)) return { blocked: null, paid: false, token: Symbol('r'), billable: 0, counted: true } as const;
+      if (ctx.metered === false) {
+        const token = Symbol('r');
+        this.pending.set(token, { ledger: lk, chars });
+        return { blocked: null, paid: false, token, billable: 0, counted: false } as const;
+      }
       const d = this.quota.decide(state, state.ledgers[lk], settings, chars, this.pendingFor(lk));
       if (d.action === 'block') {
         this.meter.recordBlocked(state, ctx, chars, now);

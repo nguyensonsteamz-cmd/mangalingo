@@ -27,7 +27,7 @@ export function sanitizeUsageSettings(raw: Partial<UsageSettings> | undefined, b
   const critical = Math.max(warn, num(r.criticalRatio, 0.01, 1, base.criticalRatio));
   const hard = Math.max(critical, num(r.hardStopRatio, 0.01, 1, base.hardStopRatio));
   return {
-    provider: r.provider === 'google' || r.provider === 'device' ? r.provider : base.provider,
+    provider: r.provider === 'google' || r.provider === 'google-web' || r.provider === 'device' ? r.provider : base.provider,
     freeQuotaChars: Math.round(num(r.freeQuotaChars, 1, 1e9, base.freeQuotaChars)),
     warnRatio: warn,
     criticalRatio: critical,

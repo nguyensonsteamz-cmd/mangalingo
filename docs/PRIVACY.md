@@ -59,3 +59,15 @@ Không lưu toàn bộ nội dung trang. Gỡ tiện ích sẽ xóa toàn bộ d
 - Liên kết nguồn trong sổ từ chỉ chấp nhận `http`, `https`, `file`; mở với `rel="noopener noreferrer"`.
 - Xuất CSV vô hiệu hóa công thức bảng tính (`=`, `+`, `-`, `@` ở đầu ô).
 - Sự kiện chuột/bàn phím trong UI của tiện ích không lan ra trang (tránh trang đọc truyện tự lật trang).
+
+## Google Dịch (web, không chính thức): tuỳ chọn, tắt theo mặc định
+
+*Cài đặt → Hạn mức dịch → Dịch bằng → **Google Dịch (web)**.* Chỉ khi bạn chọn mục này, văn bản bạn dịch được gửi **trực tiếp từ thiết bị của bạn** tới `translate.googleapis.com` (một lần cho mỗi đoạn tối đa 1.500 ký tự, từng yêu cầu một). Không cần tài khoản, khoá API hay thanh toán.
+
+| Câu hỏi | Trả lời |
+|---|---|
+| Gửi gì cho Google? | Văn bản cần dịch (nằm trong URL của yêu cầu GET) và cặp ngôn ngữ. LingoLens không thêm tiêu đề tuỳ biến, không gửi cookie (`credentials: omit`), không gửi khoá. Như mọi yêu cầu mạng, Google thấy địa chỉ IP của bạn. |
+| Có máy chủ của LingoLens không? | Không. Không có proxy hay máy chủ trung gian. |
+| Nhật ký / lưu trữ? | LingoLens không ghi văn bản vào nhật ký; thông báo lỗi không chứa văn bản hay URL. Bộ nhớ đệm bản dịch (tối đa 300 mục) và bộ đếm ký tự nằm cục bộ trên thiết bị (`chrome.storage.local` / bộ nhớ ứng dụng). Google có thể lưu yêu cầu theo chính sách riêng của họ; LingoLens không kiểm soát việc đó. |
+| Google hỗ trợ không? | **Không.** Đây không phải API chính thức, không có hợp đồng, hạn mức hay cam kết. Google có thể giới hạn hoặc chặn bất cứ lúc nào (xem `docs/google_translate_unofficial_migration_report.md`). Khi đó LingoLens dừng, hiển thị thông báo và tạm ngừng 15 phút, không tìm cách vượt qua. |
+| Tắt thế nào? | Chọn lại “Trên máy” trong cùng mục; không còn gì được gửi đi. |

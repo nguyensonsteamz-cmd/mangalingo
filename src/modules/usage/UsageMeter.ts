@@ -37,6 +37,7 @@ export class UsageMeter {
   snapshot(state: UsageState, s: UsageSettings, key: string, now: Date, a: Active): UsageSnapshot {
     const m = state.ledgers[ledgerKey(a.provider, a.credentialId)] ?? emptyLedger(state.month, a.provider, a.credentialId, a.languagePair);
     const used = effectiveChars(m);
+    const web = a.provider === 'google-web'; // Google web: no free quota, no billing exists
     const billable = Math.max(0, used - s.freeQuotaChars);
     const nextReset = firstOfNextMonth(now);
     return {
@@ -55,8 +56,8 @@ export class UsageMeter {
       freeQuota: s.freeQuotaChars,
       remainingFree: Math.max(0, s.freeQuotaChars - used),
       ratio: used / s.freeQuotaChars,
-      billableChars: billable,
-      estimatedCostUsd: this.costOf(billable, s),
+      billableChars: web ? 0 : billable,
+      estimatedCostUsd: web ? 0 : this.costOf(billable, s),
       // reliable only for a metered provider (Google BYOK) with a configured price; never for on-device providers
       costReliable: a.provider === 'google-v2' && s.pricePerMillionUsd > 0,
       operations: m.operations,
@@ -67,7 +68,7 @@ export class UsageMeter {
       paidChars: m.paidChars,
       paidRequests: m.paidRequests,
       paidRequestsToday: state.day.paidRequests,
-      level: this.levelOf(m.chars, s),
+      level: a.provider === 'google-web' ? 'ok' : this.levelOf(m.chars, s),
       hasKey: !!key,
       keyHint: key ? key.slice(-4) : '',
       ledgers: Object.values(state.ledgers),

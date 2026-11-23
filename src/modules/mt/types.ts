@@ -14,7 +14,7 @@ export const VI_EN: LanguagePair = { source: 'vi', target: 'en' };
 export const reversePair = (p: LanguagePair): LanguagePair => ({ source: p.target, target: p.source });
 
 /** native = the OS / browser translator; local-model = a model LingoLens downloads and runs itself; cloud-byok = the user's own cloud key */
-export type ProviderKind = 'native' | 'local-model' | 'cloud-byok';
+export type ProviderKind = 'native' | 'local-model' | 'cloud-byok' | 'cloud-web';
 export type Platform = 'chrome' | 'android' | 'ios';
 export type Availability = 'available' | 'downloadable' | 'downloading' | 'unavailable' | 'unsupported';
 

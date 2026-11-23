@@ -17,6 +17,9 @@ export const MAX_COMMITTED = 3000;
 
 export const GOOGLE_PROVIDER = 'google-v2';
 export const DEFAULT_CREDENTIAL = 'default';
+/** Google Translate web (unofficial): no credential, never metered or billed; its ledger only counts what was translated */
+export const WEB_PROVIDER = 'google-web';
+export const WEB_CREDENTIAL = 'web';
 
 export const ledgerKey = (provider: string, credentialId: string) => `${provider}|${credentialId}`;
 

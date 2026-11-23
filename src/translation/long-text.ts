@@ -12,6 +12,8 @@ import type { TranslateOutcome } from '@/modules/usage/types';
 export interface LongTextDeps {
   /** is the Google provider selected (and has a key)? */
   googleActive(): Promise<boolean>;
+  /** which Google provider ('google-v2' Cloud with a key, 'google-web' no key); default 'google-v2' */
+  googleProviderId?(): Promise<ProviderId>;
   /** one chunk through the quota guard */
   sendGoogle(text: string, o: { idempotencyKey: string; keepBreaks: boolean }): Promise<TranslateOutcome>;
   deviceTranslate(text: string): Promise<string>;
@@ -37,6 +39,13 @@ export function classifyError(e: unknown): TranslationError {
   if (e instanceof TranslationError) return e;
   const err = e as { message?: string; code?: string; name?: string };
   const code = String(err?.code ?? '');
+  const w = code.match(/^gweb-([A-Z_]+)$/);
+  if (w) {
+    // Google Translate web: a block / CAPTCHA / rate limit is FATAL for the job (nothing more is sent); only network errors and timeouts are retried
+    const retryable = w[1] === 'NETWORK_ERROR' || w[1] === 'TIMEOUT';
+    const fatal = ['RATE_LIMITED', 'ACCESS_BLOCKED', 'CAPTCHA_REQUIRED', 'INVALID_LANGUAGE', 'CANCELLED'].includes(w[1]);
+    return new TranslationError(String(err?.message ?? e), { retryable, fatal, code });
+  }
   const m = code.match(/^google-(\d{3})$/);
   const message = String(err?.message ?? e);
   if (m) {
@@ -51,7 +60,7 @@ export function classifyError(e: unknown): TranslationError {
 export async function translateLongText(text: string, deps: LongTextDeps, o: LongTextOptions = {}): Promise<JobResult> {
   const google = await deps.googleActive();
   const dev = google ? null : await deps.resolveDevice?.();
-  const provider: ProviderId = google ? 'google-v2' : dev?.provider ?? deps.deviceProvider;
+  const provider: ProviderId = google ? ((await deps.googleProviderId?.()) ?? 'google-v2') : dev?.provider ?? deps.deviceProvider;
 
   const translate: ChunkTranslate = async (src, ctx) => {
     try {

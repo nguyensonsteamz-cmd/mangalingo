@@ -11,10 +11,11 @@ import { MessageError } from '@/shared/messages';
 import { CostProtectionService } from './CostProtectionService';
 import { QuotaManager } from './QuotaManager';
 import { UsageMeter } from './UsageMeter';
-import { DEFAULT_CREDENTIAL, GOOGLE_PROVIDER, UsageRepository } from './UsageRepository';
+import { DEFAULT_CREDENTIAL, GOOGLE_PROVIDER, WEB_CREDENTIAL, WEB_PROVIDER, UsageRepository } from './UsageRepository';
 import { sanitizeUsageSettings } from './UsageSettings';
 import { UsageWarningManager } from './UsageWarningManager';
 import { googleTranslate, type FetchLike } from './google';
+import { GoogleWebError, GoogleWebGate, type GateOptions, type WebFetch } from './google-web';
 import { GoogleCloudClient, type FetchFn } from '@/modules/smart-setup/google-cloud';
 import type { TranslateOptions, TranslateOutcome, UsageSettings, UsageSnapshot } from './types';
 
@@ -35,6 +36,10 @@ export interface UsageServiceOptions {
   fetchImpl?: FetchLike;
   /** Secure storage for the API key (Keychain / Keystore / non-extractable WebCrypto). Without it the key is kept in plain storage (tests only). */
   secrets?: SecretStore;
+  /** network for Google Translate web (tests inject a fake; default = fetch) */
+  webFetch?: WebFetch;
+  /** pacing / cooldown of Google Translate web (tests shorten it) */
+  webGate?: GateOptions;
 }
 
 /** First 8 hex characters of SHA-256 of the key: identifies the credential without revealing it. */
@@ -52,10 +57,14 @@ export class UsageService {
   readonly warnings = new UsageWarningManager();
   private clock: () => Date;
   private fetchImpl?: FetchLike;
+  private webFetch?: WebFetch;
+  readonly webGate: GoogleWebGate;
 
   constructor(kv: KV, opts: UsageServiceOptions = {}) {
     this.clock = opts.clock ?? (() => new Date());
     this.fetchImpl = opts.fetchImpl;
+    this.webFetch = opts.webFetch;
+    this.webGate = new GoogleWebGate({ ...opts.webGate, store: opts.webGate?.store ?? { get: () => kv.get<number>('gweb:cooldown'), set: (n) => kv.set({ 'gweb:cooldown': n }) } });
     this.repo = new UsageRepository(kv, opts.secrets);
     this.quota = new QuotaManager(this.meter);
     this.protection = new CostProtectionService(this.repo, this.meter, this.quota, this.clock);
@@ -63,6 +72,8 @@ export class UsageService {
 
   /** The ledger being displayed / charged: Google (BYOK) with the current credential. */
   private async active() {
+    // Google Translate web has its own ledger (no credential, no billing); everything else keeps the Google Cloud (BYOK) ledger
+    if ((await this.repo.loadSettings()).provider === 'google-web') return { provider: WEB_PROVIDER, credentialId: WEB_CREDENTIAL };
     return { provider: GOOGLE_PROVIDER, credentialId: await this.repo.getCredentialId() };
   }
 
@@ -100,12 +111,30 @@ export class UsageService {
   /** Translation entry point. Device mode (default) tells the caller to use the on-device translator. */
   async translate(text: string, opts: TranslateOptions = {}): Promise<TranslateOutcome> {
     const settings = await this.repo.loadSettings();
+    if (settings.provider === 'google-web') return this.translateWeb(text, opts);
     const key = await this.repo.getKey();
     if (settings.provider !== 'google' || !key) return { source: 'device' };
     const active = { ...(await this.active()), languagePair: opts.languagePair ?? 'en>vi' };
     const r = await this.protection.translate(text, (t) => googleTranslate(t, key, this.fetchImpl, active.languagePair), { ...active, idempotencyKey: opts.idempotencyKey, keepBreaks: opts.keepBreaks });
     if (r.status === 'blocked') return { source: 'blocked', decision: r.decision };
     return { source: 'google', text: r.text, cached: r.cached, chars: r.chars, paid: r.paid };
+  }
+
+  /**
+   * Google Translate web (unofficial): no key. The chunk goes through the same guard (cache, idempotency, in-flight sharing, the
+   * informational ledger) but nothing is metered: there is no free quota or price to enforce. Errors keep their GoogleWebError code
+   * (message code 'gweb-<CODE>') and a block / CAPTCHA starts a cooldown during which nothing is sent.
+   */
+  private async translateWeb(text: string, opts: TranslateOptions): Promise<TranslateOutcome> {
+    const active = { provider: WEB_PROVIDER, credentialId: WEB_CREDENTIAL, languagePair: opts.languagePair ?? 'en>vi' };
+    try {
+      const r = await this.protection.translate(text, (t) => this.webGate.run(t, active.languagePair, { fetchImpl: this.webFetch }), { ...active, idempotencyKey: opts.idempotencyKey, keepBreaks: opts.keepBreaks, metered: false });
+      if (r.status === 'blocked') return { source: 'blocked', decision: r.decision };
+      return { source: 'google', text: r.text, cached: r.cached, chars: r.chars, paid: false };
+    } catch (e) {
+      if (e instanceof GoogleWebError) throw new MessageError(e.message, 'gweb-' + e.code);
+      throw e;
+    }
   }
 
   async getSettings(): Promise<UsageSettings> {
@@ -125,6 +154,11 @@ export class UsageService {
   async activateGoogle(key: string, credentialId?: string): Promise<void> {
     await this.setApiKey(key, credentialId);
     await this.updateSettings({ provider: 'google' });
+  }
+
+  /** Google Translate web: no key, no setup. Opt-in (text is sent to Google); never switched on automatically. */
+  async activateGoogleWeb(): Promise<void> {
+    await this.updateSettings({ provider: 'google-web' });
   }
 
   /** Disconnect: forget the key and go back to on-device translation. */

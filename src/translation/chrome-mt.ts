@@ -22,16 +22,21 @@ export class UsageBlockedError extends Error {
   }
 }
 
-let googleOn: { t: number; on: boolean } | null = null;
-/** Is the optional Google Cloud provider selected (and has a key)? Cached briefly; asked from the background / in-app router. */
-export async function googleActive(): Promise<boolean> {
-  if (googleOn && Date.now() - googleOn.t < 2000) return googleOn.on;
-  const on = await send({ type: 'usage:snapshot' }).then(
-    (s) => s.settings.provider === 'google' && s.hasKey,
-    () => false,
+export type GoogleMode = 'google' | 'google-web' | null;
+let googleOn: { t: number; mode: GoogleMode } | null = null;
+/** Which Google provider is selected? Cached briefly; asked from the background / in-app router. */
+export async function googleMode(): Promise<GoogleMode> {
+  if (googleOn && Date.now() - googleOn.t < 2000) return googleOn.mode;
+  const mode = await send({ type: 'usage:snapshot' }).then(
+    (s): GoogleMode => (s.settings.provider === 'google-web' ? 'google-web' : s.settings.provider === 'google' && s.hasKey ? 'google' : null),
+    (): GoogleMode => null,
   );
-  googleOn = { t: Date.now(), on };
-  return on;
+  googleOn = { t: Date.now(), mode };
+  return mode;
+}
+/** Is a Google provider selected, i.e. do requests go through `usage:translate`? (Cloud with a key, or Google Translate web: no key) */
+export async function googleActive(): Promise<boolean> {
+  return (await googleMode()) !== null;
 }
 export function invalidateGoogleActive() {
   googleOn = null;
@@ -169,6 +174,7 @@ const onDeviceProvider = () => {
 function longDeps(pair?: LanguagePair): LongTextDeps {
   return {
     googleActive,
+    googleProviderId: async () => ((await googleMode()) === 'google-web' ? 'google-web' : 'google-v2'),
     sendGoogle: (text, o) => send({ type: 'usage:translate', text, idempotencyKey: o.idempotencyKey, keepBreaks: o.keepBreaks, ...(isViEn(pair) ? { languagePair: 'vi>en' } : {}) }),
     deviceTranslate: async (text) => (await getTranslator(undefined, pair)).translate(text),
     resolveDevice: async () => {

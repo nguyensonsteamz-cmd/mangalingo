@@ -10,7 +10,7 @@ import { LEVEL_TONE } from './UsageNotice';
 import { cx } from './components';
 import { fmtInt, fmtPct, fmtUsd } from './usage-client';
 
-const PROVIDER_LABEL: Record<string, string> = { 'google-v2': 'Google Cloud (khoá của bạn)', 'device-chrome': 'Dịch máy Chrome', 'device-apple': 'Apple Translation', 'device-mlkit': 'ML Kit' };
+const PROVIDER_LABEL: Record<string, string> = { 'google-v2': 'Google Cloud (khoá của bạn)', 'google-web': 'Google Dịch (web)', 'device-chrome': 'Dịch máy Chrome', 'device-apple': 'Apple Translation', 'device-mlkit': 'ML Kit' };
 
 /** "2026-12-01T00:00:00Z" -> "01/12/2026 00:00 UTC" */
 const fmtReset = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)} ${iso.slice(11, 16)} UTC`;

@@ -138,6 +138,7 @@ export function UsageSection() {
   }
   const s = snap.settings;
   const google = s.provider === 'google';
+  const web = s.provider === 'google-web';
 
   const exportReport = async (format: 'json' | 'csv') => {
     const text = await usageActions.exportReport(format);
@@ -153,20 +154,21 @@ export function UsageSection() {
       <div>
         <h1 className="text-[20px] font-semibold tracking-tight text-text">Hạn mức dịch</h1>
         <p className="mt-1 text-[13px] text-muted">
-          Theo dõi lượng ký tự gửi đi dịch và chặn việc vô tình phát sinh phí Google Cloud Translation. LingoLens ưu tiên Google Cloud Translation (bản dịch sát nghĩa nhất). Khi hết hạn mức miễn phí, bạn quyết định: dừng và chuyển sang dịch trên máy (miễn phí), hoặc cho phép dịch có phí.
+          Theo dõi lượng ký tự gửi đi dịch. Bạn có thể dịch bằng Google Dịch (web, không cần khoá API và không phát sinh phí), dịch trên máy, hoặc dùng khoá Google Cloud Translation của chính bạn (tuỳ chọn, có thể tính phí: khi hết hạn mức miễn phí bạn quyết định dừng hay cho phép dịch có phí).
         </p>
       </div>
 
       <UsageNotice snap={snap} onChanged={() => void refresh()} />
 
       <Card title="Nguồn dịch">
-        <Field label="Dịch bằng" description={google ? 'Văn bản được gửi tới Google Cloud Translation và tính phí theo ký tự khi vượt hạn mức miễn phí.' : 'Dịch trên máy (Chrome Translator / Apple Translation): không gửi văn bản đi đâu, không tính phí; chất lượng thấp hơn Google.'}>
+        <Field label="Dịch bằng" description={web ? 'Văn bản được gửi trực tiếp từ thiết bị tới Google Dịch (web). Không cần khoá API, không tính phí. Đây không phải API chính thức của Google: Google có thể giới hạn hoặc chặn bất cứ lúc nào, khi đó hãy dùng dịch trên máy.' : google ? 'Văn bản được gửi tới Google Cloud Translation và tính phí theo ký tự khi vượt hạn mức miễn phí.' : 'Dịch trên máy (Chrome Translator / Apple Translation): không gửi văn bản đi đâu, không tính phí; chất lượng thấp hơn Google.'}>
           <Segmented
             value={s.provider}
             onChange={(v) => void save({ provider: v })}
             options={[
               { value: 'device', label: 'Trên máy (dự phòng)' },
-              { value: 'google', label: 'Google Cloud' },
+              { value: 'google-web', label: 'Google Dịch (web)' },
+              { value: 'google', label: 'Google Cloud (khoá riêng)' },
             ]}
           />
         </Field>
@@ -231,9 +233,10 @@ export function UsageSection() {
             </div>
           </Field>
         )}
-        {!google && <div className="py-3 text-[12px] text-muted">Chọn “Google Cloud” (ưu tiên) để nhập khoá API hoặc dùng Smart Setup và bật theo dõi hạn mức. Đang dùng bộ dịch trên máy: không có gì được gửi đi và không có gì bị tính phí.</div>}
+        {web && <div className="py-3 text-[12px] text-muted" data-ml-usage-web-note="">Google Dịch (web) không có hạn mức hay hoá đơn chính thức, nên LingoLens không hiển thị hạn mức miễn phí hay chi phí cho nguồn này. LingoLens gửi từng yêu cầu một, cách nhau tối thiểu 1,2 giây, và tạm ngừng 15 phút nếu Google giới hạn hoặc chặn.</div>}
+        {!google && !web && <div className="py-3 text-[12px] text-muted">Chọn “Google Dịch (web)” để dịch bằng Google mà không cần khoá. Đang dùng bộ dịch trên máy: không có gì được gửi đi và không có gì bị tính phí.</div>}
         <div className="py-3 text-[12px] text-muted">
-          Không muốn tự tạo khoá? <button type="button" className="font-semibold text-accent underline" onClick={() => (location.hash = 'setup')}>Dùng Lingolens Smart Setup</button> để thiết lập Google Cloud ngay trong ứng dụng.
+          Muốn dùng API Google Cloud chính thức (tuỳ chọn, có thể tính phí)? <button type="button" className="font-semibold text-accent underline" onClick={() => (location.hash = 'setup')}>Dùng Lingolens Smart Setup</button> để thiết lập ngay trong ứng dụng.
         </div>
         {google && (
         <div className="py-3">
@@ -249,7 +252,15 @@ export function UsageSection() {
         )}
       </Card>
 
-      <Card title="Mức dùng tháng này (UTC)" desc={google ? undefined : 'Chỉ đếm khi bạn dùng Google Cloud. Dịch trên máy không được đo.'}>
+      <Card title="Mức dùng tháng này (UTC)" desc={google || web ? undefined : 'Chỉ đếm khi bạn dùng Google. Dịch trên máy không được đo.'}>
+        {web ? (
+          <div className="grid grid-cols-2 gap-2 py-3 sm:grid-cols-3" data-ml-usage-web-stats="">
+            <Stat testId="used" label="Ký tự đã dịch (ước tính trên máy này)" value={fmtInt(snap.usedChars)} />
+            <Stat testId="requests" label="Yêu cầu thành công" value={fmtInt(snap.requests)} />
+            <Stat testId="failed" label="Yêu cầu lỗi" value={fmtInt(snap.failedRequests)} />
+          </div>
+        ) : (
+          <>
         <div className="py-3">
           <MonthlyUsageCard snap={snap} />
         </div>
@@ -283,8 +294,11 @@ export function UsageSection() {
           <AccountSync />
         </div>
         <div className="py-3 text-[11.5px] leading-snug text-subtle">{USAGE_DISCLAIMER}</div>
+          </>
+        )}
       </Card>
 
+      {!web && (<>
       <Card title="Hạn mức miễn phí & cảnh báo" desc="Có thể chỉnh. Giao diện không gắn cứng con số nào.">
         <Field label="Hạn mức miễn phí mỗi tháng" description="Google Cloud Translation (Basic): 500.000 ký tự / tháng.">
           <NumField testId="free" value={s.freeQuotaChars} min={1} step={1000} suffix="ký tự" width="w-36" onCommit={(n) => void save({ freeQuotaChars: n })} />
@@ -324,6 +338,8 @@ export function UsageSection() {
         </Field>
         <div className="py-2 text-[11.5px] text-subtle">Hôm nay đã có {fmtInt(snap.paidRequestsToday)} yêu cầu trả phí. Chạm bất kỳ giới hạn nào, yêu cầu sẽ bị dừng và có cảnh báo.</div>
       </Card>
+
+      </>)}
 
       <Card title="Dữ liệu sử dụng" desc="Chỉ nằm trên thiết bị này.">
         <div className="flex flex-wrap gap-2 py-3">
