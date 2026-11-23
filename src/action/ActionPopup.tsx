@@ -122,7 +122,7 @@ export function ActionPopup() {
 
       {s.reading.translationMode === 'machine' && (
         <div className="ml-glass-card rounded-2xl px-3 py-1">
-          <div className="pt-1.5 text-[12px] font-semibold text-muted">Mô hình dịch Anh → Việt</div>
+          <div className="pt-1.5 text-[12px] font-semibold text-muted">Nguồn dịch</div>
           <MtStatus />
         </div>
       )}

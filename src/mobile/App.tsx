@@ -12,6 +12,7 @@ import { useSettings } from '@/ui/hooks';
 import { cx, fastTap, GlassIndicator, Notice } from '@/ui/components';
 import { IconBack, IconBookmark, IconGear, IconLogo, IconScan, IconSearch } from '@/ui/icons';
 import { native, onResume } from './native';
+import { useUsage } from '@/ui/usage-client';
 import { latestScanUrl, openReader, pendingScanStamp, prepareTranslationPack, setAppIcon, translationPackStatus } from './ios';
 import { Scan, type HlBox } from './Scan';
 import { Assist, type AssistItem } from './Assist';
@@ -41,8 +42,10 @@ type PackStatus = Awaited<ReturnType<typeof translationPackStatus>>;
  * iPhone: the Vietnamese translation pack is fetched ahead of time, not when the first bubble is
  * scanned. Checked at launch; if it is missing iOS is asked (once, 2 s after start) to download it,
  * and the home screen keeps a card for it until it is installed.
+ * ONLY when the translation source is the phone itself (`provider === 'device'`): with Google Translate (web), the default, Apple's pack is
+ * not used, so no system sheet appears and no card is shown.
  */
-function useTranslationPack() {
+function useTranslationPack(provider: string | undefined) {
   const [status, setStatus] = useState<PackStatus>('unavailable');
   const [busy, setBusy] = useState(false);
   const refresh = () => translationPackStatus().then(setStatus);
@@ -53,7 +56,10 @@ function useTranslationPack() {
     setBusy(false);
   };
   useEffect(() => {
-    if (PLATFORM !== 'ios') return;
+    if (PLATFORM !== 'ios' || provider !== 'device') {
+      setStatus('unavailable');
+      return;
+    }
     let timer: ReturnType<typeof setTimeout> | undefined;
     void translationPackStatus().then((s) => {
       setStatus(s);
@@ -80,14 +86,15 @@ function useTranslationPack() {
       back();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [provider]);
   return { status, busy, download };
 }
 const SCALE = { small: 0.9, medium: 1, large: 1.15 } as const;
 
 export function App() {
   const { settings, loaded } = useSettings('page');
-  const pack = useTranslationPack();
+  const { snap: usageSnap } = useUsage();
+  const pack = useTranslationPack(usageSnap?.settings.provider);
   // logo → app icon (iPhone alternate icon / Android launcher entry). Only once the saved settings
   // are loaded (not for the default logo shown before that) and only when the logo really changed
   // since the last switch – iOS shows an alert for every icon change.

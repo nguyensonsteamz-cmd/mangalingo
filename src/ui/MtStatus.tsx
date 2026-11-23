@@ -1,15 +1,25 @@
 import { useEffect, useState } from 'react';
-import { getTranslator, mtAvailability, type MtAvailability } from '@/translation/chrome-mt';
+import { getTranslator, googleActive, mtAvailability, type MtAvailability } from '@/translation/chrome-mt';
 import { Button, Progress } from './components';
 
-/** Live status of Chrome's EN→VI model, with the one-time download button. */
+/** Live status of the translation source. With Google Translate (web), the default, there is no model to download: it says so. */
 export function MtStatus() {
   const [a, setA] = useState<MtAvailability | 'checking'>('checking');
   const [p, setP] = useState<number | null>(null);
   const [err, setErr] = useState('');
+  const [google, setGoogle] = useState(false);
   useEffect(() => {
+    void googleActive().then(setGoogle);
     void mtAvailability().then(setA);
   }, []);
+  if (google) {
+    return (
+      <div className="space-y-1 py-2.5 text-[12.5px]" data-ml-mt-status="google-web">
+        <div className="text-muted">Đang dùng Google Dịch (web): không cần tải mô hình.</div>
+        <div className="text-subtle">Muốn dịch trên máy (không gửi văn bản đi), chọn “Trên máy” trong Cài đặt → Nguồn dịch.</div>
+      </div>
+    );
+  }
   const label: Record<string, string> = {
     checking: 'Đang kiểm tra…',
     available: 'Sẵn sàng — mô hình Anh → Việt đã có trên máy.',
