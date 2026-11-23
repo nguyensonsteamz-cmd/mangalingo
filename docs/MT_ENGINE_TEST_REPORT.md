@@ -1,5 +1,8 @@
 # MT engine – test report
 
+> **Lịch sử / Historical (2026-11-23):** Google Cloud Translation (khoá API, Smart Setup, đăng nhập Google, hạn mức, thanh toán) và mô hình OPUS-MT tải về đã được **gỡ khỏi LingoLens**. Nguồn dịch hiện có: dịch trên máy (mặc định) và Google Dịch (web, không chính thức). Nội dung bên dưới chỉ còn giá trị lịch sử. Xem [google_translate_unofficial_migration_report.md](google_translate_unofficial_migration_report.md).
+
+
 Everything below was run on this Windows machine on 2026-11-16. "Real Chrome" = headless Chrome driven through the DevTools Protocol with the built extension loaded. **No real iPhone or Android device was used, no iOS simulator, no macOS.**
 
 ## Before → after

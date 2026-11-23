@@ -1,5 +1,8 @@
 # MT engine migration plan (executed)
 
+> **Lịch sử / Historical (2026-11-23):** Google Cloud Translation (khoá API, Smart Setup, đăng nhập Google, hạn mức, thanh toán) và mô hình OPUS-MT tải về đã được **gỡ khỏi LingoLens**. Nguồn dịch hiện có: dịch trên máy (mặc định) và Google Dịch (web, không chính thức). Nội dung bên dưới chỉ còn giá trị lịch sử. Xem [google_translate_unofficial_migration_report.md](google_translate_unofficial_migration_report.md).
+
+
 This was first written as a plan that stopped at "no benchmark evidence". It has since been executed; this file now records the plan **and its status**.
 
 | # | Step | Status |

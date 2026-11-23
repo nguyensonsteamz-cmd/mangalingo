@@ -10,31 +10,22 @@ import { countChars } from '@/modules/usage/count';
 import type { JobResult } from '@/modules/translation';
 import { DEFAULT_TARGET } from '@/modules/translation';
 import { translateLongText, type LongTextDeps, type LongTextOptions } from './long-text';
-import type { BlockedDecision } from '@/modules/usage/types';
 import { EN_VI, type LanguagePair } from '@/modules/mt';
 import { resolveDevice, describeActive } from './mt-providers';
 
-/** A translation the quota guard did not let through (needs the user's consent, or a limit was reached). */
-export class UsageBlockedError extends Error {
-  constructor(public decision: BlockedDecision) {
-    super(decision.message);
-    this.name = 'UsageBlockedError';
-  }
-}
-
-export type GoogleMode = 'google' | 'google-web' | null;
+export type GoogleMode = 'google-web' | null;
 let googleOn: { t: number; mode: GoogleMode } | null = null;
-/** Which Google provider is selected? Cached briefly; asked from the background / in-app router. */
+/** Is Google Translate (web) selected? Cached briefly; asked from the background / in-app router. */
 export async function googleMode(): Promise<GoogleMode> {
   if (googleOn && Date.now() - googleOn.t < 2000) return googleOn.mode;
   const mode = await send({ type: 'usage:snapshot' }).then(
-    (s): GoogleMode => (s.settings.provider === 'google-web' ? 'google-web' : s.settings.provider === 'google' && s.hasKey ? 'google' : null),
+    (s): GoogleMode => (s.settings.provider === 'google-web' ? 'google-web' : null),
     (): GoogleMode => null,
   );
   googleOn = { t: Date.now(), mode };
   return mode;
 }
-/** Is a Google provider selected, i.e. do requests go through `usage:translate`? (Cloud with a key, or Google Translate web: no key) */
+/** Is Google Translate (web) selected, i.e. do requests go through `usage:translate`? */
 export async function googleActive(): Promise<boolean> {
   return (await googleMode()) !== null;
 }
@@ -74,7 +65,7 @@ export async function nativeAvailability(pair?: LanguagePair): Promise<MtAvailab
   }
 }
 
-/** What the UI asks: Google Cloud needs nothing to download; otherwise the platform translator, or (when it cannot do the pair) the downloaded local model. */
+/** What the UI asks: Google Translate (web) needs nothing to download; otherwise the platform translator, or (when it cannot do the pair) the downloaded local model. */
 export async function mtAvailability(pair?: LanguagePair): Promise<MtAvailability> {
   if (await googleActive()) return 'available';
   const native = await nativeAvailability(pair);
@@ -143,12 +134,11 @@ const cache = new Map<string, Promise<string>>();
 
 const isViEn = (p?: LanguagePair) => p?.source === 'vi' && p?.target === 'en';
 
-/** Google Cloud (through the quota guard) when selected, otherwise the on-device translator. */
+/** Google Translate (web) when selected, otherwise the on-device translator. A Google failure is an error: it never falls back silently. */
 async function translateRouted(src: string, pair?: LanguagePair): Promise<string> {
   if (await googleActive()) {
     const r = await send({ type: 'usage:translate', text: src, ...(isViEn(pair) ? { languagePair: 'vi>en' } : {}) });
     if (r.source === 'google') return r.text;
-    if (r.source === 'blocked') throw new UsageBlockedError(r.decision);
     // 'device': fall through to the on-device translator
   }
   return (await resolveDevice(pair ?? EN_VI)).translate(src);
@@ -171,7 +161,6 @@ const onDeviceProvider = () => {
 function longDeps(pair?: LanguagePair): LongTextDeps {
   return {
     googleActive,
-    googleProviderId: async () => ((await googleMode()) === 'google-web' ? 'google-web' : 'google-v2'),
     sendGoogle: (text, o) => send({ type: 'usage:translate', text, idempotencyKey: o.idempotencyKey, keepBreaks: o.keepBreaks, ...(isViEn(pair) ? { languagePair: 'vi>en' } : {}) }),
     deviceTranslate: async (text) => (await getTranslator(undefined, pair)).translate(text),
     resolveDevice: async () => {
@@ -201,14 +190,12 @@ export const needsChunking = (text: string) => countChars(prepareForMt(text)) > 
 
 /**
  * Translates EN→VI: short text in one request, long text through the chunked runner (no truncation). Rejects with
- * UsageBlockedError (quota) or PartialTranslationError (some chunks failed) when the whole text could not be translated.
+ * PartialTranslationError (some chunks failed, e.g. Google blocked the requests) when the whole text could not be translated.
  */
 export async function machineTranslate(text: string, pair?: LanguagePair): Promise<string> {
   if (needsChunking(text)) {
     const r = await machineTranslateLong(text, { pair });
     if (r.complete) return r.text;
-    const blocked = r.outcomes.find((x) => x.errorCode && x.errorDetail && typeof x.errorDetail === 'object' && 'reason' in (x.errorDetail as object));
-    if (blocked) throw new UsageBlockedError(blocked.errorDetail as BlockedDecision);
     throw new PartialTranslationError(r);
   }
   const src = prepareForMt(text);

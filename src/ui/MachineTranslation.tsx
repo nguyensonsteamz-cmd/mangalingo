@@ -7,10 +7,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { EN_VI, VI_EN, type LanguagePair } from '@/modules/mt';
 import { detectLanguage } from '@/language/detect';
 import type { Settings } from '@/shared/settings';
-import { UsageBlockedError, getTranslator, machineTranslate, machineTranslateLong, mtAvailability, needsChunking, type MtAvailability } from '@/translation/chrome-mt';
+import { getTranslator, machineTranslate, machineTranslateLong, mtAvailability, needsChunking, type MtAvailability } from '@/translation/chrome-mt';
 import type { JobProgress, JobResult } from '@/modules/translation';
-import type { BlockedDecision } from '@/modules/usage/types';
-import { UsageConsent } from './UsageNotice';
 import { CopyButton } from './CopyButton';
 import { Button, Progress, Spinner, cx } from './components';
 import { SettingsStore } from '@/storage/settings-store';
@@ -25,8 +23,7 @@ type State =
   | { k: 'done'; text: string }
   /** a long text where some parts could not be translated (or the user cancelled): shows what is there + "retry the failed parts" */
   | { k: 'partial'; result: JobResult }
-  | { k: 'error'; msg: string }
-  | { k: 'blocked'; decision: BlockedDecision };
+  | { k: 'error'; msg: string };
 
 export type MtState = State['k'] | 'off';
 
@@ -53,7 +50,6 @@ export function MachineTranslation({ text, s, className, onState, pair: pairProp
   }, [enabled]);
 
   const abort = useRef<AbortController | null>(null);
-  const [lastResult, setLastResult] = useState<JobResult | null>(null);
 
   /** `retryFrom`: re-run only the chunks of an earlier partial result (their idempotency keys make sure nothing is counted twice) */
   const run = (alive: () => boolean, retryFrom?: JobResult) => {
@@ -61,7 +57,7 @@ export function MachineTranslation({ text, s, className, onState, pair: pairProp
       setSt({ k: 'translating' });
       machineTranslate(text, pair).then(
         (out) => alive() && setSt({ k: 'done', text: out }),
-        (e: Error) => alive() && setSt(e instanceof UsageBlockedError ? { k: 'blocked', decision: e.decision } : { k: 'error', msg: e.message }),
+        (e: Error) => alive() && setSt({ k: 'error', msg: e.message }),
       );
       return;
     }
@@ -71,10 +67,7 @@ export function MachineTranslation({ text, s, className, onState, pair: pairProp
     machineTranslateLong(text, { pair, signal: ac.signal, retryFrom, onProgress: (progress) => alive() && !ac.signal.aborted && setSt({ k: 'translating', progress }) }).then(
       (r) => {
         if (!alive()) return;
-        setLastResult(r);
         if (r.complete) return setSt({ k: 'done', text: r.text });
-        const blocked = r.outcomes.find((o) => o.errorDetail && typeof o.errorDetail === 'object' && 'reason' in (o.errorDetail as object));
-        if (blocked && !r.cancelled) return setSt({ k: 'blocked', decision: blocked.errorDetail as BlockedDecision });
         setSt({ k: 'partial', result: r });
       },
       (e: Error) => alive() && setSt({ k: 'error', msg: e.message }),
@@ -200,12 +193,6 @@ export function MachineTranslation({ text, s, className, onState, pair: pairProp
           <div>Đang tải mô hình dịch… {Math.round(st.p * 100)}%</div>
           <Progress value={st.p} />
         </div>
-      ) : st.k === 'blocked' ? (
-        <UsageConsent
-          decision={st.decision}
-          onAuthorized={() => run(() => true, lastResult ?? undefined)} // continues the same job: only the remaining chunks
-          onStop={() => run(() => true, lastResult ?? undefined)} // stopped paid translation: the on-device translator takes over
-        />
       ) : st.k === 'error' ? (
         <div className="text-[12px] text-danger">Không dịch được: {st.msg}</div>
       ) : (

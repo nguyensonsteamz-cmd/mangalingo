@@ -1,5 +1,8 @@
 # Monthly translation usage
 
+> **Lịch sử / Historical (2026-11-23):** Google Cloud Translation (khoá API, Smart Setup, đăng nhập Google, hạn mức, thanh toán) và mô hình OPUS-MT tải về đã được **gỡ khỏi LingoLens**. Nguồn dịch hiện có: dịch trên máy (mặc định) và Google Dịch (web, không chính thức). Nội dung bên dưới chỉ còn giá trị lịch sử. Xem [google_translate_unofficial_migration_report.md](google_translate_unofficial_migration_report.md).
+
+
 Code: `src/modules/usage/` (meter, repository, quota, cost protection, service), UI `src/ui/MonthlyUsageCard.tsx` and Settings → Hạn mức dịch. Same logic and same card on Chrome, iPhone and Android (one shared codebase).
 
 > Everything here is a **local estimate** kept on this device for requests made through LingoLens. It is not Google's billing meter. Usage of the same key elsewhere, or on other devices, is not visible.

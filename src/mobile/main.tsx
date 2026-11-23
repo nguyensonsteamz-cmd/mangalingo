@@ -7,7 +7,6 @@ import '@/ui/styles.css';
 import { installGlassMotion } from '@/ui/motion';
 import { installReaderBridge } from './reader-install';
 import { App } from './App';
-import { AuthGate } from '@/ui/AuthGate';
 import { SidePanel } from '@/sidepanel/SidePanel';
 import { send } from '@/shared/messages';
 
@@ -31,13 +30,5 @@ if (location.hash.startsWith('#reader-sidebar')) {
 
 function start() {
 
-  // iPhone: Google sign-in is required before the app can be used (Chrome has the same gate; Android is unchanged for now)
-  const needsSignIn = (globalThis as { MangaLingoPlatform?: string }).MangaLingoPlatform === 'ios';
-  const goToSetup = () => {
-    (globalThis as { __mlNextSettingsSection?: string }).__mlNextSettingsSection = 'setup';
-    window.dispatchEvent(new Event('ml-settings-section'));
-    location.hash = 'settings';
-  };
-
-  createRoot(document.getElementById('root')!).render(needsSignIn ? <AuthGate goToSetup={goToSetup}><App /></AuthGate> : <App />);
+  createRoot(document.getElementById('root')!).render(<App />);
 }

@@ -14,7 +14,6 @@ import { computePopupPosition } from './position';
 import { OcrMeaning } from './OcrMeaning';
 import { MachineTranslation } from '@/ui/MachineTranslation';
 import { CopyButton } from '@/ui/CopyButton';
-import { useGate } from '@/ui/auth';
 import { glassAttr, popupSurface, prefersDark, resolveTheme } from '@/ui/theme';
 import { crossfadeClass } from '@/ui/motion';
 import { findBlock, useStore, type PopupView } from '@/content/store';
@@ -50,7 +49,6 @@ export function FloatingPopup({ shadow }: { shadow: ShadowRoot }) {
     return () => clearTimeout(t);
   }, [leaving]);
   const popup = live?.open ? live : leaving ? last.current : null;
-  const gate = useGate();
   const fade = useRef({});
   const [height, setHeight] = useState(320);
   const [manual, setManualState] = useState<Manual>(lastManual);
@@ -149,15 +147,7 @@ export function FloatingPopup({ shadow }: { shadow: ShadowRoot }) {
         <span className="h-1 w-9 rounded-full bg-text/20" />
       </div>
       <div className={cx('flex min-h-0 flex-1 flex-col', crossfadeClass(`${popup.stack.length}|${popup.tab}|${view.kind === 'lookup' ? view.req.text : view.kind}`, fade.current))}>
-        {gate === 'locked' ? (
-          <div className="space-y-2 p-3 text-[13px]" data-ml-popup-locked="">
-            <div className="font-semibold text-text">Đăng nhập Google để dùng LingoLens</div>
-            <div className="text-muted">Mở trang đăng nhập, sau đó chọn lại từ trên trang.</div>
-            <Button size="sm" variant="primary" onClick={() => void A.openSettings('setup')}>
-              Đăng nhập
-            </Button>
-          </div>
-        ) : view.kind === 'lookup' ? <LookupView view={view} s={s} canBack={popup.stack.length > 1} tab={popup.tab} /> : <OcrView view={view} s={s} shadow={shadow} canBack={popup.stack.length > 1} />}
+        {view.kind === 'lookup' ? <LookupView view={view} s={s} canBack={popup.stack.length > 1} tab={popup.tab} /> : <OcrView view={view} s={s} shadow={shadow} canBack={popup.stack.length > 1} />}
       </div>
       <div onPointerDown={startResize} className="absolute bottom-0 right-0 z-10 h-5 w-5 cursor-nwse-resize touch-none" title="Kéo để đổi kích thước" data-ml-popup-resize="">
         <svg viewBox="0 0 20 20" className="h-full w-full text-text/40" aria-hidden><path d="M18 8L8 18M18 13L13 18" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" fill="none" /></svg>

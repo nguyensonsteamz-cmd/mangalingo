@@ -1,22 +1,15 @@
 /**
- * Translation usage meter, free-quota tracking and cost protection for the optional Google Cloud
- * Translation provider. On-device translation (the default) is never metered.
- *
- * IMPORTANT: every number here is a LOCAL ESTIMATE kept on this device. It is not Google Cloud Billing
- * data, billing can be delayed, and local limits cannot guarantee that no charge will ever occur.
+ * Translation usage bookkeeping for the two providers LingoLens uses: on-device translation (default, free, local) and Google
+ * Translate web (optional, unofficial, no key, no billing). Every number is a LOCAL counter kept on this device: neither provider
+ * has a quota or bill that LingoLens could measure or enforce. Google Cloud Translation (API key, billing, quota) was removed.
  */
 import type { KV } from '@/storage/kv';
-import type { SecretStore } from '@/modules/smart-setup/secrets';
 import { MessageError } from '@/shared/messages';
 import { CostProtectionService } from './CostProtectionService';
-import { QuotaManager } from './QuotaManager';
 import { UsageMeter } from './UsageMeter';
-import { DEFAULT_CREDENTIAL, GOOGLE_PROVIDER, WEB_CREDENTIAL, WEB_PROVIDER, UsageRepository } from './UsageRepository';
+import { WEB_PROVIDER, UsageRepository } from './UsageRepository';
 import { sanitizeUsageSettings } from './UsageSettings';
-import { UsageWarningManager } from './UsageWarningManager';
-import { googleTranslate, type FetchLike } from './google';
 import { GoogleWebError, GoogleWebGate, type GateOptions, type WebFetch } from './google-web';
-import { GoogleCloudClient, type FetchFn } from '@/modules/smart-setup/google-cloud';
 import type { TranslateOptions, TranslateOutcome, UsageSettings, UsageSnapshot } from './types';
 
 export * from './types';
@@ -24,113 +17,62 @@ export { countChars, normalizeText } from './count';
 export { DEFAULT_USAGE_SETTINGS, sanitizeUsageSettings } from './UsageSettings';
 export { UsageMeter } from './UsageMeter';
 export { UsageRepository } from './UsageRepository';
-export { QuotaManager } from './QuotaManager';
 export { CostProtectionService } from './CostProtectionService';
-export { UsageWarningManager } from './UsageWarningManager';
-
 export { USAGE_DISCLAIMER } from './disclaimer';
 import { USAGE_DISCLAIMER } from './disclaimer';
 
 export interface UsageServiceOptions {
   clock?: () => Date;
-  fetchImpl?: FetchLike;
-  /** Secure storage for the API key (Keychain / Keystore / non-extractable WebCrypto). Without it the key is kept in plain storage (tests only). */
-  secrets?: SecretStore;
   /** network for Google Translate web (tests inject a fake; default = fetch) */
   webFetch?: WebFetch;
   /** pacing / cooldown of Google Translate web (tests shorten it) */
   webGate?: GateOptions;
 }
 
-/** First 8 hex characters of SHA-256 of the key: identifies the credential without revealing it. */
-async function credentialHash(key: string): Promise<string> {
-  const d = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(key));
-  return 'key-' + [...new Uint8Array(d)].slice(0, 4).map((b) => b.toString(16).padStart(2, '0')).join('');
-}
-
 /** Facade used by the background / in-app router. */
 export class UsageService {
   readonly repo: UsageRepository;
   readonly meter = new UsageMeter();
-  readonly quota: QuotaManager;
   readonly protection: CostProtectionService;
-  readonly warnings = new UsageWarningManager();
   private clock: () => Date;
-  private fetchImpl?: FetchLike;
   private webFetch?: WebFetch;
   readonly webGate: GoogleWebGate;
 
   constructor(kv: KV, opts: UsageServiceOptions = {}) {
     this.clock = opts.clock ?? (() => new Date());
-    this.fetchImpl = opts.fetchImpl;
     this.webFetch = opts.webFetch;
     this.webGate = new GoogleWebGate({ ...opts.webGate, store: opts.webGate?.store ?? { get: () => kv.get<number>('gweb:cooldown'), set: (n) => kv.set({ 'gweb:cooldown': n }) } });
-    this.repo = new UsageRepository(kv, opts.secrets);
-    this.quota = new QuotaManager(this.meter);
-    this.protection = new CostProtectionService(this.repo, this.meter, this.quota, this.clock);
+    this.repo = new UsageRepository(kv);
+    this.protection = new CostProtectionService(this.repo, this.meter, this.clock);
   }
 
-  /** The ledger being displayed / charged: Google (BYOK) with the current credential. */
+  /** The ledger being displayed: Google Translate web, or the informational on-device one. */
   private async active() {
-    // Google Translate web has its own ledger (no credential, no billing); everything else keeps the Google Cloud (BYOK) ledger
-    if ((await this.repo.loadSettings()).provider === 'google-web') return { provider: WEB_PROVIDER, credentialId: WEB_CREDENTIAL };
-    return { provider: GOOGLE_PROVIDER, credentialId: await this.repo.getCredentialId() };
+    const s = await this.repo.loadSettings();
+    return { provider: s.provider === 'google-web' ? WEB_PROVIDER : 'device' };
   }
 
   async snapshot(): Promise<UsageSnapshot> {
-    // under the lock: never reads a half-written reservation
+    // under the lock: never reads a half-written update
     return this.protection.run(async () => {
       const now = this.clock();
-      const [state, settings, key, active] = await Promise.all([this.repo.load(now), this.repo.loadSettings(), this.repo.getKey(), this.active()]);
-      const snap = this.meter.snapshot(state, settings, key, now, active);
-      this.warnings.evaluate(snap);
-      return snap;
+      const [state, settings, active] = await Promise.all([this.repo.load(now), this.repo.loadSettings(), this.active()]);
+      return this.meter.snapshot(state, settings, now, active);
     });
   }
 
   /**
-   * The account-wide figure read from Google (Cloud Monitoring, every platform using this account's project): it replaces the
-   * local estimate as the base of this month's ledger. Ignored for another month or another credential.
+   * Translation entry point. Device mode (default) tells the caller to use the on-device translator. Google Translate web goes
+   * through the guard (cache, idempotency, in-flight sharing, counters) and the gate (one request at a time, spacing, cooldown
+   * after a block). Errors keep their code (message code 'gweb-<CODE>').
    */
-  async setAccountUsage(chars: number, month: string, credentialId?: string): Promise<UsageSnapshot> {
-    await this.protection.run(async () => {
-      const now = this.clock();
-      const state = await this.repo.load(now);
-      const active = await this.active();
-      if (month === state.month && (!credentialId || credentialId === active.credentialId || active.credentialId === 'default')) {
-        const m = this.meter.ledger(state, active);
-        m.accountChars = Math.max(0, Math.round(chars));
-        m.accountLocalAt = m.chars;
-        m.accountAt = now.getTime();
-        await this.repo.save(state);
-      }
-    });
-    return this.snapshot();
-  }
-
-  /** Translation entry point. Device mode (default) tells the caller to use the on-device translator. */
   async translate(text: string, opts: TranslateOptions = {}): Promise<TranslateOutcome> {
     const settings = await this.repo.loadSettings();
-    if (settings.provider === 'google-web') return this.translateWeb(text, opts);
-    const key = await this.repo.getKey();
-    if (settings.provider !== 'google' || !key) return { source: 'device' };
-    const active = { ...(await this.active()), languagePair: opts.languagePair ?? 'en>vi' };
-    const r = await this.protection.translate(text, (t) => googleTranslate(t, key, this.fetchImpl, active.languagePair), { ...active, idempotencyKey: opts.idempotencyKey, keepBreaks: opts.keepBreaks });
-    if (r.status === 'blocked') return { source: 'blocked', decision: r.decision };
-    return { source: 'google', text: r.text, cached: r.cached, chars: r.chars, paid: r.paid };
-  }
-
-  /**
-   * Google Translate web (unofficial): no key. The chunk goes through the same guard (cache, idempotency, in-flight sharing, the
-   * informational ledger) but nothing is metered: there is no free quota or price to enforce. Errors keep their GoogleWebError code
-   * (message code 'gweb-<CODE>') and a block / CAPTCHA starts a cooldown during which nothing is sent.
-   */
-  private async translateWeb(text: string, opts: TranslateOptions): Promise<TranslateOutcome> {
-    const active = { provider: WEB_PROVIDER, credentialId: WEB_CREDENTIAL, languagePair: opts.languagePair ?? 'en>vi' };
+    if (settings.provider !== 'google-web') return { source: 'device' };
+    const active = { provider: WEB_PROVIDER, languagePair: opts.languagePair ?? 'en>vi' };
     try {
-      const r = await this.protection.translate(text, (t) => this.webGate.run(t, active.languagePair, { fetchImpl: this.webFetch }), { ...active, idempotencyKey: opts.idempotencyKey, keepBreaks: opts.keepBreaks, metered: false });
-      if (r.status === 'blocked') return { source: 'blocked', decision: r.decision };
-      return { source: 'google', text: r.text, cached: r.cached, chars: r.chars, paid: false };
+      const r = await this.protection.translate(text, (t) => this.webGate.run(t, active.languagePair, { fetchImpl: this.webFetch }), { ...active, idempotencyKey: opts.idempotencyKey, keepBreaks: opts.keepBreaks });
+      return { source: 'google', text: r.text, cached: r.cached, chars: r.chars };
     } catch (e) {
       if (e instanceof GoogleWebError) throw new MessageError(e.message, 'gweb-' + e.code);
       throw e;
@@ -150,50 +92,9 @@ export class UsageService {
     });
   }
 
-  /** Smart Setup finished: save the validated key and switch to Google translation. */
-  async activateGoogle(key: string, credentialId?: string): Promise<void> {
-    await this.setApiKey(key, credentialId);
-    await this.updateSettings({ provider: 'google' });
-  }
-
   /** Google Translate web: no key, no setup. Opt-in (text is sent to Google); never switched on automatically. */
   async activateGoogleWeb(): Promise<void> {
     await this.updateSettings({ provider: 'google-web' });
-  }
-
-  /** Disconnect: forget the key and go back to on-device translation. */
-  async deactivateGoogle(): Promise<void> {
-    await this.repo.setKey(null);
-    await this.updateSettings({ provider: 'device' });
-  }
-
-  /** Health check of the saved key: one 5-character translation of "Hello". The key never leaves this service. */
-  async validateSaved(): Promise<{ ok: boolean; code?: string; detail?: string }> {
-    const key = await this.repo.getKey();
-    if (!key) return { ok: false, code: 'INVALID_API_KEY', detail: 'Chưa có khoá API.' };
-    try {
-      await new GoogleCloudClient({ fetchImpl: this.fetchImpl as unknown as FetchFn | undefined }).validateKey(key);
-      return { ok: true };
-    } catch (e) {
-      const err = e as { code?: string; detail?: string };
-      return { ok: false, code: err.code ?? 'NETWORK_ERROR', detail: err.detail };
-    }
-  }
-
-  async currentKey(): Promise<string> {
-    return this.repo.getKey();
-  }
-
-  /**
-   * Saves (or removes) the key. The usage ledger is tied to the CREDENTIAL: Smart Setup passes the project id (a replaced key in the
-   * same project keeps its ledger, like Google's per-project quota); a manually entered key gets a short hash of itself.
-   */
-  async setApiKey(key: string | null, credentialId?: string): Promise<void> {
-    const k = key?.trim() ?? '';
-    if (k && (k.length < 20 || /\s/.test(k))) throw new MessageError('Khoá API không hợp lệ.', 'bad-key');
-    await this.repo.setKey(k || null);
-    if (k) await this.repo.setCredentialId(credentialId || (await credentialHash(k)));
-    else await this.repo.setCredentialId(DEFAULT_CREDENTIAL);
   }
 
   /** A finished translation job (any number of chunks) = one operation. Idempotent per job id. */
@@ -201,14 +102,9 @@ export class UsageService {
     await this.protection.recordOperation(await this.active(), jobId);
   }
 
-  /** On-device providers are not metered: their successful use is recorded in a separate, informational ledger. */
+  /** On-device providers: their successful use is recorded in a separate, informational ledger. */
   async recordDeviceProcessed(provider: string, chars: number, idempotencyKey?: string): Promise<void> {
-    await this.protection.recordProcessed({ provider, credentialId: 'local' }, chars, idempotencyKey);
-  }
-
-  /** The user's explicit consent (or its withdrawal). The limits keep applying while it is on. */
-  async setPaidAuthorized(on: boolean): Promise<UsageSettings> {
-    return this.updateSettings({ paidEnabled: on });
+    await this.protection.recordProcessed({ provider }, chars, idempotencyKey);
   }
 
   async clearHistory(): Promise<void> {
@@ -222,14 +118,14 @@ export class UsageService {
     });
   }
 
-  /** A report of the locally tracked usage (never contains the API key). */
+  /** A report of the locally tracked usage. */
   async exportReport(format: 'json' | 'csv' = 'json'): Promise<string> {
     const snap = await this.snapshot();
     const rows = [...snap.history, ...snap.ledgers];
     if (format === 'csv') {
       return [
-        'month,provider,credential,mode,language_pair,characters,operations,requests,cached_requests,cached_characters,failed_requests,paid_characters,paid_requests',
-        ...rows.map((r) => [r.month, r.provider, r.credentialId, r.mode, r.languagePair, r.chars, r.operations, r.requests, r.cachedRequests, r.cachedChars, r.failedRequests, r.paidChars, r.paidRequests].join(',')),
+        'month,provider,language_pair,characters,operations,requests,cached_requests,cached_characters,failed_requests',
+        ...rows.map((r) => [r.month, r.provider, r.languagePair, r.chars, r.operations, r.requests, r.cachedRequests, r.cachedChars, r.failedRequests].join(',')),
       ].join('\n');
     }
     return JSON.stringify(
@@ -238,9 +134,7 @@ export class UsageService {
         note: USAGE_DISCLAIMER,
         settings: snap.settings,
         provider: snap.provider,
-        credential: snap.credentialId,
-        mode: snap.mode,
-        currentMonth: { month: snap.month, operations: snap.operations, usedChars: snap.usedChars, freeQuota: snap.freeQuota, remainingFree: snap.remainingFree, billableChars: snap.billableChars, estimatedCostUsd: snap.estimatedCostUsd, requests: snap.requests, cachedRequests: snap.cachedRequests, failedRequests: snap.failedRequests, lastReset: snap.lastReset, nextReset: snap.nextReset },
+        currentMonth: { month: snap.month, operations: snap.operations, usedChars: snap.usedChars, requests: snap.requests, cachedRequests: snap.cachedRequests, failedRequests: snap.failedRequests, lastReset: snap.lastReset, nextReset: snap.nextReset },
         ledgers: snap.ledgers,
         history: snap.history,
         recentRequests: snap.log,

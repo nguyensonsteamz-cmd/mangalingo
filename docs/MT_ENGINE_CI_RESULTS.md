@@ -1,5 +1,8 @@
 # CI results (GitHub Actions, repository nomaex-hash/mangalingo, branch master)
 
+> **Lịch sử / Historical (2026-11-23):** Google Cloud Translation (khoá API, Smart Setup, đăng nhập Google, hạn mức, thanh toán) và mô hình OPUS-MT tải về đã được **gỡ khỏi LingoLens**. Nguồn dịch hiện có: dịch trên máy (mặc định) và Google Dịch (web, không chính thức). Nội dung bên dưới chỉ còn giá trị lịch sử. Xem [google_translate_unofficial_migration_report.md](google_translate_unofficial_migration_report.md).
+
+
 | Run | Commit | Workflow / job | Result |
 |---|---|---|---|
 | 43883206890 | ee70bfd | CI (extension + Android) | **PASS** — typecheck, 392 unit tests, `npm audit --omit=dev` = 0 vulnerabilities, extension build + bundle checks, Android debug / release (unsigned) / AAB, release has no remote-debugging flag |

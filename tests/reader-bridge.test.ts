@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { realDictionary } from './helpers/dict';
 import { createReaderBridge, type ReaderDeps } from '@/mobile/reader-bridge';
 import { UsageService } from '@/modules/usage';
-import type { FetchLike } from '@/modules/usage/google';
+import type { WebFetch } from '@/modules/usage/google-web';
 import type { KV } from '@/storage/kv';
 import type { OcrLine, Pos } from '@/shared/types';
 import { POS_EN, POS_VI, primaryMeaning } from '@/ui/views';
@@ -74,16 +74,8 @@ describe('Web Reader engine bridge', () => {
     expect(para.title).toBe('Bản dịch đoạn');
     expect(translate).toHaveBeenCalledTimes(2);
   });
-  it('a quota block comes back as a blocked card (no text, no error)', async () => {
-    const decision = { reason: 'consent-needed', message: 'Bạn đã đạt hạn mức dịch miễn phí đã cấu hình. Tiếp tục có thể phát sinh phí Google Cloud.', additionalChars: 40, estimatedCostUsd: 0.0008, needsConsent: true };
-    const b = createReaderBridge(deps({ translate: async () => Promise.reject(Object.assign(new Error('blocked'), { decision })) }));
-    const p = await b.lookup({ text: 'Another sentence to translate.', mode: 'sentence' });
-    expect(p.blocked).toMatchObject({ needsConsent: true, additionalChars: 40 });
-    expect(p.mt).toBeUndefined();
-    expect(p.error).toBeUndefined();
-  });
   it('API failures become an error card', async () => {
-    const b = createReaderBridge(deps({ translate: async () => Promise.reject(new Error('Google Cloud Translation trả lỗi 500')) }));
+    const b = createReaderBridge(deps({ translate: async () => Promise.reject(new Error('Google Dịch trả lỗi 500')) }));
     const p = await b.lookup({ text: 'This will fail.', mode: 'sentence' });
     expect(p.error).toMatch(/500/);
   });
@@ -113,30 +105,28 @@ describe('Web Reader engine bridge', () => {
   });
 });
 
-describe('Web Reader and the quota guard (no bypass)', () => {
-  const KEY = 'AIza' + 'y'.repeat(35);
-  async function guarded(freeQuotaChars: number) {
+describe('Web Reader and the usage guard (Google Translate web)', () => {
+  const ok = (q: string) => ({ status: 200, text: async () => JSON.stringify([[['Google:' + q, q]], null, 'en']) });
+  const CAPTCHA = { status: 429, text: async () => '<html><title>Sorry...</title>automated queries</html>' };
+  async function guarded(respond: (q: string, n: number) => { status: number; text(): Promise<string> } = ok as never) {
     const sent: string[] = [];
-    const fetchImpl: FetchLike = async (_u, init) => {
-      const q = (JSON.parse(init.body) as { q: string }).q;
+    const webFetch: WebFetch = async (url) => {
+      const q = new URL(url).searchParams.get('q') ?? '';
       sent.push(q);
-      return { ok: true, status: 200, json: async () => ({ data: { translations: [{ translatedText: `Google:${q}` }] } }) };
+      return respond(q, sent.length);
     };
-    const usage = new UsageService(memoryKV(), { fetchImpl });
-    await usage.updateSettings({ provider: 'google', freeQuotaChars });
-    await usage.setApiKey(KEY);
+    const usage = new UsageService(memoryKV(), { webFetch, webGate: { minIntervalMs: 0, retryPauseMs: 0, sleep: async () => {} } });
+    await usage.activateGoogleWeb();
     // exactly what reader-install.ts / machineTranslate do with the outcome
     const translate = async (text: string) => {
       const r = await usage.translate(text);
-      if (r.source === 'google') return r.text;
-      if (r.source === 'blocked') throw Object.assign(new Error(r.decision.message), { decision: r.decision });
-      return `device:${text}`;
+      return r.source === 'google' ? r.text : 'device:' + text;
     };
     return { usage, translate, sent };
   }
 
   it('Reader translations are counted by the same usage meter and cached', async () => {
-    const { usage, translate, sent } = await guarded(1000);
+    const { usage, translate, sent } = await guarded();
     const b = createReaderBridge(deps({ translate }));
     await b.lookup({ text: 'The village was destroyed by the demon.', mode: 'sentence' });
     await b.lookup({ text: 'The village was destroyed by the demon.', mode: 'sentence' }); // cache hit
@@ -146,16 +136,15 @@ describe('Web Reader and the quota guard (no bypass)', () => {
     expect(s.requests).toBe(1);
     expect(s.cachedRequests).toBe(1);
   });
-  it('when the free quota is used up the Reader gets the blocked card and nothing is sent', async () => {
-    const { usage, translate, sent } = await guarded(50);
+  it('when Google blocks the requests the Reader gets an error card, nothing more is sent, and the text is never shown as a translation', async () => {
+    const { usage, translate, sent } = await guarded(() => CAPTCHA);
     const b = createReaderBridge(deps({ translate }));
-    const first = await b.lookup({ text: 'Nobody survived the night, and the hero never came back.', mode: 'sentence' }); // 56 chars > 50: crosses the quota
-    expect(first.blocked?.needsConsent).toBe(true);
-    expect(sent).toHaveLength(0);
+    const first = await b.lookup({ text: 'Nobody survived the night, and the hero never came back.', mode: 'sentence' });
+    expect(first.error).toMatch(/Google Dịch/);
+    expect(first.mt).toBeUndefined();
+    const second = await b.lookup({ text: 'Another sentence to translate.', mode: 'sentence' });
+    expect(second.error).toBeDefined();
+    expect(sent).toHaveLength(1); // the cooldown stopped the second request
     expect((await usage.snapshot()).usedChars).toBe(0);
-    await usage.setPaidAuthorized(true);
-    const second = await b.lookup({ text: 'Nobody survived the night, and the hero never came back.', mode: 'sentence' });
-    expect(second.mt).toMatch(/^Google:/);
-    expect((await usage.snapshot()).paidChars).toBeGreaterThan(0);
   });
 });

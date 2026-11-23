@@ -39,24 +39,15 @@ export type Request =
   | { type: 'dict:import'; name: string; format: 'json' | 'csv'; text: string }
   | { type: 'dict:clear-user' }
   | { type: 'shortcuts:open' }
-  /** Machine translation through the quota guard: tells the caller to use the device, or returns Google's text, or a block. */
+  /** Machine translation through the usage guard: tells the caller to use the device, or returns the Google Translate (web) text. */
   | { type: 'usage:translate'; text: string; /** stable key of a chunk: a retry is counted once */ idempotencyKey?: string; keepBreaks?: boolean; languagePair?: string }
   /** a finished translation job (any number of chunks) = one operation */
   | { type: 'usage:operation'; jobId: string }
   /** an on-device provider processed this many characters (informational ledger, not metered) */
   | { type: 'usage:device-processed'; provider: string; chars: number; idempotencyKey?: string }
   | { type: 'usage:snapshot' }
-  /** characters Google reports for the whole account this month (read by the UI through Cloud Monitoring) */
-  | { type: 'usage:set-account'; chars: number; month: string; credentialId?: string }
-  /** Update the usage settings and / or the API key (null removes it); answers with a fresh snapshot. */
-  | { type: 'usage:settings'; patch?: Partial<UsageSettings>; apiKey?: string | null }
-  /** The user's explicit consent to paid translation (or its withdrawal). */
-  | { type: 'usage:authorize'; enable: boolean }
-  /** Smart Setup finished: save the (validated) key in the secure store and switch to Google translation. */
-  | { type: 'usage:activate'; key: string; /** usage ledger id (the Smart Setup project) */ credential?: string }
-  | { type: 'usage:deactivate' }
-  /** One real translation with the SAVED key (health check); rejects with the Smart Setup error code. */
-  | { type: 'usage:validate-saved' }
+  /** Update the usage settings (the translation provider); answers with a fresh snapshot. */
+  | { type: 'usage:settings'; patch?: Partial<UsageSettings> }
   | { type: 'usage:clear-history' }
   | { type: 'usage:reset' }
   | { type: 'usage:export'; format?: 'json' | 'csv' }
@@ -91,12 +82,7 @@ export interface ResponseMap {
   'usage:operation': boolean;
   'usage:device-processed': boolean;
   'usage:snapshot': UsageSnapshot;
-  'usage:set-account': UsageSnapshot;
   'usage:settings': UsageSnapshot;
-  'usage:authorize': UsageSnapshot;
-  'usage:activate': UsageSnapshot;
-  'usage:deactivate': UsageSnapshot;
-  'usage:validate-saved': { ok: boolean; code?: string; detail?: string };
   'usage:clear-history': boolean;
   'usage:reset': boolean;
   'usage:export': string;

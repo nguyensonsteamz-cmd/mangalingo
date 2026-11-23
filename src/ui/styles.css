@@ -735,7 +735,7 @@ html[data-app='mobile'][data-glass='off'] body::before {
   backdrop-filter: none;
 }
 
-/* Lingolens Smart Setup: a light sweeping across the progress bar while Google Cloud is being configured */
+/* (legacy) light sweeping across a progress bar */
 @keyframes ml-setup-sweep {
   from {
     background-position: -200% 0;

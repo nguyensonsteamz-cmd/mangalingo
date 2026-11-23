@@ -62,7 +62,7 @@ Không lưu toàn bộ nội dung trang. Gỡ tiện ích sẽ xóa toàn bộ d
 
 ## Google Dịch (web, không chính thức): tuỳ chọn, tắt theo mặc định
 
-*Cài đặt → Hạn mức dịch → Dịch bằng → **Google Dịch (web)**.* Chỉ khi bạn chọn mục này, văn bản bạn dịch được gửi **trực tiếp từ thiết bị của bạn** tới `translate.googleapis.com` (một lần cho mỗi đoạn tối đa 1.500 ký tự, từng yêu cầu một). Không cần tài khoản, khoá API hay thanh toán.
+*Cài đặt → Nguồn dịch → Dịch bằng → **Google Dịch (web)**.* Chỉ khi bạn chọn mục này, văn bản bạn dịch được gửi **trực tiếp từ thiết bị của bạn** tới `translate.googleapis.com` (một lần cho mỗi đoạn tối đa 1.500 ký tự, từng yêu cầu một). Không cần tài khoản, khoá API hay thanh toán.
 
 | Câu hỏi | Trả lời |
 |---|---|

@@ -229,7 +229,7 @@ describe('gate: serialisation, spacing, retry policy, cooldown', () => {
   });
 });
 
-describe('UsageService with Google Translate web (no key, no billing)', () => {
+describe('UsageService with Google Translate web (no key, no billing, no quota)', () => {
   const setup = async (handler?: Parameters<typeof fakeNet>[0]) => {
     const net = fakeNet(handler);
     const kv = memoryKV();
@@ -242,24 +242,15 @@ describe('UsageService with Google Translate web (no key, no billing)', () => {
     const { svc, net } = await setup();
     expect((await svc.getSettings()).provider).toBe('google-web');
     const r = await svc.translate('Good morning', {});
-    expect(r).toMatchObject({ source: 'google', text: 'VI:Good morning', paid: false, cached: false });
+    expect(r).toMatchObject({ source: 'google', text: 'VI:Good morning', cached: false });
     expect(net.urls).toHaveLength(1);
     const snap = await svc.snapshot();
     expect(snap.provider).toBe('google-web');
-    expect(snap).toMatchObject({ hasKey: false, usedChars: 12, requests: 1, billableChars: 0, estimatedCostUsd: 0, costReliable: false, level: 'ok' });
+    expect(snap).toMatchObject({ usedChars: 12, requests: 1, failedRequests: 0 });
+    expect(Object.keys(snap)).not.toEqual(expect.arrayContaining(['freeQuota', 'estimatedCostUsd', 'hasKey'])); // no quota, price or key exists
     // same text again: from the cache, not a second request, and not new usage
     expect(await svc.translate('Good morning', {})).toMatchObject({ cached: true });
     expect(net.urls).toHaveLength(1);
-  });
-
-  it('is never blocked by the Google Cloud free quota / paid limits (no such quota exists for it)', async () => {
-    const { svc } = await setup();
-    await svc.updateSettings({ freeQuotaChars: 10, maxCharsPerRequest: 5 });
-    const r = await svc.translate('This text is much longer than the configured cloud limits', {});
-    expect(r.source).toBe('google');
-    const snap = await svc.snapshot();
-    expect(snap.usedChars).toBeGreaterThan(10);
-    expect(snap.estimatedCostUsd).toBe(0);
   });
 
   it('a retry of the same chunk (same idempotency key) is counted once', async () => {
@@ -297,7 +288,6 @@ describe('UsageService with Google Translate web (no key, no billing)', () => {
 describe('long text through Google Translate web (chunking, order, failures, cancellation)', () => {
   const deps = (svc: UsageService): LongTextDeps => ({
     googleActive: async () => true,
-    googleProviderId: async () => 'google-web',
     sendGoogle: (text, o) => svc.translate(text, { idempotencyKey: o.idempotencyKey, keepBreaks: o.keepBreaks }),
     deviceTranslate: async () => {
       throw new Error('the device translator must not be used');

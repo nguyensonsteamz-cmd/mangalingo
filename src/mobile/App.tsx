@@ -19,8 +19,6 @@ import { NotesDrawer } from '@/ui/NotesDrawer';
 import { TextReader, type TextRange } from './TextReader';
 import { renderPdf } from './pdf';
 import { IosGuide } from './IosGuide';
-import { MonthlyUsageCard } from '@/ui/MonthlyUsageCard';
-import { useUsage } from '@/ui/usage-client';
 
 type Tab = 'home' | 'lookup' | 'vocab' | 'settings' | 'scan';
 const TABS: { id: Tab; label: string; icon: ReactNode }[] = [
@@ -376,7 +374,6 @@ function Home({ onOpen }: { onOpen: (t: Tab) => void }) {
  *  Shortcut (Take Screenshot → Quét ảnh với LingoLens) instead. */
 function IosHome({ onOpen, pack }: { onOpen: (t: Tab) => void; pack: ReturnType<typeof useTranslationPack> }) {
   useSettings('page'); // applies the theme
-  const { snap: usageSnap } = useUsage();
   return (
     <div className="mx-auto max-w-lg space-y-4 px-4 pt-6" data-ml-ios-home="">
       <div className="flex items-center gap-3">
@@ -410,12 +407,6 @@ function IosHome({ onOpen, pack }: { onOpen: (t: Tab) => void; pack: ReturnType<
         </span>
         <span className="text-[20px] text-muted">›</span>
       </button>
-
-      {usageSnap?.settings.provider === 'google' && (
-        <div className="ml-glass-card rounded-[22px] px-4 py-3" data-ml-home-usage="">
-          <MonthlyUsageCard snap={usageSnap} compact />
-        </div>
-      )}
 
       <IosGuide />
 

@@ -1,5 +1,8 @@
 # MT engine — release readiness
 
+> **Lịch sử / Historical (2026-11-23):** Google Cloud Translation (khoá API, Smart Setup, đăng nhập Google, hạn mức, thanh toán) và mô hình OPUS-MT tải về đã được **gỡ khỏi LingoLens**. Nguồn dịch hiện có: dịch trên máy (mặc định) và Google Dịch (web, không chính thức). Nội dung bên dưới chỉ còn giá trị lịch sử. Xem [google_translate_unofficial_migration_report.md](google_translate_unofficial_migration_report.md).
+
+
 **Verdict: READY WITH LIMITATIONS — not ready for a store release.** CI is green on GitHub (Ubuntu + macOS). Chrome is ready (verified in real Chrome). Android is verified in an emulator and builds (unsigned) but needs a physical-phone pass and a signing key. iPhone compiles and builds an unsigned IPA, but Apple Translation and the scan flow have never run on a phone. Google live API is unverified. This file lists exactly what is left; nothing here was invented or ticked without a run.
 
 Legend: ✅ verified by a run in this work · 🟡 partly verified · ⛔ blocked / not done.

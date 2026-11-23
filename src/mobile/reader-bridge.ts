@@ -3,11 +3,10 @@
  * dictionary / translation code itself, so Swift forwards what the user clicked or selected to
  * `window.__mlReader` here. EVERYTHING goes through the same engine as the rest of the app:
  *   lookup  → the shared router (dictionary + grammar rules)
- *   translate → machineTranslate(): on-device Apple Translation or the quota-guarded Google provider
+ *   translate → machineTranslate(): on-device Apple Translation or Google Translate (web)
  *   save    → the shared vocabulary notebook
- * so the usage meter, the cache and the cost protection apply to the Reader exactly as elsewhere.
+ * so the usage counters and the cache apply to the Reader exactly as elsewhere.
  */
-import type { BlockedDecision } from '@/modules/usage/types';
 import type { LookupRequest, LookupResult, OcrLine, Pos, Sense, WordLookup } from '@/shared/types';
 import { groupLines } from '@/ocr/result';
 import { plausibleText } from '@/ocr/bubbles';
@@ -30,13 +29,12 @@ export interface ReaderPayload {
   saveable?: boolean;
   saved?: boolean;
   canSpeak?: boolean;
-  blocked?: { message: string; needsConsent: boolean; additionalChars: number; estimatedCostUsd: number };
   error?: string;
 }
 
 export interface ReaderDeps {
   lookup(req: LookupRequest): Promise<LookupResult>;
-  /** machineTranslate(): the guarded translation path. Rejects with an error carrying `.decision` when blocked. */
+  /** machineTranslate(): the guarded translation path. */
   translate(text: string): Promise<string>;
   hasLemma(lemma: string): Promise<boolean>;
   saveWord(e: { word: string; lemma: string; meaning: string; pos?: Pos; ipa?: string; sentence?: string; sourceUrl?: string; sourceTitle?: string }): Promise<void>;
@@ -44,11 +42,6 @@ export interface ReaderDeps {
   posLabel(pos: Pos): string;
   primaryMeaning(r: WordLookup): string | Promise<string>;
 }
-
-const blockedOf = (e: unknown): BlockedDecision | null => {
-  const d = (e as { decision?: BlockedDecision } | null)?.decision;
-  return d && typeof d === 'object' && 'reason' in d ? d : null;
-};
 
 const uniq = (a: string[]) => [...new Set(a.map((s) => s.trim()).filter(Boolean))];
 
@@ -68,9 +61,7 @@ export function createReaderBridge(deps: ReaderDeps) {
       p.mt = out;
       p.mtLabel = label;
     } catch (e) {
-      const d = blockedOf(e);
-      if (d) p.blocked = { message: d.message, needsConsent: d.needsConsent, additionalChars: d.additionalChars, estimatedCostUsd: d.estimatedCostUsd };
-      else p.error = `Không dịch được: ${(e as Error)?.message ?? e}`;
+      p.error = `Không dịch được: ${(e as Error)?.message ?? e}`;
     }
   };
 

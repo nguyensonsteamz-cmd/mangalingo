@@ -109,8 +109,8 @@ describe('splitting', () => {
   });
   it('different providers use their own limits', () => {
     const text = sentences(300);
-    const google = planChunks(text, { provider: 'google-v2' });
-    const small = planChunks(text, { provider: 'google-v2', limits: { targetChars: 1000, maxChars: 1200 } });
+    const google = planChunks(text, { provider: 'device-chrome' });
+    const small = planChunks(text, { provider: 'device-chrome', limits: { targetChars: 1000, maxChars: 1200 } });
     expect(Math.max(...google.map((c) => c.chars))).toBeLessThanOrEqual(5000);
     expect(Math.max(...small.map((c) => c.chars))).toBeLessThanOrEqual(1200);
     expect(small.length).toBeGreaterThan(google.length * 3);
@@ -126,7 +126,7 @@ const upper = async (s: string) => s.toUpperCase();
 describe('running a long job', () => {
   it('translates every chunk and merges them in order', async () => {
     const text = sentences(200);
-    const r = await translateLong(text, upper, { provider: 'google-v2', sleep: noSleep });
+    const r = await translateLong(text, upper, { provider: 'device-chrome', sleep: noSleep });
     expect(r.complete).toBe(true);
     expect(r.text).toBe(text.toUpperCase());
     expect(r.failedIndexes).toEqual([]);
@@ -142,7 +142,7 @@ describe('running a long job', () => {
         order.push(ctx.index);
         return s.toUpperCase();
       },
-      { provider: 'google-v2', concurrency: 4, sleep: noSleep },
+      { provider: 'device-chrome', concurrency: 4, sleep: noSleep },
     );
     expect(order).not.toEqual([...order].sort((a, b) => a - b));
     expect(r.text).toBe(text.toUpperCase());

@@ -1,50 +1,13 @@
 /**
- * Settings → "Hạn mức dịch": translation provider + API key, the monthly usage dashboard, quota and
- * paid-translation limits, and the local usage data tools. All figures are LOCAL ESTIMATES, not Google
- * Cloud Billing data.
+ * Settings → "Nguồn dịch": choose where translation happens (on the device, or Google Translate web) and see the local counters.
+ * There is no API key, billing or quota here: Google Cloud Translation was removed. All figures are LOCAL counters.
  */
-import { useEffect, useState, type ReactNode } from 'react';
-import { Badge, Button, Field, Notice, Segmented, Toggle, cx } from '@/ui/components';
-import { UsageNotice } from '@/ui/UsageNotice';
-import { MonthlyUsageCard } from '@/ui/MonthlyUsageCard';
-import { authorizePaid, fmtDate, fmtInt, fmtPct, fmtUsd, usageActions, useUsage } from '@/ui/usage-client';
+import { useState, type ReactNode } from 'react';
+import { Button, Field, Notice, Segmented } from '@/ui/components';
+import { fmtDate, fmtInt, usageActions, useUsage } from '@/ui/usage-client';
 import { USAGE_DISCLAIMER } from '@/modules/usage/disclaimer';
 import type { UsageSettings } from '@/modules/usage/types';
 import { copyText } from '@/mobile/ios';
-import { refreshAccountUsage } from '@/ui/usage-client';
-import { getSmartSetup } from '@/ui/smart-setup-client';
-
-/** "Đọc từ Google": the account-wide figure (all platforms). Tried silently when the page opens; the button may ask for Google access. */
-function AccountSync() {
-  const [state, setState] = useState<'idle' | 'busy' | 'done' | 'fail'>('idle');
-  const [note, setNote] = useState('');
-  const run = async (interactive: boolean) => {
-    setState('busy');
-    setNote('');
-    const r = await refreshAccountUsage({ interactive });
-    if (r.ok) setState('done');
-    else {
-      setState(interactive ? 'fail' : 'idle');
-      if (interactive)
-        setNote(
-          r.reason === 'no-project' ? 'Chưa kết nối dự án Google Cloud (Smart Setup).' : r.reason === 'no-metric' ? 'Google chưa trả số ký tự dịch cho dự án này (chưa dịch tháng này, hoặc chỉ số chưa có). Thử lại sau vài phút.' : (r.error?.detail || r.error?.message || 'Không đọc được số liệu từ Google.'),
-        );
-    }
-  };
-  useEffect(() => {
-    void run(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-  return (
-    <span className="inline-flex items-center gap-2">
-      <Button size="sm" onClick={() => void run(true)} disabled={state === 'busy'} data-ml-usage-account-refresh="">
-        {state === 'busy' ? 'Đang đọc…' : 'Đọc từ Google'}
-      </Button>
-      {state === 'done' && <span className="text-[12px] text-ok">Đã cập nhật</span>}
-      {state === 'fail' && note && <span className="text-[12px] text-danger" role="alert">{note}</span>}
-    </span>
-  );
-}
 
 function Card({ title, desc, children }: { title: string; desc?: string; children: ReactNode }) {
   return (
@@ -55,34 +18,6 @@ function Card({ title, desc, children }: { title: string; desc?: string; childre
       </div>
       <div className="ml-glass-card divide-y divide-border/60 rounded-[20px] px-4">{children}</div>
     </section>
-  );
-}
-
-/** Number input that commits on blur / Enter and shows the stored value again if the commit fails. */
-function NumField({ value, onCommit, min, step = 1, suffix, width = 'w-32', testId }: { value: number; onCommit: (n: number) => void; min?: number; step?: number; suffix?: string; width?: string; testId?: string }) {
-  const [text, setText] = useState(String(value));
-  useEffect(() => setText(String(value)), [value]);
-  const commit = () => {
-    const n = Number(text);
-    if (Number.isFinite(n) && n !== value && (min === undefined || n >= min)) onCommit(n);
-    else setText(String(value));
-  };
-  return (
-    <span className="inline-flex items-center gap-1.5">
-      <input
-        type="number"
-        inputMode="decimal"
-        min={min}
-        step={step}
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        onBlur={commit}
-        onKeyDown={(e) => e.key === 'Enter' && (e.currentTarget as HTMLInputElement).blur()}
-        className={cx('ml-focus ml-glass-field h-9 rounded-xl px-2.5 text-right text-[13px] tabular-nums text-text', width)}
-        data-ml-usage-input={testId}
-      />
-      {suffix && <span className="w-12 text-[12px] text-subtle">{suffix}</span>}
-    </span>
   );
 }
 
@@ -114,14 +49,8 @@ function download(name: string, text: string, mime: string): boolean {
 
 export function UsageSection() {
   const { snap, error, refresh } = useUsage();
-  const [keyText, setKeyText] = useState('');
   const [msg, setMsg] = useState<{ tone: 'info' | 'warn' | 'error'; text: string } | null>(null);
   const [confirmReset, setConfirmReset] = useState(false);
-  // does this build offer Google sign-in (Smart Setup)? Then "finish the set-up" is one tap away
-  const [signInOffered, setSignInOffered] = useState(false);
-  useEffect(() => {
-    void getSmartSetup().configured().then(setSignInOffered, () => setSignInOffered(false));
-  }, []);
 
   const save = async (patch: Partial<UsageSettings>) => {
     try {
@@ -136,7 +65,6 @@ export function UsageSection() {
     return <div className="py-6 text-[13px] text-muted">{error ? `Không tải được dữ liệu: ${error}` : 'Đang tải…'}</div>;
   }
   const s = snap.settings;
-  const google = s.provider === 'google';
   const web = s.provider === 'google-web';
 
   const exportReport = async (format: 'json' | 'csv') => {
@@ -151,128 +79,43 @@ export function UsageSection() {
   return (
     <div className="space-y-6" data-ml-usage-section="">
       <div>
-        <h1 className="text-[20px] font-semibold tracking-tight text-text">Hạn mức dịch</h1>
+        <h1 className="text-[20px] font-semibold tracking-tight text-text">Nguồn dịch</h1>
         <p className="mt-1 text-[13px] text-muted">
-          Theo dõi lượng ký tự gửi đi dịch. Bạn có thể dịch bằng Google Dịch (web, không cần khoá API và không phát sinh phí), dịch trên máy, hoặc dùng khoá Google Cloud Translation của chính bạn (tuỳ chọn, có thể tính phí: khi hết hạn mức miễn phí bạn quyết định dừng hay cho phép dịch có phí).
+          Chọn nơi dịch diễn ra: trên thiết bị của bạn (mặc định, không gửi văn bản đi đâu) hoặc Google Dịch (web), không cần khoá API, tài khoản hay thanh toán.
         </p>
       </div>
 
-      <UsageNotice snap={snap} onChanged={() => void refresh()} />
-
-      <Card title="Nguồn dịch">
-        <Field label="Dịch bằng" description={web ? 'Văn bản được gửi trực tiếp từ thiết bị tới Google Dịch (web). Không cần khoá API, không tính phí. Đây không phải API chính thức của Google: Google có thể giới hạn hoặc chặn bất cứ lúc nào, khi đó hãy dùng dịch trên máy.' : google ? 'Văn bản được gửi tới Google Cloud Translation và tính phí theo ký tự khi vượt hạn mức miễn phí.' : 'Dịch trên máy (Chrome Translator / Apple Translation): không gửi văn bản đi đâu, không tính phí; chất lượng thấp hơn Google.'}>
+      <Card title="Dịch bằng">
+        <Field
+          label="Nguồn dịch"
+          description={
+            web
+              ? 'Văn bản được gửi trực tiếp từ thiết bị tới Google Dịch (web). Không cần khoá API, không tính phí. Đây không phải API chính thức của Google: Google có thể giới hạn hoặc chặn bất cứ lúc nào, khi đó hãy dùng dịch trên máy.'
+              : 'Dịch trên máy (Chrome Translator / Apple Translation / ML Kit): không gửi văn bản đi đâu, không tính phí.'
+          }
+        >
           <Segmented
             value={s.provider}
             onChange={(v) => void save({ provider: v })}
             options={[
-              { value: 'device', label: 'Trên máy (dự phòng)' },
+              { value: 'device', label: 'Trên máy' },
               { value: 'google-web', label: 'Google Dịch (web)' },
-              { value: 'google', label: 'Google Cloud (khoá riêng)' },
             ]}
           />
         </Field>
-        {google && !snap.hasKey && (
-          <div className="py-3" data-ml-usage-setup-needed="">
-            <Notice tone="warn" title="Cần hoàn tất thiết lập để dùng Google Cloud">
-              <span className="block">
-                Chưa có khoá Google Cloud nên LingoLens vẫn đang dịch trên máy.{' '}
-                {signInOffered ? 'Đăng nhập Google và hoàn tất Smart Setup (chọn dự án, bật thanh toán, tạo khoá) để dùng Google Cloud, hoặc dán khoá API của bạn bên dưới.' : 'Dán khoá API Google Cloud của bạn bên dưới để dùng Google Cloud.'}
-              </span>
-              {signInOffered && (
-                <span className="mt-2 block">
-                  <Button size="sm" variant="primary" onClick={() => (location.hash = 'setup')} data-ml-usage-finish-setup="">
-                    Hoàn tất thiết lập
-                  </Button>
-                </span>
-              )}
-            </Notice>
+        {web && (
+          <div className="py-3 text-[12px] text-muted" data-ml-usage-web-note="">
+            Google Dịch (web) không có hạn mức hay hoá đơn chính thức, nên LingoLens không hiển thị hạn mức hay chi phí. LingoLens gửi từng yêu cầu một, cách nhau tối thiểu 1,2 giây, và tạm ngừng 15 phút nếu Google giới hạn hoặc chặn. Khi đó LingoLens không tự chuyển sang nguồn khác: hãy chọn lại “Trên máy”.
           </div>
-        )}
-        {google && (
-          <Field label="Khoá API Google Cloud" description={snap.hasKey ? `Đã lưu trên thiết bị này (…${snap.keyHint}). Không bao giờ hiển thị lại đầy đủ.` : 'Chưa có khoá: LingoLens sẽ tiếp tục dịch trên máy cho tới khi bạn nhập khoá.'} stacked>
-            <div className="flex flex-wrap items-center gap-2">
-              <input
-                type="password"
-                autoComplete="off"
-                spellCheck={false}
-                value={keyText}
-                onChange={(e) => setKeyText(e.target.value)}
-                placeholder={snap.hasKey ? '••••••••••••' : 'Dán khoá API'}
-                className="ml-focus ml-glass-field h-9 min-w-0 flex-1 rounded-xl px-2.5 text-[13px] text-text"
-                data-ml-usage-key=""
-              />
-              <Button
-                size="sm"
-                variant="primary"
-                disabled={!keyText.trim()}
-                onClick={async () => {
-                  try {
-                    await usageActions.settings(undefined, keyText.trim());
-                    setKeyText('');
-                    setMsg({ tone: 'info', text: 'Đã lưu khoá API (chỉ trên thiết bị này).' });
-                    await refresh();
-                  } catch (e) {
-                    setMsg({ tone: 'error', text: (e as Error).message });
-                  }
-                }}
-              >
-                Lưu khoá
-              </Button>
-              {snap.hasKey && (
-                <Button
-                  size="sm"
-                  onClick={async () => {
-                    await usageActions.settings(undefined, null);
-                    await refresh();
-                  }}
-                >
-                  Xoá khoá
-                </Button>
-              )}
-            </div>
-          </Field>
-        )}
-        {web && <div className="py-3 text-[12px] text-muted" data-ml-usage-web-note="">Google Dịch (web) không có hạn mức hay hoá đơn chính thức, nên LingoLens không hiển thị hạn mức miễn phí hay chi phí cho nguồn này. LingoLens gửi từng yêu cầu một, cách nhau tối thiểu 1,2 giây, và tạm ngừng 15 phút nếu Google giới hạn hoặc chặn.</div>}
-        {!google && !web && <div className="py-3 text-[12px] text-muted">Chọn “Google Dịch (web)” để dịch bằng Google mà không cần khoá. Đang dùng bộ dịch trên máy: không có gì được gửi đi và không có gì bị tính phí.</div>}
-        <div className="py-3 text-[12px] text-muted">
-          Muốn dùng API Google Cloud chính thức (tuỳ chọn, có thể tính phí)? <button type="button" className="font-semibold text-accent underline" onClick={() => (location.hash = 'setup')}>Dùng Lingolens Smart Setup</button> để thiết lập ngay trong ứng dụng.
-        </div>
-        {google && (
-        <div className="py-3">
-          <Notice tone="warn" title="Bảo mật khoá API">
-            <ul className="mt-1 list-disc space-y-0.5 pl-4 text-[12px] leading-snug">
-              <li>Khoá chỉ được lưu cục bộ trên thiết bị và chỉ gửi tới translation.googleapis.com. Đừng đưa khoá vào mã nguồn hoặc chia sẻ khoá.</li>
-              <li>Trong Google Cloud Console → Credentials, hãy giới hạn khoá chỉ cho “Cloud Translation API” (API restrictions) và đặt ràng buộc ứng dụng phù hợp.</li>
-              <li>Đặt Budget &amp; alerts (Billing) và hạn mức API (Quotas) trên Google Cloud: đó mới là kiểm soát chi phí thật sự.</li>
-              <li>Ứng dụng này không dùng khoá tài khoản dịch vụ (service account) và không lưu thông tin đăng nhập Google.</li>
-            </ul>
-          </Notice>
-        </div>
         )}
       </Card>
 
-      <Card title="Mức dùng tháng này (UTC)" desc={google || web ? undefined : 'Chỉ đếm khi bạn dùng Google. Dịch trên máy không được đo.'}>
-        {web ? (
-          <div className="grid grid-cols-2 gap-2 py-3 sm:grid-cols-3" data-ml-usage-web-stats="">
-            <Stat testId="used" label="Ký tự đã dịch (ước tính trên máy này)" value={fmtInt(snap.usedChars)} />
-            <Stat testId="requests" label="Yêu cầu thành công" value={fmtInt(snap.requests)} />
-            <Stat testId="failed" label="Yêu cầu lỗi" value={fmtInt(snap.failedRequests)} />
-          </div>
-        ) : (
-          <>
-        <div className="py-3">
-          <MonthlyUsageCard snap={snap} />
-        </div>
-        <div className="grid grid-cols-2 gap-2 py-3 sm:grid-cols-3">
-          <Stat testId="used" label="Ký tự đã dùng" value={fmtInt(snap.usedChars)} />
-          <Stat testId="free" label="Hạn mức miễn phí" value={fmtInt(snap.freeQuota)} />
-          <Stat testId="remaining" label="Miễn phí còn lại" value={fmtInt(snap.remainingFree)} />
-          <Stat testId="percent" label="Đã dùng" value={fmtPct(snap.ratio)} />
-          <Stat testId="billable" label="Ký tự tính phí (ước tính)" value={fmtInt(snap.billableChars)} />
-          <Stat testId="cost" label="Chi phí ước tính" value={fmtUsd(snap.estimatedCostUsd)} sub={`${fmtUsd(s.pricePerMillionUsd)} / 1 triệu ký tự`} />
-          <Stat testId="requests" label="Số yêu cầu dịch" value={fmtInt(snap.requests)} sub={snap.failedRequests ? `${fmtInt(snap.failedRequests)} lỗi` : undefined} />
-          <Stat testId="cached" label="Dịch từ bộ nhớ đệm" value={fmtInt(snap.cachedRequests)} sub="không tính vào hạn mức" />
-          <Stat testId="paid" label="Yêu cầu trả phí" value={fmtInt(snap.paidRequests)} sub={`${fmtInt(snap.paidChars)} ký tự`} />
+      <Card title="Số liệu tháng này (UTC)" desc="Bộ đếm cục bộ. Dịch trên máy được ghi riêng, chỉ để tham khảo.">
+        <div className="grid grid-cols-2 gap-2 py-3 sm:grid-cols-3" data-ml-usage-web-stats="">
+          <Stat testId="used" label="Ký tự đã dịch" value={fmtInt(snap.usedChars)} />
+          <Stat testId="requests" label="Yêu cầu thành công" value={fmtInt(snap.requests)} />
+          <Stat testId="failed" label="Yêu cầu lỗi" value={fmtInt(snap.failedRequests)} />
+          <Stat testId="cached" label="Dịch từ bộ nhớ đệm" value={fmtInt(snap.cachedRequests)} />
         </div>
         <div className="flex flex-wrap items-center gap-x-6 gap-y-1 py-3 text-[12.5px] text-muted">
           <span>
@@ -281,64 +124,9 @@ export function UsageSection() {
           <span>
             Đặt lại tiếp theo: <b className="text-text" data-ml-usage-next-reset="">{fmtDate(snap.nextReset)}</b>
           </span>
-          {snap.accountAt ? (
-            <Badge tone="ok" title="Số ký tự Google ghi nhận cho cả dự án (mọi nền tảng), đọc qua Cloud Monitoring">
-              theo tài khoản Google
-            </Badge>
-          ) : (
-            <Badge tone="warn" title="Chưa đọc số của Google: đang là ước tính trên thiết bị này">
-              ước tính cục bộ
-            </Badge>
-          )}
-          <AccountSync />
         </div>
         <div className="py-3 text-[11.5px] leading-snug text-subtle">{USAGE_DISCLAIMER}</div>
-          </>
-        )}
       </Card>
-
-      {!web && (<>
-      <Card title="Hạn mức miễn phí & cảnh báo" desc="Có thể chỉnh. Giao diện không gắn cứng con số nào.">
-        <Field label="Hạn mức miễn phí mỗi tháng" description="Google Cloud Translation (Basic): 500.000 ký tự / tháng.">
-          <NumField testId="free" value={s.freeQuotaChars} min={1} step={1000} suffix="ký tự" width="w-36" onCommit={(n) => void save({ freeQuotaChars: n })} />
-        </Field>
-        <Field label="Ngưỡng cảnh báo">
-          <NumField testId="warn" value={Math.round(s.warnRatio * 100)} min={1} suffix="%" width="w-24" onCommit={(n) => void save({ warnRatio: n / 100 })} />
-        </Field>
-        <Field label="Ngưỡng mức dùng cao">
-          <NumField testId="critical" value={Math.round(s.criticalRatio * 100)} min={1} suffix="%" width="w-24" onCommit={(n) => void save({ criticalRatio: n / 100 })} />
-        </Field>
-        <Field label="Ngưỡng dừng" description="Từ ngưỡng này, yêu cầu có thể tính phí bị chặn nếu bạn chưa cho phép.">
-          <NumField testId="hard" value={Math.round(s.hardStopRatio * 100)} min={1} suffix="%" width="w-24" onCommit={(n) => void save({ hardStopRatio: n / 100 })} />
-        </Field>
-        <Field label="Đơn giá ước tính" description="USD cho mỗi 1 triệu ký tự vượt hạn mức. Chỉ dùng để ước tính.">
-          <NumField testId="price" value={s.pricePerMillionUsd} min={0} step={0.5} suffix="USD" width="w-28" onCommit={(n) => void save({ pricePerMillionUsd: n })} />
-        </Field>
-      </Card>
-
-      <Card title="Dịch có phí" desc="Tắt theo mặc định. LingoLens không bao giờ tự bật. Dù bạn cho phép, các giới hạn dưới đây luôn được áp dụng.">
-        <Toggle
-          label="Cho phép dịch có phí khi hết hạn mức miễn phí"
-          description={s.paidEnabled ? 'Đang bật: yêu cầu vượt hạn mức sẽ được gửi (trong các giới hạn bên dưới) và có thể bị Google tính phí.' : 'Đang tắt: khi hết hạn mức miễn phí, mọi yêu cầu có thể tính phí bị chặn và bạn sẽ được hỏi.'}
-          checked={s.paidEnabled}
-          onChange={(v) => void (v ? authorizePaid() : usageActions.authorize(false)).then(() => refresh())}
-        />
-        <Field label="Ký tự trả phí tối đa mỗi tháng">
-          <NumField testId="maxPaidChars" value={s.maxPaidCharsPerMonth} min={1} step={1000} suffix="ký tự" width="w-36" onCommit={(n) => void save({ maxPaidCharsPerMonth: n })} />
-        </Field>
-        <Field label="Chi phí ước tính tối đa mỗi tháng">
-          <NumField testId="maxCost" value={s.maxMonthlyCostUsd} min={0.01} step={0.5} suffix="USD" width="w-28" onCommit={(n) => void save({ maxMonthlyCostUsd: n })} />
-        </Field>
-        <Field label="Ký tự tối đa cho mỗi yêu cầu">
-          <NumField testId="maxPerRequest" value={s.maxCharsPerRequest} min={1} step={100} suffix="ký tự" width="w-32" onCommit={(n) => void save({ maxCharsPerRequest: n })} />
-        </Field>
-        <Field label="Yêu cầu trả phí tối đa mỗi ngày">
-          <NumField testId="maxPaidPerDay" value={s.maxPaidRequestsPerDay} min={1} step={10} suffix="lần" width="w-28" onCommit={(n) => void save({ maxPaidRequestsPerDay: n })} />
-        </Field>
-        <div className="py-2 text-[11.5px] text-subtle">Hôm nay đã có {fmtInt(snap.paidRequestsToday)} yêu cầu trả phí. Chạm bất kỳ giới hạn nào, yêu cầu sẽ bị dừng và có cảnh báo.</div>
-      </Card>
-
-      </>)}
 
       <Card title="Dữ liệu sử dụng" desc="Chỉ nằm trên thiết bị này.">
         <div className="flex flex-wrap gap-2 py-3">
@@ -353,7 +141,7 @@ export function UsageSection() {
             onClick={async () => {
               await usageActions.clearHistory();
               await refresh();
-              setMsg({ tone: 'info', text: 'Đã xoá lịch sử sử dụng (mức dùng tháng này được giữ).' });
+              setMsg({ tone: 'info', text: 'Đã xoá lịch sử sử dụng (số liệu tháng này được giữ).' });
             }}
           >
             Xoá lịch sử
@@ -384,18 +172,18 @@ export function UsageSection() {
               <thead>
                 <tr className="text-subtle">
                   <th className="py-0.5 font-medium">Tháng</th>
+                  <th className="py-0.5 font-medium">Nguồn</th>
                   <th className="py-0.5 font-medium">Ký tự</th>
                   <th className="py-0.5 font-medium">Yêu cầu</th>
-                  <th className="py-0.5 font-medium">Trả phí</th>
                 </tr>
               </thead>
               <tbody>
-                {[...snap.history].reverse().map((h) => (
-                  <tr key={h.month}>
+                {[...snap.history].reverse().map((h, i) => (
+                  <tr key={`${h.month}-${h.provider}-${i}`}>
                     <td className="py-0.5">{h.month}</td>
+                    <td className="py-0.5">{h.provider === 'google-web' ? 'Google Dịch (web)' : h.provider === 'device' ? 'Trên máy' : h.provider}</td>
                     <td className="py-0.5">{fmtInt(h.chars)}</td>
                     <td className="py-0.5">{fmtInt(h.requests)}</td>
-                    <td className="py-0.5">{fmtInt(h.paidChars)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -403,7 +191,6 @@ export function UsageSection() {
           </div>
         )}
       </Card>
-
 
       {msg && <Notice tone={msg.tone}>{msg.text}</Notice>}
     </div>

@@ -1,5 +1,5 @@
 /**
- * Google Cloud Translation bills by characters of the submitted text: Unicode code points (an emoji or a
+ * Characters of the submitted text, counted as Unicode code points (an emoji or a
  * letter with a combining mark counts per code point, not per UTF-16 unit), whitespace included.
  */
 export function countChars(text: string): number {

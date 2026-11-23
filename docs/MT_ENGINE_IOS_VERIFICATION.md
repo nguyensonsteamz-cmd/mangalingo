@@ -1,5 +1,8 @@
 # iOS verification
 
+> **Lịch sử / Historical (2026-11-23):** Google Cloud Translation (khoá API, Smart Setup, đăng nhập Google, hạn mức, thanh toán) và mô hình OPUS-MT tải về đã được **gỡ khỏi LingoLens**. Nguồn dịch hiện có: dịch trên máy (mặc định) và Google Dịch (web, không chính thức). Nội dung bên dưới chỉ còn giá trị lịch sử. Xem [google_translate_unofficial_migration_report.md](google_translate_unofficial_migration_report.md).
+
+
 Legend: COMPILE VERIFIED = built by `xcodebuild` on a GitHub macOS runner · RUNTIME VERIFIED (SIMULATOR) = ran in the iOS Simulator on that runner · NOT RUN · BLOCKED. **No physical iPhone was available. Nothing below is "VERIFIED ON PHYSICAL DEVICE".**
 
 | Item | State | Evidence |

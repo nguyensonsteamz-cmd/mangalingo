@@ -13,18 +13,12 @@ import { VocabManager } from '@/ui/VocabManager';
 import { chromeLocal } from '@/storage/kv';
 import { OcrCache } from '@/storage/ocr-cache';
 import { UsageSection } from './UsageSection';
-import { SmartSetupSection } from './SmartSetupSection';
-import { BillingSection } from './BillingSection';
-import { AccountSection } from './AccountSection';
 
 type Update = (p: DeepPartial<Settings>) => void;
 
 // most used first: the account and the translation set-up, then the tools used while reading, then looks and data
 const SECTIONS = [
-  { id: 'account', label: 'Tài khoản' },
-  { id: 'usage', label: 'Hạn mức dịch' },
-  { id: 'setup', label: 'Smart Setup' },
-  { id: 'billing', label: 'Billing' },
+  { id: 'usage', label: 'Nguồn dịch' },
   { id: 'popup', label: 'Floating Popup' },
   { id: 'sidebar', label: 'Sidebar' },
   { id: 'ocr', label: 'OCR' },
@@ -39,8 +33,8 @@ const SECTIONS = [
 ] as const;
 type SectionId = (typeof SECTIONS)[number]['id'];
 /** a divider is drawn AFTER these sections (account + translation | reading tools | looks | data) */
-const GROUP_END: string[] = ['billing', 'dictionary', 'typography'];
-const FEATURED = 'account';
+const GROUP_END: string[] = ['usage', 'dictionary', 'typography'];
+const FEATURED: string = '';
 
 /** One line under each row of the phone settings list. */
 const SECTION_DESC: Record<string, string> = {
@@ -50,10 +44,7 @@ const SECTION_DESC: Record<string, string> = {
   typography: 'Phông chữ và cỡ chữ',
   dictionary: 'Nguồn nghĩa, phiên âm, phát âm',
   reading: 'Chế độ dịch, hành vi khi đọc',
-  account: 'Tài khoản Google và dữ liệu trên máy',
-  setup: 'Thiết lập Google Cloud Translation',
-  usage: 'Hạn mức tháng, cảnh báo, chi phí',
-  billing: 'Thanh toán và hóa đơn',
+  usage: 'Nguồn dịch: trên máy hoặc Google Dịch (web)',
   ocr: 'Quét chữ trong ảnh',
   shortcuts: 'Phím tắt',
   vocab: 'Từ đã lưu',
@@ -71,8 +62,8 @@ export function SettingsCenter({ hidden = [], topBar }: { hidden?: string[]; top
   const { settings: s, update, reset, loaded, saveState } = useSettings('page');
   // a section can be requested from elsewhere in the phone app (e.g. "Cho phép dịch có phí" without billing → Billing)
   const requested = (globalThis as { __mlNextSettingsSection?: string }).__mlNextSettingsSection as SectionId | undefined;
-  const initial = (requested ?? decodeURIComponent(location.hash.slice(1))) as SectionId || 'account';
-  const [section, setSection] = useState<SectionId>(SECTIONS.some((x) => x.id === initial) ? initial : 'account');
+  const initial = (requested ?? decodeURIComponent(location.hash.slice(1))) as SectionId || 'usage';
+  const [section, setSection] = useState<SectionId>(SECTIONS.some((x) => x.id === initial) ? initial : 'usage');
   // list mode (phone app): the list is the first screen, a row opens its page; a section asked for from elsewhere opens straight on it
   const IS_APP = isApp();
   const [detailOpen, setDetailOpen] = useState(IS_APP && !!requested && SECTIONS.some((x) => x.id === requested));
@@ -204,10 +195,7 @@ export function SettingsCenter({ hidden = [], topBar }: { hidden?: string[]; top
             {section === 'typography' && <Typography s={s} update={update} />}
             {section === 'dictionary' && <DictionarySettings s={s} update={update} />}
             {section === 'reading' && <Reading s={s} update={update} />}
-            {section === 'account' && <AccountSection />}
-            {section === 'setup' && <SmartSetupSection />}
             {section === 'usage' && <UsageSection />}
-            {section === 'billing' && <BillingSection />}
             {section === 'ocr' && <OcrSettings s={s} update={update} />}
             {section === 'shortcuts' && <Shortcuts s={s} update={update} />}
             {section === 'vocab' && (

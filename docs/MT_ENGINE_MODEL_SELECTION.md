@@ -1,5 +1,8 @@
 # Model selection
 
+> **Lịch sử / Historical (2026-11-23):** Google Cloud Translation (khoá API, Smart Setup, đăng nhập Google, hạn mức, thanh toán) và mô hình OPUS-MT tải về đã được **gỡ khỏi LingoLens**. Nguồn dịch hiện có: dịch trên máy (mặc định) và Google Dịch (web, không chính thức). Nội dung bên dưới chỉ còn giá trị lịch sử. Xem [google_translate_unofficial_migration_report.md](google_translate_unofficial_migration_report.md).
+
+
 Decision: integrate **OPUS-MT (Marian) q8, one checkpoint per direction**, as an **optional, user-downloaded local provider** that supplements — does not replace — Chrome Translator, Apple Translation, ML Kit and Google BYOK.
 
 ## Checkpoints (exact)

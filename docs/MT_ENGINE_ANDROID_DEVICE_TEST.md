@@ -1,5 +1,8 @@
 # Android — physical-device test checklist
 
+> **Lịch sử / Historical (2026-11-23):** Google Cloud Translation (khoá API, Smart Setup, đăng nhập Google, hạn mức, thanh toán) và mô hình OPUS-MT tải về đã được **gỡ khỏi LingoLens**. Nguồn dịch hiện có: dịch trên máy (mặc định) và Google Dịch (web, không chính thức). Nội dung bên dưới chỉ còn giá trị lịch sử. Xem [google_translate_unofficial_migration_report.md](google_translate_unofficial_migration_report.md).
+
+
 Status: **NOT RUN on a physical device** (none available). The same flows ran in the Android 15 x86_64 emulator (`scripts/android-emulator-test.mjs`, 15/15). An emulator is not an ARM phone: CPU speed, memory pressure and WebView version can all differ.
 
 ## Prepare

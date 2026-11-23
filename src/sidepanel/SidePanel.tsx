@@ -17,9 +17,6 @@ import { canSpeak, speak } from '@/ui/speech';
 import { NotesPanel } from '@/ui/NotesPanel';
 import { CopyButton } from '@/ui/CopyButton';
 import { DEFAULT_MAX_TOTAL } from '@/modules/translation';
-import { MonthlyUsageCard } from '@/ui/MonthlyUsageCard';
-import { UsageNotice } from '@/ui/UsageNotice';
-import { useUsage } from '@/ui/usage-client';
 
 const SIDEBAR_KEY = 'sidebar:current';
 
@@ -34,7 +31,6 @@ export function SidePanel({ topBar }: { topBar?: ReactNode } = {}) {
   const { settings: s, loaded } = useSettings('sidebar');
   const [tab, setTab] = useState<SidebarTab>('translation');
   const [compact, setCompact] = useState(false);
-  const { snap: usageSnap } = useUsage();
   const [entry, setEntry] = useState<Entry | null>(null);
   // the pages the user came from (a word tapped inside a sentence analysis): "Quay lại" returns to the previous one, not to the bubble list
   const [trail, setTrail] = useState<Entry[]>([]);
@@ -236,13 +232,6 @@ export function SidePanel({ topBar }: { topBar?: ReactNode } = {}) {
           </div>
         </form>
         <SidebarTabs value={tab} onChange={setTab} />
-        {/* Google (BYOK) translation: this month's usage + the warnings, the same card as in Settings and on the phone Home */}
-        {usageSnap?.settings.provider === 'google' && (
-          <div className="space-y-1.5 px-3 pb-2" data-ml-sidebar-usage="">
-            <UsageNotice snap={usageSnap} />
-            <MonthlyUsageCard snap={usageSnap} compact />
-          </div>
-        )}
       </header>
       <main className={cx('ml-scroll flex-1 px-3 py-3', crossfadeClass(`${tab}|${entry?.text ?? ''}|${ocr ? 1 : 0}`, fade.current))}>
         {tab === 'notes' ? (

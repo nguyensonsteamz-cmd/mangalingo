@@ -18,7 +18,6 @@ import { OcrService } from './ocr-service';
 import { SidebarState } from './sidebar';
 import { createRouter } from './router';
 import { UsageService } from '@/modules/usage';
-import { WebCryptoSecretStore, idbKeyStorage } from '@/modules/smart-setup/secrets';
 
 const kv = chromeLocal();
 const settings = new SettingsStore(kv);
@@ -109,8 +108,7 @@ function openSidePanel(tab: { id?: number; windowId?: number; url?: string }): P
   return Promise.reject(new Error('Không xác định được tab để mở sidebar.'));
 }
 
-// the API key lives only as AES-GCM ciphertext; the (non-extractable) key is in IndexedDB
-const usage = new UsageService(chromeLocal(), { secrets: new WebCryptoSecretStore(chromeLocal(), idbKeyStorage()) });
+const usage = new UsageService(chromeLocal());
 
 const route = createRouter({
   usage,

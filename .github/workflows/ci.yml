@@ -27,19 +27,18 @@ jobs:
         run: npm run typecheck
       - name: Unit tests (generates the dictionary data first)
         run: npm test
-      - name: Production audit (runtime dependencies only; the bundled model runtime is a dev/build dependency)
+      - name: Production audit (runtime dependencies only)
         run: npm audit --omit=dev --audit-level=high
       - name: Build the Chrome extension
         env:
           LINGOLENS_EXTENSION_PUBLIC_KEY: ${{ vars.LINGOLENS_EXTENSION_PUBLIC_KEY }}
-          LINGOLENS_OAUTH_CHROME_CLIENT_ID: ${{ vars.LINGOLENS_OAUTH_CHROME_CLIENT_ID }}
         run: npm run build
-      - name: Check the extension bundle (no remote code, runtime + notices present, model NOT bundled)
+      - name: Check the extension bundle (no Google Cloud, no sign-in permission, no downloaded model runtime)
         run: |
-          test -f dist/vendor/ort/ort-wasm-simd-threaded.wasm
-          test -f dist/licenses/OPUS-MT-NOTICE.txt
+          test ! -d dist/vendor/ort
           ! find dist -name '*.onnx' | grep -q .
-          ! grep -rl "cdn.jsdelivr.net/npm/onnxruntime" dist/vendor 2>/dev/null
+          ! grep -q '"identity"' dist/manifest.json
+          ! grep -rl 'translation.googleapis.com' dist --include='*.js' | grep -q .
           du -sh dist
       - uses: actions/upload-artifact@v4
         with:

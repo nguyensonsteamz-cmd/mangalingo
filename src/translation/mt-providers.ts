@@ -1,7 +1,7 @@
 /**
  * The app's translation providers as MtProviders + the registry that selects between them (see docs/MT_ENGINE_PROVIDER_REGISTRY.md).
  *  - native   : the platform translator (Chrome Translator API / Apple Translation / ML Kit) – unchanged code, wrapped
- *  - google   : the user's own Google Cloud key (BYOK) – goes through the quota guard, selected by the existing usage settings
+ *  - google-web : Google Translate (web, unofficial, no key) – only when the user selected it in the settings
  * Selection (registry.select) never sends text to a cloud provider unless the user selected it, and never falls back from a
  * local provider to a cloud one.
  */
@@ -55,24 +55,6 @@ export function nativeProvider(platform: Platform = currentPlatform()): MtProvid
   };
 }
 
-/** Google Cloud Translation with the user's own key. All requests go through the usage / cost guard in the router. */
-export function googleProvider(): MtProvider {
-  return {
-    id: 'google-v2',
-    kind: 'cloud-byok',
-    label: 'Google Cloud Translation (khóa của bạn)',
-    capabilities: { pairs: [EN_VI, VI_EN], platforms: ['chrome', 'android', 'ios'], local: false, metered: true, cancellable: false, streaming: false, needsDownload: false },
-    limits: { targetChars: PROVIDER_LIMITS['google-v2'].targetChars, maxChars: PROVIDER_LIMITS['google-v2'].maxChars },
-    availability: async () => (((await googleMode()) === 'google' ? 'available' : 'unavailable') as Availability),
-    translate: async (req) => {
-      const r = await send({ type: 'usage:translate', text: req.text, idempotencyKey: req.idempotencyKey, keepBreaks: req.keepBreaks, ...(req.pair.source === 'vi' ? { languagePair: 'vi>en' } : {}) });
-      if (r.source === 'google') return { text: r.text, providerId: 'google-v2', pair: req.pair, chars: r.chars };
-      if (r.source === 'blocked') throw new MtError('blocked', r.decision.message, { providerId: 'google-v2', fatal: true, detail: r.decision });
-      throw new MtError('unavailable', 'Google Cloud chưa được bật.', { providerId: 'google-v2' });
-    },
-  };
-}
-
 /**
  * Google Translate web (UNOFFICIAL): no API key, no Google Cloud project, no billing. Text is sent from the device straight to
  * Google; Google can block or change it at any time (errors: see src/modules/usage/google-web.ts). Opt-in: used only when the user
@@ -98,7 +80,7 @@ let registry: ProviderRegistry | null = null;
 /** Registry with every provider of this platform. Selection never sends text to a cloud provider unless the user chose it. */
 export function getRegistry(): ProviderRegistry {
   if (!registry) {
-    registry = new ProviderRegistry().register(googleProvider(), 1).register(googleWebProvider(), 2).register(nativeProvider(), 10);
+    registry = new ProviderRegistry().register(googleWebProvider(), 2).register(nativeProvider(), 10);
   }
   return registry;
 }
@@ -130,7 +112,6 @@ export async function resolveDevice(pair: LanguagePair = EN_VI): Promise<DeviceR
 export async function describeActive(pair: LanguagePair = EN_VI): Promise<{ id: string; label: string; local: boolean }> {
   const mode = await googleMode();
   if (mode === 'google-web') return { id: 'google-web', label: googleWebProvider().label, local: false };
-  if (mode === 'google') return { id: 'google-v2', label: googleProvider().label, local: false };
   try {
     const r = await resolveDevice(pair);
     return { id: r.provider.id, label: r.provider.label + (pair.source === 'vi' ? ' · Việt → Anh' : ''), local: true };

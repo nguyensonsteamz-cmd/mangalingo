@@ -7,7 +7,7 @@
  *  - Apple Translation / ML Kit: no published per-call limit → conservative size
  * Every value is configurable through the options of the runner; these are the defaults.
  */
-export type ProviderId = 'google-v2' | 'google-web' | 'device-chrome' | 'device-apple' | 'device-mlkit' | 'device';
+export type ProviderId = 'google-web' | 'device-chrome' | 'device-apple' | 'device-mlkit' | 'device';
 
 export interface ProviderLimits {
   /** preferred chunk size (code points) */
@@ -24,7 +24,6 @@ export interface ProviderLimits {
 }
 
 export const PROVIDER_LIMITS: Record<ProviderId, ProviderLimits> = {
-  'google-v2': { targetChars: 4800, maxChars: 5000, maxBytes: 90_000, concurrency: 2, metered: true, label: 'Google Cloud Translation (BYOK)' },
   // Google Translate web (unofficial, GET: the text travels in the URL): small chunks, ONE request at a time, never billed; there is NO documented quota
   'google-web': { targetChars: 1200, maxChars: 1500, maxBytes: 3000, concurrency: 1, metered: false, label: 'Google Dịch (web, không chính thức)' },
   'device-chrome': { targetChars: 4500, maxChars: 5000, maxBytes: 200_000, concurrency: 1, metered: false, label: 'Chrome Translator (trên thiết bị)' },

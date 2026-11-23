@@ -13,7 +13,6 @@ import { chromeLocal } from '@/storage/kv';
 import { SettingsStore } from '@/storage/settings-store';
 import { UserDictProvider } from '@/storage/user-dict';
 import { UsageService } from '@/modules/usage';
-import { createMobileSecretStore } from './setup-native';
 
 const settings = new SettingsStore(chromeLocal());
 
@@ -30,8 +29,7 @@ const broadcast = async (e: PageEvent) => {
 };
 
 const route = createRouter({
-  // the API key lives in the Keychain (iPhone) / Android Keystore, never in plain storage
-  usage: new UsageService(chromeLocal(), { secrets: createMobileSecretStore(chromeLocal()) }),
+  usage: new UsageService(chromeLocal()),
   lookup: async (req) => {
     if (!req.assumeEnglish) {
       const s = await settings.load();

@@ -76,25 +76,10 @@ export function createRouter(d: RouterDeps) {
       return true;
     },
     'usage:snapshot': () => d.usage.snapshot(),
-    'usage:set-account': (m) => d.usage.setAccountUsage(m.chars, m.month, m.credentialId),
     'usage:settings': async (m) => {
       if (m.patch) await d.usage.updateSettings(m.patch);
-      if (m.apiKey !== undefined) await d.usage.setApiKey(m.apiKey);
       return d.usage.snapshot();
     },
-    'usage:authorize': async (m) => {
-      await d.usage.setPaidAuthorized(!!m.enable);
-      return d.usage.snapshot();
-    },
-    'usage:activate': async (m) => {
-      await d.usage.activateGoogle(String(m.key ?? ''), m.credential);
-      return d.usage.snapshot();
-    },
-    'usage:deactivate': async () => {
-      await d.usage.deactivateGoogle();
-      return d.usage.snapshot();
-    },
-    'usage:validate-saved': () => d.usage.validateSaved(),
     'usage:clear-history': async () => {
       await d.usage.clearHistory();
       return true;

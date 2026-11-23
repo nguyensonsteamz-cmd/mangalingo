@@ -116,18 +116,14 @@ try {
     return `id ${extId}`;
   });
 
-  await step('First use: the sign-in gate blocks a fresh install (Settings page), explains that Google sign-in is not configured in this build, and lets the user continue temporarily', async () => {
+  await step('First use: a fresh install opens Settings straight away: no Google sign-in gate, no account, no key', async () => {
     const { targetId: gid } = await browser.send('Target.createTarget', { url: `chrome-extension://${extId}/options/index.html` });
     const gp = await attach(browser, gid);
     await gp.send('Runtime.enable');
-    const txt = await waitFor(() => gp.evaluate(`document.querySelector('[data-ml-auth-gate]')?.innerText ?? null`), { label: 'sign-in gate' });
-    assert(/Đăng nhập tài khoản Google/.test(txt), 'welcome text: ' + txt.slice(0, 120));
-    await waitFor(() => gp.evaluate(`!!document.querySelector('[data-ml-auth-skip]')`), { label: 'not-configured notice with the temporary continue button' });
-    assert(await gp.evaluate(`!document.querySelector('[data-ml-setup-section], [data-ml-usage-section]')`), 'settings must be hidden behind the gate');
-    await gp.evaluate(`document.querySelector('[data-ml-auth-skip]').click()`);
-    await waitFor(() => gp.evaluate(`!document.querySelector('[data-ml-auth-gate]') && !!document.body.innerText.includes('Settings Center')`), { label: 'settings after continuing' });
-    const rec = await sw.evaluate(`chrome.storage.local.get('auth:v1').then((r) => r['auth:v1'])`);
-    assert(rec?.skipped === true, 'auth record stored: ' + JSON.stringify(rec));
+    await waitFor(() => gp.evaluate(`document.body.innerText.includes('Settings Center')`), { label: 'settings render without any sign-in' });
+    assert(await gp.evaluate(`!document.querySelector('[data-ml-auth-gate]') && !/Đăng nhập/.test(document.body.innerText)`), 'no sign-in gate or sign-in text');
+    const rec = await sw.evaluate(`chrome.storage.local.get('auth:v1').then((r) => r['auth:v1'] ?? null)`);
+    assert(rec === null, 'no auth record is stored: ' + JSON.stringify(rec));
     await browser.send('Target.closeTarget', { targetId: gid });
   });
 
@@ -794,75 +790,40 @@ try {
     return 'theme light → persisted → reset to dark (sites cleared)';
   });
 
-  await step('Settings → Hạn mức dịch: dashboard, paid translation off by default, quota settings persist, device default is never metered', async () => {
+  await step('Settings → Nguồn dịch: two sources only (on-device default, Google Dịch web); no API key, billing or quota anywhere; choice persists', async () => {
     await opt.evaluate(`location.hash = 'usage'`);
     const txt = await waitFor(() => opt.evaluate(`document.querySelector('[data-ml-usage-section]')?.innerText ?? null`), { label: 'usage section' });
-    assert(txt.includes('Hạn mức dịch') && txt.includes('500.000'), 'free quota 500,000 shown');
-    assert(txt.includes('KHÔNG phải dữ liệu thanh toán của Google Cloud'), 'local-estimate disclaimer shown');
+    assert(txt.includes('Nguồn dịch') && txt.includes('Google Dịch (web)') && txt.includes('Trên máy'), 'both sources offered');
+    assert(!/Dán khoá|Khoá API Google|Billing|hạn mức miễn phí|500\.000|Smart Setup/i.test(txt), 'no key / billing / quota wording: ' + txt.slice(0, 200));
+    assert(await opt.evaluate(`!document.querySelector('[data-ml-usage-key]') && !document.querySelector('[data-ml-usage-input]')`), 'no key or quota fields');
     const resp = await opt.evaluate(`chrome.runtime.sendMessage({ type: 'usage:snapshot' })`);
-    assert(resp.ok && resp.data.settings.provider === 'device' && resp.data.settings.paidEnabled === false, 'defaults: on-device, paid translation off');
+    assert(resp.ok && resp.data.settings.provider === 'device', 'default: on-device');
+    assert(!('hasKey' in resp.data) && !('freeQuota' in resp.data), 'no key / quota in the snapshot');
     const dev = await opt.evaluate(`chrome.runtime.sendMessage({ type: 'usage:translate', text: 'hello' })`);
-    assert(dev.ok && dev.data.source === 'device', 'on-device translation is not routed to Google');
-    // change the free quota through the UI field and see it persist
-    await opt.evaluate(`(() => { const i = document.querySelector('[data-ml-usage-input="free"]'); i.focus(); const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; set.call(i, '123456'); i.dispatchEvent(new Event('input', { bubbles: true })); i.blur(); })()`);
-    await waitFor(() => sw.evaluate(`chrome.storage.local.get('usage:settings:v1').then(r => r['usage:settings:v1']?.freeQuotaChars === 123456)`), { label: 'quota saved' });
-    await opt.evaluate(`chrome.runtime.sendMessage({ type: 'usage:settings', patch: { freeQuotaChars: 500000 } })`);
+    assert(dev.ok && dev.data.source === 'device', 'on-device translation sends nothing to Google');
+    // choosing Google Dịch (web) through the UI persists; the note about the unofficial service is shown. NO translation is requested here: nothing is sent to Google.
+    await opt.evaluate(`[...document.querySelectorAll('button')].find((b) => b.textContent === 'Google Dịch (web)').click()`);
+    await waitFor(() => sw.evaluate(`chrome.storage.local.get('usage:settings:v1').then((r) => r['usage:settings:v1']?.provider === 'google-web')`), { label: 'provider saved' });
+    const note = await waitFor(() => opt.evaluate(`document.querySelector('[data-ml-usage-web-note]')?.innerText ?? null`), { label: 'web note' });
+    assert(/không có hạn mức hay hoá đơn chính thức/.test(note), 'unofficial-service note shown');
+    await opt.evaluate(`chrome.runtime.sendMessage({ type: 'usage:settings', patch: { provider: 'device' } })`);
     await opt.evaluate(`chrome.runtime.sendMessage({ type: 'usage:reset' })`);
     await opt.evaluate(`location.hash = 'appearance'`);
   });
 
-  await step('Switching to Google Cloud without a key tells the user to finish the set-up (and offers the key field); the notice disappears once a key exists', async () => {
-    await opt.evaluate(`location.hash = 'usage'`);
-    await waitFor(() => opt.evaluate(`!!document.querySelector('[data-ml-usage-section]')`), { label: 'usage section' });
-    assert(await opt.evaluate(`!document.querySelector('[data-ml-usage-setup-needed]')`), 'no notice while on-device');
-    await opt.evaluate(`chrome.runtime.sendMessage({ type: 'usage:settings', patch: { provider: 'google' } })`);
-    const t = await waitFor(() => opt.evaluate(`document.querySelector('[data-ml-usage-setup-needed]')?.innerText ?? null`), { label: 'set-up notice' });
-    assert(/hoàn tất thiết lập/i.test(t), 'notice text: ' + t.slice(0, 100));
-    assert(await opt.evaluate(`!!document.querySelector('[data-ml-usage-key]')`), 'the key field is offered');
-    await opt.evaluate(`chrome.runtime.sendMessage({ type: 'usage:settings', patch: { provider: 'device' } })`);
-    await waitFor(() => opt.evaluate(`!document.querySelector('[data-ml-usage-setup-needed]')`), { label: 'notice gone' });
-    await opt.evaluate(`location.hash = 'appearance'`);
-  });
-
-  await step('Settings: the downloaded OPUS-MT model is NOT offered (product decision: Google Cloud first, Chrome Translator second); default provider unchanged', async () => {
-    await opt.evaluate(`location.hash = 'usage'`);
-    await waitFor(() => opt.evaluate(`!!document.querySelector('[data-ml-usage-section]')`), { label: 'usage section' });
-    assert(await opt.evaluate(`!document.querySelector('[data-ml-local-section]')`), 'local model card must not be shown');
-    const prefs = await sw.evaluate(`chrome.storage.local.get('mt.prefs').then((r) => r['mt.prefs'] ?? null)`);
-    assert(!prefs || prefs.preferred !== 'local', 'default provider unchanged');
-    await opt.evaluate(`location.hash = 'appearance'`);
-  });
-
-  await step('Smart Setup (Chrome): section + connect screen render, "not configured" without an OAuth client id, API key stored ENCRYPTED (no plaintext)', async () => {
-    const perms = await sw.evaluate(`chrome.runtime.getManifest().permissions.includes('identity') && !chrome.runtime.getManifest().oauth2`);
-    assert(perms, 'manifest: identity permission, no oauth2 block without a client id');
-    await opt.evaluate(`location.hash = 'setup'`);
-    const txt = await waitFor(() => opt.evaluate(`document.querySelector('[data-ml-setup-section]')?.innerText ?? null`), { label: 'smart setup section' });
-    assert(txt.includes('Lingolens Smart Setup') && txt.includes('Lingolens không làm việc đó thay bạn'), 'intro screen: Billing is the user’s job');
-    await opt.evaluate(`document.querySelector('[data-ml-setup-start]').click()`);
-    const c = await waitFor(() => opt.evaluate(`document.querySelector('[data-ml-setup-connect]') ? document.querySelector('[data-ml-setup-section]').innerText : null`), { label: 'connect screen' });
-    assert(/chưa được cấu hình đăng nhập Google/.test(c), 'not-configured notice');
-    assert(await opt.evaluate(`document.querySelector('[data-ml-setup-connect]').disabled`), 'connect button disabled without a client id');
-    assert(/cloud-platform/.test(c) && /Không truy cập Gmail/.test(c), 'permissions are listed');
-    // the API key goes to the secure store
-    const KEY = 'AIza' + 's'.repeat(35);
-    const r = await opt.evaluate(`chrome.runtime.sendMessage({ type: 'usage:settings', apiKey: ${JSON.stringify(KEY)} })`);
-    assert(r.ok && r.data.hasKey && r.data.keyHint === 'ssss', 'key saved, only the last 4 characters exposed');
-    const stored = await sw.evaluate(`chrome.storage.local.get(null).then((all) => ({ plain: JSON.stringify(all).includes(${JSON.stringify(KEY)}), sealed: !!all['secret:translate-api-key'], legacy: 'usage:apikey:v1' in all }))`);
-    assert(!stored.plain && stored.sealed && !stored.legacy, `key must be ciphertext only: ${JSON.stringify(stored)}`);
-    // a plaintext key left by an old version is migrated
-    await sw.evaluate(`chrome.storage.local.remove('secret:translate-api-key').then(() => chrome.storage.local.set({ 'usage:apikey:v1': ${JSON.stringify(KEY)} }))`);
-    await opt.evaluate(`chrome.runtime.sendMessage({ type: 'usage:activate', key: ${JSON.stringify(KEY)} })`);
-    const migrated = await sw.evaluate(`chrome.storage.local.get(null).then((all) => !JSON.stringify(all).includes(${JSON.stringify(KEY)}) && !!all['secret:translate-api-key'])`);
-    assert(migrated, 'plaintext copy removed');
-    await opt.evaluate(`chrome.runtime.sendMessage({ type: 'usage:deactivate' })`);
-    const gone = await sw.evaluate(`chrome.storage.local.get(null).then((all) => !all['secret:translate-api-key'] && !('usage:apikey:v1' in all))`);
-    assert(gone, 'disconnect removes the key');
-    const snap = await opt.evaluate(`chrome.runtime.sendMessage({ type: 'usage:snapshot' })`);
-    assert(snap.data.settings.provider === 'device', 'back to on-device translation');
-    await opt.evaluate(`location.hash = 'account'`);
-    const acc = await waitFor(() => opt.evaluate(`document.querySelector('[data-ml-account-empty]') ? document.querySelector('[data-ml-account-section]').innerText : null`), { label: 'account section (not connected)' });
-    assert(/Chưa kết nối tài khoản Google Cloud/.test(acc) && /không có tài khoản riêng/.test(acc), 'account page: not connected + no Lingolens account system');
+  await step('Google Cloud, Smart Setup, the downloaded OPUS-MT model and the Google sign-in gate are gone: no such sections, no identity permission, an old stored Google provider loads as on-device', async () => {
+    const perms = await sw.evaluate(`(() => { const m = chrome.runtime.getManifest(); return !m.permissions.includes('identity') && !m.oauth2; })()`);
+    assert(perms, 'manifest: no identity permission, no oauth2 block');
+    // an old stored provider 'google' (retired) loads as on-device (the purge of the old key / sign-in record runs at start-up: unit-tested)
+    await sw.evaluate('chrome.storage.local.set({ "usage:settings:v1": { provider: "google", freeQuotaChars: 1 } })');
+    const snap = await opt.evaluate('chrome.runtime.sendMessage({ type: "usage:snapshot" })');
+    assert(snap.ok && snap.data.settings.provider === 'device', 'a stored "google" provider loads as on-device');
+    for (const sec of ['setup', 'billing', 'account']) {
+      await opt.evaluate(`location.hash = '${sec}'`);
+      const shown = await opt.evaluate(`new Promise((r) => setTimeout(() => r(!!document.querySelector('[data-ml-setup-section], [data-ml-account-section]') || /Smart Setup|Billing/.test(document.body.innerText)), 400))`);
+      assert(!shown, `section "${sec}" must not exist`);
+    }
+    assert(await opt.evaluate(`!document.querySelector('[data-ml-local-section]')`), 'no downloaded-model card');
     await opt.evaluate(`location.hash = 'appearance'`);
   });
 
@@ -961,7 +922,6 @@ try {
       const swT = await waitFor(async () => (await b2.send('Target.getTargets')).targetInfos.find((x) => x.type === 'service_worker' && x.url.startsWith(`chrome-extension://${id2}/`)), { label: 'worker' });
       const sw2 = await attach(b2, swT.targetId);
       await sw2.send('Runtime.enable');
-      await sw2.evaluate(`chrome.storage.local.set({ 'auth:v1': { skipped: true } })`); // a fresh profile would show the sign-in gate (covered by its own step)
       await sleep(500);
       const tab = await attach(b2, oldTabId, { world: 'LingoLens' });
       await tab.send('Runtime.enable');

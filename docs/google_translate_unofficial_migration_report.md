@@ -123,3 +123,31 @@ npm run build                       # then load dist\ in chrome://extensions (De
 npm run e2e                         # real Chrome, default mode
 ```
 In the extension: *Options → Hạn mức dịch → Dịch bằng → Google Dịch (web)*, then translate a sentence. Expected: either a Vietnamese translation (then the provider works from your network) or the message "Google Dịch tạm thời không dùng được…" (blocked: wait, do not retry repeatedly). Statistics appear under "Mức dùng tháng này".
+
+---
+
+## Cập nhật 2026-11-23: Google Cloud và OPUS-MT đã được gỡ hẳn
+
+Theo yêu cầu "bỏ mô hình OPUS và Google, Google Dịch thay thế cho Google":
+
+- **OPUS-MT (mô hình tải về)** đã xoá: `src/modules/mt/local`, giao diện tải mô hình, router/offscreen, thư viện `@huggingface/transformers`, runtime ONNX, job `simulator-probe` của iOS (chỉ kiểm tra mô hình đó), các test và script liên quan. Bản build extension giảm từ 47,6 MB còn 36,3 MB.
+- **Google Cloud Translation** đã xoá: client `google.ts`, Smart Setup (OAuth, Cloud Console, tạo khoá), lưu khoá, hạn mức miễn phí / tính phí / chặn khi vượt hạn mức, màn Billing và Tài khoản, cổng **đăng nhập Google bắt buộc** (AuthGate), quyền `identity` và khối `oauth2` của manifest.
+- Còn lại **hai nguồn dịch**: trên máy (Chrome Translator / Apple Translation / ML Kit, mặc định) và Google Dịch (web, không chính thức). Cài đặt → **Nguồn dịch** chỉ còn lựa chọn này và bộ đếm cục bộ.
+- Dữ liệu cũ được dọn: khoá API, id credential, bản ghi đăng nhập, mục bí mật của khoá cũ bị xoá khi service khởi động; provider cũ `google` được đọc thành "trên máy" (không bao giờ gửi văn bản đi bất ngờ).
+- Khi Google Dịch (web) bị chặn, ứng dụng **không tự chuyển** sang nguồn khác: hiện lỗi rõ ràng, người dùng tự chọn lại "Trên máy".
+
+### Kiểm tra sau khi gỡ (2026-11-23)
+
+| Hạng mục | Kết quả |
+|---|---|
+| `tsc --noEmit` | sạch |
+| `vitest run` | **310 pass / 24 file** (các test của Cloud, Smart Setup, đăng nhập, hạn mức, OPUS-MT được xoá hoặc viết lại cho Google Dịch web) |
+| `npm run build`, `build:mobile`, `build:ios-web` | OK; bundle không còn `translation.googleapis.com`, `opus`, `onnx`; manifest không còn `identity` |
+| `npm run e2e` (Chrome thật) | **46–48/48 tuỳ lần chạy**; chỉ các bước dùng chuột thật / chụp tab (kéo popup, kéo viền bong bóng, chụp `captureVisibleTab`, "Tắt bong bóng") thay đổi giữa các lần, hai bước đó không liên quan đến phần dịch; các bước về Nguồn dịch, cổng đăng nhập đã gỡ, manifest đều pass. Trước khi gỡ: 50/50. **Chưa phân biệt được flaky hay hồi quy** |
+| Android Gradle, iOS Xcode | **chưa chạy** (không có toolchain; chờ CI) |
+
+### Còn sót (cố ý, chưa xoá)
+
+- Mã native chỉ còn là code chết: `android/.../GoogleAuth.kt`, `SecretVault.kt`, intent-filter `oauth2redirect` + biến `LINGOLENS_OAUTH_ANDROID_CLIENT_ID` trong `build.gradle.kts`, `ios/MangaLingo/Setup/*`, các hàm cầu nối `secret*`/`oauth*` trong `src/mobile/native.ts`. Không xoá vì không thể biên dịch Android/iOS trên máy này; nên gỡ sau khi CI biên dịch được.
+- Các loại `cloud-byok` / `local-model` trong `src/modules/mt` là phần tổng quát của registry (còn dùng trong test), không còn provider nào dùng.
+- Tài liệu lịch sử `MT_ENGINE_*`, `TRANSLATION_*` được gắn banner "đã gỡ", không viết lại.

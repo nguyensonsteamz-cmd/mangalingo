@@ -7,7 +7,7 @@ không gửi dữ liệu ra ngoài, không dùng API trả phí.
 > **Dictionary Mode (mặc định).** Với câu và đoạn văn, LingoLens ghép nghĩa theo từng cụm từ dựa trên dữ liệu
 > từ điển, đánh dấu rõ phần nào chưa có dữ liệu, và phân tích ngữ pháp theo quy tắc.
 >
-> **Google Dịch (web, tuỳ chọn).** Cài đặt → Hạn mức dịch → *Google Dịch (web)*: dịch bằng Google không cần khoá API, không cần Google Cloud, không phát sinh phí. Không phải API chính thức của Google — có thể bị giới hạn/chặn; xem [docs/google_translate_unofficial_migration_report.md](docs/google_translate_unofficial_migration_report.md) và [docs/PRIVACY.md](docs/PRIVACY.md). Khoá Google Cloud riêng vẫn là tuỳ chọn nâng cao.
+> **Google Dịch (web, tuỳ chọn).** Cài đặt → Nguồn dịch → *Google Dịch (web)*: dịch bằng Google không cần khoá API, tài khoản hay thanh toán. Không phải API chính thức của Google — có thể bị giới hạn/chặn; xem [docs/google_translate_unofficial_migration_report.md](docs/google_translate_unofficial_migration_report.md) và [docs/PRIVACY.md](docs/PRIVACY.md). **Google Cloud Translation (khoá API, Smart Setup, đăng nhập Google) và mô hình OPUS-MT tải về đã được gỡ.** Hai nguồn dịch: trên máy (mặc định) và Google Dịch (web).
 >
 > **Bản dịch máy (mặc định).** Câu/đoạn/bong bóng OCR có thêm bản dịch tự nhiên Anh → Việt bằng Translator API
 > dịch trên máy của Chrome 138+ (mô hình do Chrome tải một lần từ Google ở lần click đầu tiên). Áp dụng cho mọi

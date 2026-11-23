@@ -1,76 +1,36 @@
 import { firstOfNextMonth, resetInstant } from './calendar';
 import { emptyLedger, ledgerKey } from './UsageRepository';
-import type { MonthlyUsage, RequestLogEntry, UsageSettings, UsageSnapshot, UsageState, WarningLevel } from './types';
+import type { MonthlyUsage, RequestLogEntry, UsageSettings, UsageSnapshot, UsageState } from './types';
 
 export interface Active {
   provider: string;
-  credentialId: string;
   languagePair?: string;
 }
 
-/** Counting and estimates. Everything here is a LOCAL estimate, not Google Cloud Billing data. */
-/** Characters used this month: Google's figure for the whole account when it was read, plus what this device added since; else the local count. */
-export function effectiveChars(m: { chars: number; accountChars?: number; accountLocalAt?: number }): number {
-  if (m.accountChars === undefined) return m.chars;
-  return m.accountChars + Math.max(0, m.chars - (m.accountLocalAt ?? 0));
-}
-
+/** Counting only: there is no quota, price or bill to estimate for the providers LingoLens uses. */
 export class UsageMeter {
-  /** Warning level from the share of the quota used: 80 % approaching, 90 % high usage, 100 % reached (all configurable). */
-  levelOf(usedChars: number, s: UsageSettings): WarningLevel {
-    const at = (r: number) => usedChars >= Math.round(s.freeQuotaChars * r);
-    if (at(s.hardStopRatio)) return 'blocked';
-    if (at(s.criticalRatio)) return 'critical';
-    if (at(s.warnRatio)) return 'notice';
-    return 'ok';
-  }
-
-  costOf(billableChars: number, s: UsageSettings): number {
-    return (billableChars / 1_000_000) * s.pricePerMillionUsd;
-  }
-
   ledger(state: UsageState, a: Active): MonthlyUsage {
-    const k = ledgerKey(a.provider, a.credentialId);
-    return (state.ledgers[k] ??= emptyLedger(state.month, a.provider, a.credentialId, a.languagePair));
+    const k = ledgerKey(a.provider);
+    return (state.ledgers[k] ??= emptyLedger(state.month, a.provider, a.languagePair));
   }
 
-  snapshot(state: UsageState, s: UsageSettings, key: string, now: Date, a: Active): UsageSnapshot {
-    const m = state.ledgers[ledgerKey(a.provider, a.credentialId)] ?? emptyLedger(state.month, a.provider, a.credentialId, a.languagePair);
-    const used = effectiveChars(m);
-    const web = a.provider === 'google-web'; // Google web: no free quota, no billing exists
-    const billable = Math.max(0, used - s.freeQuotaChars);
+  snapshot(state: UsageState, s: UsageSettings, now: Date, a: Active): UsageSnapshot {
+    const m = state.ledgers[ledgerKey(a.provider)] ?? emptyLedger(state.month, a.provider, a.languagePair);
     const nextReset = firstOfNextMonth(now);
     return {
       settings: s,
       provider: a.provider,
-      credentialId: a.credentialId,
-      mode: 'byok',
       languagePair: m.languagePair,
       month: state.month,
       lastReset: state.lastReset,
       nextReset,
       nextResetAt: resetInstant(nextReset),
-      usedChars: used,
-      accountChars: m.accountChars,
-      accountAt: m.accountAt,
-      freeQuota: s.freeQuotaChars,
-      remainingFree: Math.max(0, s.freeQuotaChars - used),
-      ratio: used / s.freeQuotaChars,
-      billableChars: web ? 0 : billable,
-      estimatedCostUsd: web ? 0 : this.costOf(billable, s),
-      // reliable only for a metered provider (Google BYOK) with a configured price; never for on-device providers
-      costReliable: a.provider === 'google-v2' && s.pricePerMillionUsd > 0,
+      usedChars: m.chars,
       operations: m.operations,
       requests: m.requests,
       cachedRequests: m.cachedRequests,
       cachedChars: m.cachedChars,
       failedRequests: m.failedRequests,
-      paidChars: m.paidChars,
-      paidRequests: m.paidRequests,
-      paidRequestsToday: state.day.paidRequests,
-      level: a.provider === 'google-web' ? 'ok' : this.levelOf(m.chars, s),
-      hasKey: !!key,
-      keyHint: key ? key.slice(-4) : '',
       ledgers: Object.values(state.ledgers),
       history: state.history,
       log: state.log,
@@ -85,24 +45,16 @@ export class UsageMeter {
     return !!key && state.committed.includes(key);
   }
 
-  /**
-   * A request that SUCCEEDED: its source characters count, exactly once. With an idempotency key already committed nothing is
-   * added (a retry of a chunk that was already counted).
-   */
-  commit(state: UsageState, a: Active, chars: number, billableChars: number, key: string | undefined, now: Date): boolean {
+  /** A request that SUCCEEDED: its source characters count, exactly once (an idempotency key already committed adds nothing). */
+  commit(state: UsageState, a: Active, chars: number, key: string | undefined, now: Date): boolean {
     if (this.isCommitted(state, key)) return false;
     const m = this.ledger(state, a);
     m.chars += chars;
     m.requests += 1;
-    if (billableChars > 0) {
-      m.paidChars += billableChars;
-      m.paidRequests += 1;
-      state.day.paidRequests += 1;
-    }
     m.firstAt ||= now.getTime();
     m.lastAt = now.getTime();
     if (key) state.committed.unshift(key);
-    this.log(state, { chars, kind: 'success', provider: a.provider, paid: billableChars > 0 }, now);
+    this.log(state, { chars, kind: 'success', provider: a.provider }, now);
     return true;
   }
 
@@ -115,7 +67,7 @@ export class UsageMeter {
     return true;
   }
 
-  /** A cache hit is not new API usage. */
+  /** A cache hit is not a new request. */
   recordCached(state: UsageState, a: Active, chars: number, now: Date) {
     const m = this.ledger(state, a);
     m.cachedRequests += 1;
@@ -127,9 +79,5 @@ export class UsageMeter {
   recordFailed(state: UsageState, a: Active, chars: number, now: Date) {
     this.ledger(state, a).failedRequests += 1;
     this.log(state, { chars, kind: 'failed', provider: a.provider }, now);
-  }
-
-  recordBlocked(state: UsageState, a: Active, chars: number, now: Date) {
-    this.log(state, { chars, kind: 'blocked', provider: a.provider }, now);
   }
 }

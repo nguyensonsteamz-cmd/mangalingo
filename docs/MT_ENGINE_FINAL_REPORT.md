@@ -1,5 +1,8 @@
 # MT engine – final report (commit / push / CI pass)
 
+> **Lịch sử / Historical (2026-11-23):** Google Cloud Translation (khoá API, Smart Setup, đăng nhập Google, hạn mức, thanh toán) và mô hình OPUS-MT tải về đã được **gỡ khỏi LingoLens**. Nguồn dịch hiện có: dịch trên máy (mặc định) và Google Dịch (web, không chính thức). Nội dung bên dưới chỉ còn giá trị lịch sử. Xem [google_translate_unofficial_migration_report.md](google_translate_unofficial_migration_report.md).
+
+
 ## A. Executive summary
 **READY WITH LIMITATIONS — not ready for a store release.**
 * **Done and green:** code committed and pushed to `origin/master`; GitHub Actions green on Ubuntu (typecheck, 392 unit tests, production audit, extension build, Android debug / release / AAB) and macOS (typecheck, tests, **Swift compile**, unsigned IPA, **iOS simulator runtime probe**).
