@@ -1,6 +1,6 @@
 name: CI (extension + Android)
 
-# Runs on every push / pull request. No secrets are used; nothing is published or signed.
+# Runs on every push / pull request. No secrets are used; nothing is signed. Pushes to main also publish the extension zip and the debug APK as GitHub Releases.
 on:
   push:
   pull_request:
@@ -14,6 +14,8 @@ jobs:
     name: TypeScript · unit tests · extension build · audit
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    permissions:
+      contents: write # only to publish the extension zip as a GitHub Release (pushes to main)
     env:
       # the repository's .npmrc points the npm cache at drive D of the developer's Windows PC
       npm_config_cache: /tmp/lingolens-npm-cache
@@ -45,11 +47,28 @@ jobs:
           name: lingolens-extension
           path: dist
           retention-days: 14
+      # Only for pushes to main: the extension as a zip in a GitHub Release (public repository: downloadable without signing in).
+      - name: Publish the Chrome extension as a GitHub Release
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_NUMBER: ${{ github.run_number }}
+        run: |
+          SHORT="${GITHUB_SHA::7}"
+          (cd dist && zip -qr ../LingoLens-chrome.zip .)
+          SHA256=$(sha256sum LingoLens-chrome.zip | cut -d' ' -f1)
+          gh release create "chrome-${RUN_NUMBER}" LingoLens-chrome.zip \
+            --target "$GITHUB_SHA" \
+            --title "Chrome extension build ${RUN_NUMBER} (${SHORT})" \
+            --prerelease \
+            --notes "Unzip, then chrome://extensions → Developer mode → Load unpacked. Commit ${SHORT}. SHA-256: ${SHA256}."
 
   android:
     name: Android debug + release (unsigned) + AAB
     runs-on: ubuntu-latest
     timeout-minutes: 40
+    permissions:
+      contents: write # only to publish the debug APK as a GitHub Release (pushes to main)
     env:
       npm_config_cache: /tmp/lingolens-npm-cache
     steps:
@@ -84,3 +103,18 @@ jobs:
             android/app/build/outputs/apk/release/*.apk
             android/app/build/outputs/bundle/release/*.aab
           retention-days: 14
+      # Only for pushes to main: the debug APK as a GitHub Release (public repository: downloadable without signing in).
+      - name: Publish the debug APK as a GitHub Release
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_NUMBER: ${{ github.run_number }}
+        run: |
+          SHORT="${GITHUB_SHA::7}"
+          APK=$(ls android/app/build/outputs/apk/debug/*.apk | head -n 1)
+          SHA256=$(sha256sum "$APK" | cut -d' ' -f1)
+          gh release create "android-${RUN_NUMBER}" "$APK" \
+            --target "$GITHUB_SHA" \
+            --title "Android debug build ${RUN_NUMBER} (${SHORT})" \
+            --prerelease \
+            --notes "Debug-signed Android APK of commit ${SHORT}. SHA-256: ${SHA256}."

@@ -18,7 +18,7 @@ on:
       - '.github/workflows/ios.yml'
 
 permissions:
-  contents: read
+  contents: write # only to publish the IPA as a GitHub Release (no other write access is used)
 
 jobs:
   build:
@@ -71,3 +71,19 @@ jobs:
           name: LingoLens-ipa
           path: LingoLens.ipa
           retention-days: 30
+
+      # A Release keeps the IPA after a re-run and can be downloaded WITHOUT signing in (this repository is public).
+      # The IPA is unsigned and contains no secrets; install it with Sideloadly.
+      - name: Publish the IPA as a GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_NUMBER: ${{ github.run_number }}
+        run: |
+          TAG="ios-${RUN_NUMBER}"
+          SHORT="${GITHUB_SHA::7}"
+          SHA256=$(shasum -a 256 LingoLens.ipa | cut -d' ' -f1)
+          gh release create "$TAG" LingoLens.ipa \
+            --target "$GITHUB_SHA" \
+            --title "iOS build ${RUN_NUMBER} (${SHORT})" \
+            --prerelease \
+            --notes "Unsigned iOS build of commit ${SHORT}. SHA-256: ${SHA256}. Install with Sideloadly (free Apple ID: the app works for 7 days)."
