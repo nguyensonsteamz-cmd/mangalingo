@@ -8,6 +8,7 @@ import { useSettings } from '@/ui/hooks';
 import { cx } from '@/ui/components';
 import { IconGear, IconLogo, IconPanel } from '@/ui/icons';
 import { MtStatus } from '@/ui/MtStatus';
+import { ScanButtons } from '@/ui/ScanButtons';
 
 function useActiveTab() {
   const [tab, setTab] = useState<{ host: string | null; rawHost: string; windowId?: number; id?: number } | null>(null);
@@ -119,6 +120,9 @@ export function ActionPopup() {
           <IconGear size={16} /> Cài đặt
         </button>
       </div>
+
+      {/* OCR from the toolbar: only where LingoLens is switched on (it never touches other pages) */}
+      {on ? <ScanButtons onStarted={() => window.close()} /> : <div className="ml-glass-card rounded-2xl px-3 py-2 text-[12px] text-muted" data-ml-scan-off="">Bật LingoLens cho trang này để quét OCR (Quét ảnh / Chọn vùng quét).</div>}
 
       {s.reading.translationMode === 'machine' && (
         <div className="ml-glass-card rounded-2xl px-3 py-1">

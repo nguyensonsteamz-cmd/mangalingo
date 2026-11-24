@@ -2,7 +2,7 @@
  * Request router for messages arriving at the service worker. Pure dependency injection so it can
  * be integration-tested without Chrome.
  */
-import type { DictStats, Envelope, ImportReport, Request, ResponseMap } from '@/shared/messages';
+import type { DictStats, Envelope, ImportReport, Request, ResponseMap, ScanStartResult } from '@/shared/messages';
 import { MessageError } from '@/shared/messages';
 import type { LookupResult, OcrResult } from '@/shared/types';
 import type { SidebarState } from './sidebar';
@@ -19,6 +19,8 @@ export interface RouterDeps {
   /** Must be called synchronously inside the user-gesture turn. */
   openSidePanel(tab: { id?: number; windowId?: number; url?: string }): Promise<void>;
   openOptions(section?: string): Promise<void>;
+  /** Starts an OCR scan in the active tab (toolbar popup / sidebar buttons). Absent = not available (phone apps). */
+  startScan?(mode: 'image' | 'region'): Promise<ScanStartResult>;
   openShortcuts(): Promise<void>;
   dictStats(): Promise<DictStats>;
   dictImport(name: string, format: 'json' | 'csv', text: string): Promise<ImportReport>;
@@ -36,6 +38,7 @@ export function createRouter(d: RouterDeps) {
     'ocr:scan': (m, s) => d.scan(m.jobId, m.target, { id: s.tab?.id, windowId: s.tab?.windowId }),
     'ocr:cancel': (m) => d.cancelScan(m.jobId),
     'ocr:warmup': (m) => d.warmOcr(m.lang),
+    'scan:start': async (m) => (d.startScan ? d.startScan(m.mode === 'region' ? 'region' : 'image') : { ok: false, reason: 'unsupported' }),
     'ocr:clear-cache': () => d.clearOcrCache(),
     'sidebar:open': async (m, s) => {
       // Open first (keeps the user gesture), then deliver the payload.

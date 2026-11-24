@@ -227,6 +227,14 @@ try {
       await page.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: to.x, y: to.y, button: 'left', clickCount: 1 });
       await sleep(200);
     };
+    await sleep(900); // the popup may still grow while its translation arrives: measure only once it is stable
+    let prev = JSON.stringify(await rectOf());
+    for (let i = 0; i < 6; i++) {
+      await sleep(250);
+      const cur = JSON.stringify(await rectOf());
+      if (cur === prev) break;
+      prev = cur;
+    }
     const before = await rectOf();
     const grip = await center('[data-ml-popup-grip]');
     await drag(grip, { x: grip.x - 60, y: grip.y + 40 });
@@ -738,6 +746,27 @@ try {
       return /demon/i.test(x) && !x.includes("Don't look down") ? x : null;
     }, { label: 'sidebar shows the clicked word', timeout: 10000 });
     await closePopup();
+  });
+
+  await step('OCR scan buttons (toolbar popup + sidebar): "Chọn vùng quét" starts region selection in the active enabled tab; other pages are refused with a reason', async () => {
+    assert(await panel.evaluate(`!!document.querySelector('[data-ml-scan-buttons]') && !!document.querySelector('[data-ml-scan-image-btn]') && !!document.querySelector('[data-ml-scan-region-btn]')`), 'sidebar has both scan buttons');
+    await page.send('Page.bringToFront');
+    await sleep(400);
+    const r = await panel.evaluate(`chrome.runtime.sendMessage({ type: 'scan:start', mode: 'region' })`);
+    assert(r.ok && r.data.ok === true, 'scan:start region on the active enabled tab: ' + JSON.stringify(r));
+    await waitFor(() => page.evaluate(`!!${shadowQ('[data-ml-region]')}`), { label: 'region selection overlay appears on the page', timeout: 6000 });
+    await key('Escape');
+    // the toolbar popup page itself: inside a normal tab it sees the extension page as the active tab -> not scannable, with an explanation
+    const { targetId: apId } = await browser.send('Target.createTarget', { url: `chrome-extension://${extId}/action/index.html` });
+    const ap = await attach(browser, apId);
+    await ap.send('Runtime.enable');
+    const apText = await waitFor(() => ap.evaluate(`document.querySelector('[data-ml-action]')?.innerText ?? null`), { label: 'toolbar popup' });
+    assert(/Quét OCR|Quét ảnh/.test(apText), 'toolbar popup mentions the scan feature: ' + apText.slice(0, 160));
+    const refused = await ap.evaluate(`chrome.runtime.sendMessage({ type: 'scan:start', mode: 'image' })`);
+    assert(refused.ok && refused.data.ok === false && ['unsupported', 'site-off', 'no-page'].includes(refused.data.reason), 'refused with a reason: ' + JSON.stringify(refused));
+    await browser.send('Target.closeTarget', { targetId: apId });
+    await page.send('Page.bringToFront');
+    return 'region overlay opened from the message; extension pages refused (' + refused.data.reason + ')';
   });
 
   await step('Sidebar notes (own tab): typing is AUTO-SAVED to the notes AND the vocabulary notebook, grouped under "Hôm nay", with a copy button', async () => {

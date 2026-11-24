@@ -13,7 +13,7 @@
   "background": { "service_worker": "background.js", "type": "module" },
   "side_panel": { "default_path": "sidepanel/index.html" },
   "options_ui": { "page": "options/index.html", "open_in_tab": true },
-  "permissions": ["storage", "sidePanel", "offscreen", "contextMenus", "scripting"],
+  "permissions": ["storage", "sidePanel", "offscreen", "contextMenus", "scripting", "clipboardWrite"],
   "host_permissions": ["<all_urls>"],
   "content_scripts": [
     {

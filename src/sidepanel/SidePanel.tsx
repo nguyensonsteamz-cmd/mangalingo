@@ -16,6 +16,7 @@ import { VocabManager, useVocab, vocabStore } from '@/ui/VocabManager';
 import { canSpeak, speak } from '@/ui/speech';
 import { NotesPanel } from '@/ui/NotesPanel';
 import { CopyButton } from '@/ui/CopyButton';
+import { ScanButtons } from '@/ui/ScanButtons';
 import { DEFAULT_MAX_TOTAL } from '@/modules/translation';
 
 const SIDEBAR_KEY = 'sidebar:current';
@@ -231,6 +232,7 @@ export function SidePanel({ topBar }: { topBar?: ReactNode } = {}) {
             </button>
           </div>
         </form>
+        <ScanButtons className="px-3 pb-1.5" />
         <SidebarTabs value={tab} onChange={setTab} />
       </header>
       <main className={cx('ml-scroll flex-1 px-3 py-3', crossfadeClass(`${tab}|${entry?.text ?? ''}|${ocr ? 1 : 0}`, fade.current))}>

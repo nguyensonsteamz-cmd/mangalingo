@@ -2,7 +2,7 @@
  * LingoLens service worker: dictionary + translation engine host, OCR orchestration,
  * side panel, context menus and keyboard commands.
  */
-import type { PageEvent, TabEvent } from '@/shared/messages';
+import type { PageEvent, ScanStartResult, TabEvent } from '@/shared/messages';
 import { drawLogo } from '@/ui/logo-data';
 import { lemmaCandidates } from '@/language/morphology';
 import { isSiteEnabled, type Settings } from '@/shared/settings';
@@ -128,6 +128,7 @@ const route = createRouter({
   clearOcrCache: () => ocrCache.clear(),
   sidebar,
   openSidePanel,
+  startScan,
   openOptions: async (section) => {
     if (!section) return chrome.runtime.openOptionsPage(); // focuses an already open Settings tab
     await chrome.tabs.create({ url: chrome.runtime.getURL(`options/index.html#${encodeURIComponent(section)}`) });
@@ -236,6 +237,18 @@ chrome.runtime.onConnect.addListener((port) => {
   port.onDisconnect.addListener(() => sidebar.disconnected(windowId));
 });
 
+// ---------- scan from the toolbar popup / the sidebar ----------
+async function startScan(mode: 'image' | 'region'): Promise<ScanStartResult> {
+  const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+  if (!tab?.id) return { ok: false, reason: 'no-page' };
+  const host = tabHost(tab.url);
+  if (!host) return { ok: false, reason: 'unsupported' }; // chrome://, the Web Store, new tab…
+  if (!isSiteEnabled(await settings.load(), host)) return { ok: false, reason: 'site-off' };
+  if (!(await ensureContentScript(tab.id))) return { ok: false, reason: 'unsupported' };
+  await sendToTab(tab.id, mode === 'image' ? { type: 'cmd:scan-image' } : { type: 'ctx:scan-region' });
+  return { ok: true };
+}
+
 // ---------- context menus ----------
 const MENU_IDS = ['ml-lookup', 'ml-scan-image', 'ml-scan-region', 'ml-sidebar'];
 function createMenus() {
@@ -288,8 +301,8 @@ export async function ensureContentScript(tabId: number): Promise<boolean> {
 }
 
 chrome.runtime.onInstalled.addListener((details) => {
-  // first install: open the sign-in page (Settings, wrapped by the sign-in gate)
-  if (details.reason === 'install') void chrome.tabs.create({ url: chrome.runtime.getURL('options/index.html#setup') }).catch(() => {});
+  // first install: open Settings on the translation source (Google Dịch (web) is the default: the privacy note is shown there)
+  if (details.reason === 'install') void chrome.tabs.create({ url: chrome.runtime.getURL('options/index.html#usage') }).catch(() => {});
   createMenus();
   void applyEnabledState();
   // After an install/update/reload: start LingoLens in already-open tabs of enabled sites (no F5 needed).

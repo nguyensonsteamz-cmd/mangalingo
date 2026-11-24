@@ -3,7 +3,16 @@
 name: iOS app (.ipa)
 
 on:
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      runner:
+        description: 'macOS runner. If the default cannot be acquired ("capacity constraints"), pick another one.'
+        type: choice
+        default: macos-latest
+        options:
+          - macos-latest
+          - macos-15-intel
+          - macos-14
   push:
     branches: [master, main]
     paths:
@@ -22,7 +31,7 @@ permissions:
 
 jobs:
   build:
-    runs-on: macos-latest
+    runs-on: ${{ inputs.runner || 'macos-latest' }}
     timeout-minutes: 30
     env:
       # the repository's .npmrc points the npm cache at drive D of the developer's Windows PC

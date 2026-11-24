@@ -30,10 +30,11 @@
 | `storage` | Lưu cài đặt, sổ từ, cache OCR (`local`); nội dung sidebar hiện tại (`session`) | |
 | `sidePanel` | Sidebar đọc truyện | |
 | `offscreen` | Chạy Tesseract worker (cần DOM/Worker, service worker không có) | |
+| `clipboardWrite` | Nút Sao chép: ghi văn bản bạn bấm sao chép vào clipboard, kể cả khi trang web chặn sao chép | Chỉ ghi, không bao giờ đọc clipboard |
 | `contextMenus` | Menu chuột phải: tra vùng chọn, quét ảnh, chọn vùng, mở sidebar | |
 | host `<all_urls>` | (1) đọc điểm ảnh của ảnh manga khác origin để OCR cục bộ; (2) `captureVisibleTab` khi ảnh bị chặn tải | Content script vốn đã chạy trên mọi trang để tra từ, nên Chrome hiển thị cùng một cảnh báo; quyền này không thêm cảnh báo mới |
 
-Không dùng: `tabs`, `history`, `cookies`, `webRequest`, `scripting`, `identity`, `downloads`, `clipboardRead`.
+Không dùng: `tabs`, `history`, `cookies`, `webRequest`, `identity`, `downloads`, `clipboardRead`.
 
 ## Dữ liệu được lưu (chỉ trên máy)
 

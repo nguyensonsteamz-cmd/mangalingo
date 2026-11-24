@@ -26,12 +26,16 @@ export type SidebarPayload =
   | { type: 'lookup'; text: string; context?: string; result?: LookupResult; source?: { url?: string; title?: string } }
   | { type: 'ocr'; result?: OcrResult; pending?: boolean; error?: string; source?: { url?: string; title?: string } };
 
+export type ScanStartResult = { ok: true } | { ok: false; reason: 'site-off' | 'no-page' | 'unsupported' };
+
 export type Request =
   | { type: 'lookup'; req: LookupRequest }
   | { type: 'ocr:scan'; jobId: string; target: ScanTarget }
   | { type: 'ocr:cancel'; jobId: string }
   | { type: 'ocr:warmup'; lang: string }
   | { type: 'ocr:clear-cache' }
+  /** Start an OCR scan in the active tab from the toolbar popup / the sidebar: 'image' = the main image of the page, 'region' = the user drags a region. */
+  | { type: 'scan:start'; mode: 'image' | 'region' }
   | { type: 'sidebar:open'; payload?: SidebarPayload }
   | { type: 'sidebar:push'; payload: SidebarPayload }
   | { type: 'options:open'; section?: string }
@@ -71,6 +75,7 @@ export interface ResponseMap {
   'ocr:cancel': boolean;
   'ocr:warmup': boolean;
   'ocr:clear-cache': number;
+  'scan:start': ScanStartResult;
   'sidebar:open': boolean;
   'sidebar:push': boolean;
   'options:open': boolean;
