@@ -7,12 +7,16 @@ struct WordConfigIntent: WidgetConfigurationIntent {
     static var title: LocalizedStringResource = "Từ vựng"
     static var description = IntentDescription("Một từ đã lưu, đổi mỗi giờ.")
 
+    /// Paste ONCE the sync code copied from the app (LingoLens → Trang chủ → Widget từ vựng): the widget then follows the saved words by itself.
+    @Parameter(title: "Mã đồng bộ (dán một lần)", default: "")
+    var code: String
+
     /// Put several widgets in a Stack and give each a different number: swiping the stack shows the next word at once.
     @Parameter(title: "Từ thứ (khi xếp chồng nhiều widget)", default: 0)
     var offset: Int
 
-    /// Only needed when the widget cannot read the app's words itself (no App Group): paste the list copied by the app.
-    @Parameter(title: "Danh sách từ (chỉ khi widget không tự đọc được)", default: "")
+    /// Fallback without any sync: paste the list copied by the app.
+    @Parameter(title: "Danh sách từ (cách dự phòng)", default: "")
     var pasted: String
 }
 
@@ -33,6 +37,22 @@ enum WordSkip {
     static func advance() { UserDefaults.standard.set(value + 1, forKey: key) }
 }
 
+/// The last list read from GitHub, kept for when the phone is offline.
+enum WidgetCache {
+    private static var url: URL? {
+        FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first?.appendingPathComponent("widget-cloud-words.json")
+    }
+
+    static func save(_ snapshot: WidgetSnapshot) {
+        if let u = url, let d = try? JSONEncoder().encode(snapshot) { try? d.write(to: u, options: .atomic) }
+    }
+
+    static func load() -> WidgetSnapshot? {
+        guard let u = url, let d = try? Data(contentsOf: u) else { return nil }
+        return try? JSONDecoder().decode(WidgetSnapshot.self, from: d)
+    }
+}
+
 struct WordEntry: TimelineEntry {
     let date: Date
     let word: WidgetWord?
@@ -48,16 +68,49 @@ struct Provider: AppIntentTimelineProvider {
     }
 
     func snapshot(for configuration: WordConfigIntent, in context: Context) async -> WordEntry {
-        let first = entries(for: configuration, from: Date(), count: 1).first
         // the widget gallery shows a sample word, not the empty state
-        if context.isPreview, first?.word == nil { return placeholder(in: context) }
-        return first ?? placeholder(in: context)
+        if context.isPreview { return placeholder(in: context) }
+        let loaded = await loadWords(for: configuration)
+        return makeEntries(words: loaded.words, note: loaded.note, shift: shift(configuration), from: Date(), count: 1).first ?? placeholder(in: context)
     }
 
-    /// 24 entries, one per hour: the word changes every hour even if iOS does not refresh the widget in between.
+    /// 24 entries, one per hour: the word changes every hour even if iOS does not refresh the widget in between. With the GitHub sync the
+    /// list is read again every few hours (and at once when the app saves a word and asks for a reload).
     func timeline(for configuration: WordConfigIntent, in context: Context) async -> Timeline<WordEntry> {
+        let loaded = await loadWords(for: configuration)
         let start = Calendar.current.dateInterval(of: .hour, for: Date())?.start ?? Date()
-        return Timeline(entries: entries(for: configuration, from: start, count: 24), policy: .atEnd)
+        let entries = makeEntries(words: loaded.words, note: loaded.note, shift: shift(configuration), from: start, count: 24)
+        let policy: TimelineReloadPolicy = loaded.cloud ? .after(Date().addingTimeInterval(3 * 3600)) : .atEnd
+        return Timeline(entries: entries, policy: policy)
+    }
+
+    private func shift(_ configuration: WordConfigIntent) -> Int { WordSkip.value + configuration.offset }
+
+    /// Where the words come from: 1) the App Group file, 2) the encrypted list on GitHub (sync code), 3) the pasted list.
+    private func loadWords(for configuration: WordConfigIntent) async -> (words: [WidgetWord], note: String, cloud: Bool) {
+        if let snap = WidgetShared.read(), !snap.words.isEmpty { return (snap.words, "", false) }
+        var note = ""
+        var usesCloud = false
+        let code = configuration.code.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let parsed = WidgetSyncCode.parse(code) {
+            usesCloud = true
+            do {
+                let snap = try await WidgetCloud.fetch(parsed)
+                WidgetCache.save(snap)
+                if !snap.words.isEmpty { return (snap.words, "", true) }
+            } catch {
+                if let cached = WidgetCache.load(), !cached.words.isEmpty { return (cached.words, "", true) }
+                note = (error as? WidgetCloudError)?.description ?? "Không tải được từ GitHub."
+            }
+        } else if !code.isEmpty {
+            note = "Mã đồng bộ không đúng. Chép lại từ LingoLens → Trang chủ → Widget từ vựng."
+        }
+        let pasted = WidgetShared.parsePasted(configuration.pasted)
+        if !pasted.isEmpty { return (pasted, "", usesCloud) }
+        if note.isEmpty {
+            note = "Chưa có từ.\nGiữ widget → Chỉnh sửa widget → dán Mã đồng bộ (LingoLens → Trang chủ → Widget từ vựng)."
+        }
+        return ([], note, usesCloud)
     }
 
     /// Indices 0..<count in an order that changes every day (so every word shows before one repeats).
@@ -74,19 +127,8 @@ struct Provider: AppIntentTimelineProvider {
         }
     }
 
-    private func entries(for configuration: WordConfigIntent, from start: Date, count: Int) -> [WordEntry] {
-        var words: [WidgetWord] = []
-        // 1) the words the app wrote (App Group: updates by itself); 2) the pasted list
-        if let snap = WidgetShared.read(), !snap.words.isEmpty {
-            words = snap.words
-        } else {
-            words = WidgetShared.parsePasted(configuration.pasted)
-        }
-        if words.isEmpty {
-            let note = "Chưa có từ.\nGiữ widget → Chỉnh sửa widget → dán danh sách (LingoLens → Trang chủ → Chép danh sách cho widget)."
-            return [WordEntry(date: start, word: nil, note: note)]
-        }
-        let shift = WordSkip.value + configuration.offset
+    private func makeEntries(words: [WidgetWord], note: String, shift: Int, from start: Date, count: Int) -> [WordEntry] {
+        if words.isEmpty { return [WordEntry(date: start, word: nil, note: note)] }
         return (0..<count).map { i -> WordEntry in
             let date = start.addingTimeInterval(Double(i) * 3600)
             let hour = Int(date.timeIntervalSince1970 / 3600)

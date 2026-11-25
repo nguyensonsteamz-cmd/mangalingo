@@ -42,3 +42,23 @@ Chỉ từ, phiên âm, nghĩa và câu ví dụ, nằm trong máy (container Ap
 - **Nút mũi tên** (iOS 17+) ở góc phải dưới: bấm để sang từ khác **ngay**, không chờ một giờ. Widget tự nhớ đã bỏ qua bao nhiêu từ.
 - **Xếp chồng nhiều widget** (Stack): mỗi widget đặt "Từ thứ" khác nhau (0, 1, 2…) trong Chỉnh sửa widget; **vuốt lên/xuống** trên chồng để thấy từ khác. Đây là cách duy nhất để "vuốt" trên màn hình chính, vì một widget đơn không nhận thao tác vuốt.
 - Tự cập nhật khi thêm từ chỉ chạy khi widget đọc được sổ từ (App Group). Với Apple ID miễn phí qua Sideloadly thì chưa, xem mục kết quả thử.
+
+## Tự cập nhật không cần App Group: đồng bộ mã hoá qua GitHub (bản 3)
+Apple ID miễn phí không có App Group (xem kết quả thử), nên app đẩy danh sách **đã mã hoá** lên một repo GitHub của bạn, và widget đọc lại.
+
+- **Mã hoá:** AES-256-GCM (CryptoKit) ngay trên iPhone. Repo là **công khai** để widget đọc không cần mật khẩu, nhưng chỉ chứa dữ liệu mã hoá. Khoá không nằm trong repo: nó chỉ có trong app và trong **mã đồng bộ** bạn dán vào widget.
+- **Mã đồng bộ:** `LL1~ten-ban/ten-repo~<khoá>`: không chứa token. Dán **một lần** vào ô "Mã đồng bộ" của widget.
+- **Token:** chỉ app giữ (Keychain, chỉ trên máy này), quyền `Contents: Read and write` trên **một** repo. Gửi tới `api.github.com`, không đi đâu khác. Widget không có token.
+- **Khi bạn lưu từ:** app (debounce 1,5 giây) mã hoá, ghi file `lingolens-words.json` lên repo, rồi báo widget tải lại ngay. Widget còn tự đọc lại mỗi vài giờ, và giữ bản lưu tạm để chạy khi mất mạng.
+- **Độ trễ:** API GitHub có thể trả bản cũ tới 60 giây.
+
+### Cài đặt (một lần)
+1. Trên github.com tạo repo **Public**, ví dụ `lingolens-sync`.
+2. Settings → Developer settings → Personal access tokens → **Fine-grained tokens** → Generate: *Only select repositories* → repo đó; *Repository permissions → Contents: Read and write*; hạn tuỳ chọn.
+3. Trong app: Trang chủ → Widget từ vựng → nhập `ten-ban/lingolens-sync` và token → **Kết nối**.
+4. Bấm **Chép mã đồng bộ**, thêm widget, giữ widget → Chỉnh sửa widget → dán vào **Mã đồng bộ**.
+
+### Giới hạn
+- Phụ thuộc GitHub (miễn phí, có giới hạn tần suất cho truy cập ẩn danh: 60 lần/giờ/địa chỉ IP, đủ cho một widget).
+- Gỡ app hoặc cài lại sẽ tạo khoá mới: phải dán mã mới vào widget.
+- Mã đồng bộ cho ai thì người đó đọc được danh sách của bạn: đừng chia sẻ.

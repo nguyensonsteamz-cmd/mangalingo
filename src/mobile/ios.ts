@@ -19,20 +19,57 @@ export interface WidgetStatus {
   group: string;
   count: number;
   text: string;
+  /** the encrypted GitHub sync is connected */
+  cloud: boolean;
+  repo?: string;
+  /** the sync code to paste into the widget once (no token inside) */
+  code?: string;
+  /** result of the last upload, in words */
+  last?: string;
 }
 
-/** Hands the saved words to the app shell, which writes them for the home-screen widget. false = no shell / App Group unusable. */
-export async function widgetSync(words: unknown[]): Promise<boolean> {
+export interface WidgetSyncResult {
+  /** an App Group file was written (never with a free Apple ID) */
+  ok: boolean;
+  /** "off" (not connected) | "ok" | an error text */
+  cloud: string;
+}
+
+/**
+ * Hands the saved words to the app shell: it writes them for the widget (App Group file when possible) and uploads them, encrypted, to
+ * the GitHub repository when the sync is connected. Resolves when the upload is done.
+ */
+export async function widgetSync(words: unknown[]): Promise<WidgetSyncResult> {
   const h = handler();
-  if (!h) return false;
-  return h.postMessage({ cmd: 'widgetSync', words }).then((r) => (r as { ok?: boolean } | null)?.ok === true, () => false);
+  if (!h) return { ok: false, cloud: 'off' };
+  return h.postMessage({ cmd: 'widgetSync', words }).then(
+    (r) => ({ ok: (r as WidgetSyncResult | null)?.ok === true, cloud: String((r as WidgetSyncResult | null)?.cloud ?? 'off') }),
+    () => ({ ok: false, cloud: 'Không gửi được cho ứng dụng.' }),
+  );
 }
 
-/** What the app shell can see: signing groups, whether an App Group container exists, how many words were written. */
+/** What the app shell can see: signing groups, whether an App Group container exists, the sync state and code. */
 export async function widgetStatus(): Promise<WidgetStatus | null> {
   const h = handler();
   if (!h) return null;
   return (await h.postMessage({ cmd: 'widgetStatus' }).catch(() => null)) as WidgetStatus | null;
+}
+
+/** Connects the encrypted GitHub sync. The token goes to the Keychain and is never sent back. Rejects with a readable message. */
+export async function widgetConfigure(repo: string, token: string): Promise<WidgetStatus> {
+  const h = handler();
+  if (!h) throw new Error('Không có cầu nối với ứng dụng iPhone.');
+  try {
+    return (await h.postMessage({ cmd: 'widgetConfigure', repo, token })) as WidgetStatus;
+  } catch (e) {
+    throw new Error(String((e as Error)?.message ?? e));
+  }
+}
+
+export async function widgetDisconnect(): Promise<WidgetStatus | null> {
+  const h = handler();
+  if (!h) return null;
+  return (await h.postMessage({ cmd: 'widgetDisconnect' }).catch(() => null)) as WidgetStatus | null;
 }
 
 /** Seconds-since-1970 stamp of the latest image sent by the Shortcuts action (0 = none). */

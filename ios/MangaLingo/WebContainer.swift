@@ -12,7 +12,8 @@ import WebKit
 ///   {cmd: "translateBatch", texts}      → {texts} several at once (see Translator.swift)
 ///   {cmd: "openReader", url?}           → opens the Web Reader (WebReader/) above the app
 ///   {cmd: "widgetSync", words}           → writes the saved words for the home-screen widget
-///   {cmd: "widgetStatus"}               → {ok, group, count, text}: can the widget share data with the app?
+///   {cmd: "widgetStatus"}               → {ok, group, count, text, cloud, repo?, code?, last?}: how the widget gets its data
+///   {cmd: "widgetConfigure", repo, token} / {cmd: "widgetDisconnect"} → the encrypted GitHub sync
 struct WebContainer: UIViewRepresentable {
     static let background = UIColor(red: 16 / 255, green: 18 / 255, blue: 24 / 255, alpha: 1)
 
@@ -112,8 +113,18 @@ struct WebContainer: UIViewRepresentable {
                 replyHandler(true, nil)
             case "widgetSync":
                 // the saved words for the home-screen widget (App Group file) + a reload request
-                replyHandler(["ok": WidgetSync.write(words: body["words"] as? [[String: Any]] ?? [])], nil)
+                WidgetSync.writeSerial(words: body["words"] as? [[String: Any]] ?? []) { replyHandler($0, nil) }
             case "widgetStatus":
+                replyHandler(WidgetSync.status(), nil)
+            case "widgetConfigure":
+                // connect the encrypted GitHub sync (repository + token; the token goes to the Keychain and is never sent back)
+                if let error = WidgetSync.configure(repo: body["repo"] as? String ?? "", token: body["token"] as? String ?? "") {
+                    replyHandler(nil, error)
+                } else {
+                    replyHandler(WidgetSync.status(), nil)
+                }
+            case "widgetDisconnect":
+                WidgetSync.disconnect()
                 replyHandler(WidgetSync.status(), nil)
             case "copy":
                 // "Sao chép": the system pasteboard (the web clipboard API is not available on app://)
