@@ -45,18 +45,26 @@ export function WidgetCard() {
       <div className="flex items-center gap-3">
         <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-accent/15 text-[22px]">🔤</span>
         <span className="min-w-0 flex-1">
-          <span className="block text-[15px] font-bold">Widget từ vựng (thử nghiệm)</span>
-          <span className="block text-[12.5px] leading-snug text-muted">Một từ đã lưu, đổi mỗi giờ. Giữ màn hình chính → dấu + → LingoLens.</span>
+          <span className="block text-[15px] font-bold">Widget từ vựng</span>
+          <span className="block text-[12.5px] leading-snug text-muted">Một từ đã lưu hiện trên màn hình chính, đổi mỗi giờ.</span>
         </span>
       </div>
-      <pre className="mt-2.5 whitespace-pre-wrap rounded-xl bg-text/[0.05] p-2.5 text-[11px] leading-snug text-muted" data-ml-widget-status="">
-        {st === 'loading' ? 'Đang kiểm tra…' : st ? st.text : 'Không có cầu nối với ứng dụng iPhone.'}
-      </pre>
+      <ol className="mt-2.5 list-decimal space-y-0.5 pl-5 text-[12.5px] leading-snug text-muted" data-ml-widget-steps="">
+        <li>Giữ màn hình chính → dấu + → LingoLens → Thêm tiện ích.</li>
+        <li>Bấm “Chép danh sách cho widget” bên dưới.</li>
+        <li>Giữ widget → Chỉnh sửa widget → dán vào ô “Danh sách từ”.</li>
+      </ol>
       {st && st !== 'loading' && (
-        <div className="mt-1.5 text-[12px] font-semibold" data-ml-widget-verdict={st.ok ? 'group' : 'paste'}>
-          {st.ok ? '✅ Widget tự đọc được sổ từ.' : '⚠️ App Group không dùng được: dùng cách dán (nút bên dưới).'}
+        <div className="mt-2 text-[12px] font-semibold" data-ml-widget-verdict={st.ok ? 'group' : 'paste'}>
+          {st.ok ? '✅ Widget tự đọc được sổ từ (không cần dán).' : 'ℹ️ Apple ID miễn phí không cho widget tự đọc sổ từ, nên cần dán danh sách (và dán lại khi sổ từ đổi nhiều).'}
         </div>
       )}
+      <details className="mt-1.5 text-[11px] text-subtle">
+        <summary>Chi tiết kỹ thuật</summary>
+        <pre className="mt-1 whitespace-pre-wrap rounded-xl bg-text/[0.05] p-2 leading-snug text-muted" data-ml-widget-status="">
+          {st === 'loading' ? 'Đang kiểm tra…' : st ? st.text : 'Không có cầu nối với ứng dụng iPhone.'}
+        </pre>
+      </details>
       <div className="mt-2.5 flex flex-wrap gap-2">
         <button type="button" onClick={() => void refresh()} className="ml-press rounded-full bg-text/[0.07] px-3 py-1.5 text-[12.5px] font-semibold text-muted" data-ml-widget-refresh="">
           Kiểm tra lại
@@ -69,7 +77,7 @@ export function WidgetCard() {
             const words = widgetWords(await vocabStore.list());
             if (!words.length) return setMsg('Chưa có từ nào để chép: hãy lưu vài từ trước.');
             const ok = await copyText(pasteText(words));
-            setMsg(ok ? `Đã chép ${Math.min(words.length, 120)} từ. Giữ widget → Chỉnh sửa widget → dán vào ô “Danh sách từ”.` : 'Không chép được.');
+            setMsg(ok ? `Đã chép ${Math.min(words.length, 120)} từ. Giữ widget → Chỉnh sửa widget → dán vào ô “Danh sách từ” (một dòng).` : 'Không chép được.');
           }}
         >
           Chép danh sách cho widget

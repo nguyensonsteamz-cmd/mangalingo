@@ -47,6 +47,19 @@ enum WidgetShared {
         return groups
     }
 
+    /// Names of the entitlements the provisioning profile grants this bundle (for the report: shows what a free Apple ID allows).
+    static func provisionEntitlementKeys() -> [String] {
+        guard let path = Bundle.main.path(forResource: "embedded", ofType: "mobileprovision"),
+              let data = FileManager.default.contents(atPath: path),
+              let text = String(data: data, encoding: .isoLatin1),
+              let start = text.range(of: "<?xml"),
+              let end = text.range(of: "</plist>", range: start.lowerBound..<text.endIndex),
+              let plist = try? PropertyListSerialization.propertyList(from: Data(String(text[start.lowerBound..<end.upperBound]).utf8), options: [], format: nil) as? [String: Any],
+              let entitlements = plist["Entitlements"] as? [String: Any]
+        else { return [] }
+        return entitlements.keys.map { $0.replacingOccurrences(of: "com.apple.", with: "") }.sorted()
+    }
+
     /// Every group id worth trying, most likely first.
     static func candidateGroups() -> [String] {
         var out: [String] = []
@@ -73,9 +86,9 @@ enum WidgetShared {
         return (try? data.write(to: c.url.appendingPathComponent(fileName), options: .atomic)) != nil
     }
 
-    /// "word | ipa | meaning | example" per line, the format the app puts on the clipboard for the widget's paste field.
+    /// "word | ipa | meaning | example" per entry; entries are separated by a line break or by "¶" (the widget's paste field may be a single line).
     static func parsePasted(_ text: String) -> [WidgetWord] {
-        text.split(whereSeparator: { $0.isNewline }).compactMap { line -> WidgetWord? in
+        text.split(whereSeparator: { $0.isNewline || $0 == "¶" }).compactMap { line -> WidgetWord? in
             let parts = line.split(separator: "|", omittingEmptySubsequences: false).map { $0.trimmingCharacters(in: .whitespaces) }
             guard let w = parts.first, !w.isEmpty else { return nil }
             func at(_ i: Int) -> String? { i < parts.count && !parts[i].isEmpty ? parts[i] : nil }
@@ -91,6 +104,8 @@ enum WidgetShared {
         lines.append("Gói: \(Bundle.main.bundleIdentifier ?? "?")")
         let signed = provisionGroups()
         lines.append("Nhóm trong chữ ký: " + (signed.isEmpty ? "không có" : signed.joined(separator: ", ")))
+        let keys = provisionEntitlementKeys()
+        if !keys.isEmpty { lines.append("Quyền được cấp: " + keys.joined(separator: ", ")) }
         if let c = container() {
             lines.append("App Group: DÙNG ĐƯỢC (\(c.id))")
             if let snap = read() {

@@ -36,9 +36,10 @@ describe('widget data', () => {
     expect(widgetWords(many)).toHaveLength(300);
     expect(widgetWords(many, 10)).toHaveLength(10);
   });
-  it('the paste text is "word | ipa | meaning | example" per line, trailing empty fields trimmed', () => {
+  it('the paste text is ONE line: "word | ipa | meaning | example" per word, words separated by " ¶ ", trailing empty fields trimmed', () => {
     const text = pasteText([{ w: 'destroy', ipa: '/dɪˈstrɔɪ/', vi: 'phá hủy', ex: 'It was destroyed.' }, { w: 'run', vi: 'chạy' }]);
-    expect(text.split('\n')).toEqual(['destroy | /dɪˈstrɔɪ/ | phá hủy | It was destroyed.', 'run |  | chạy']);
-    expect(pasteText(Array.from({ length: 200 }, (_, i) => ({ w: 'w' + i, vi: 'x' })), 120).split('\n')).toHaveLength(120);
+    expect(text).not.toMatch(/[\r\n]/); // one line: survives a single-line text field
+    expect(text.split(' ¶ ')).toEqual(['destroy | /dɪˈstrɔɪ/ | phá hủy | It was destroyed.', 'run |  | chạy']);
+    expect(pasteText(Array.from({ length: 200 }, (_, i) => ({ w: 'w' + i, vi: 'x' })), 120).split(' ¶ ')).toHaveLength(120);
   });
 });

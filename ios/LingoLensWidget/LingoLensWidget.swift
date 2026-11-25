@@ -31,7 +31,10 @@ struct Provider: AppIntentTimelineProvider {
     }
 
     func snapshot(for configuration: WordConfigIntent, in context: Context) async -> WordEntry {
-        entries(for: configuration, from: Date(), count: 1).first ?? placeholder(in: context)
+        let first = entries(for: configuration, from: Date(), count: 1).first
+        // the widget gallery shows a sample word, not the empty state
+        if context.isPreview, first?.word == nil { return placeholder(in: context) }
+        return first ?? placeholder(in: context)
     }
 
     /// 24 entries, one per hour: the word changes every hour even if iOS does not refresh the widget in between.
@@ -67,7 +70,7 @@ struct Provider: AppIntentTimelineProvider {
                 words = pasted
                 source = "đã dán"
             } else {
-                note = WidgetShared.diagnostics() + "\nGiữ widget → Chỉnh sửa widget → dán danh sách."
+                note = "Chưa có danh sách từ.\nGiữ widget → Chỉnh sửa widget → dán danh sách (LingoLens → Trang chủ → Chép danh sách cho widget)."
             }
         }
         if words.isEmpty {
@@ -130,7 +133,7 @@ struct WordWidgetView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text("LingoLens").font(.headline).foregroundColor(widgetAccent)
                 Text(entry.note.isEmpty ? "Lưu từ trong LingoLens để hiện ở đây." : entry.note)
-                    .font(.system(size: 9))
+                    .font(.system(size: 11))
                     .foregroundColor(widgetMuted)
                     .lineLimit(8)
             }

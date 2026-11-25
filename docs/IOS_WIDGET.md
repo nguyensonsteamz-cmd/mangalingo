@@ -29,3 +29,10 @@ Thẻ "Widget từ vựng (thử nghiệm)" trên màn Home hiện kết quả �
 
 ## Riêng tư
 Chỉ từ, phiên âm, nghĩa và câu ví dụ, nằm trong máy (container App Group). Không gửi đi đâu.
+
+## Kết quả thử trên iPhone (2026-11-25, Apple ID miễn phí + Sideloadly)
+- Sideloadly **cài được** widget (extension): widget hiện trong thư viện widget.
+- Sideloadly đổi bundle id thành `app.mangalingo.ios.<TeamSuffix>`.
+- **App Group không dùng được**: chữ ký không có nhóm nào ("Nhóm trong chữ ký: không có"). Vì vậy đường tự động không chạy với Apple ID miễn phí.
+- Cách đi được: **dán danh sách** vào ô cấu hình của widget. Định dạng chép là **một dòng** (`từ | phiên âm | nghĩa | ví dụ`, các từ cách nhau bằng ` ¶ `) để chịu được ô nhập một dòng.
+- Nếu sau này dùng tài khoản Apple Developer trả phí, đường App Group (tự đồng bộ) trong mã sẽ tự hoạt động, không cần đổi gì.

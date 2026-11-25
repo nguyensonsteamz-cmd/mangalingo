@@ -30,10 +30,13 @@ export function widgetWords(entries: VocabEntry[], max = 300): WidgetWordJson[] 
     });
 }
 
-/** The text copied for the widget's paste field (fallback when the widget cannot read the app's data): "word | ipa | meaning | example". */
+/**
+ * The text copied for the widget's paste field (the only way when the widget cannot read the app's data, e.g. a free Apple ID):
+ * "word | ipa | meaning | example" per word, words separated by " ¶ " so it survives a single-line text field.
+ */
 export function pasteText(words: WidgetWordJson[], max = 120): string {
   return words
     .slice(0, max)
-    .map((x) => [x.w, x.ipa ?? '', x.vi, x.ex ?? ''].join(' | ').replace(/( \| )+$/, ''))
-    .join('\n');
+    .map((x) => [x.w, x.ipa ?? '', x.vi, x.ex ?? ''].join(' | ').replace(/( \| )+$/, '').replace(/ \|\s*$/, ''))
+    .join(' ¶ ');
 }
