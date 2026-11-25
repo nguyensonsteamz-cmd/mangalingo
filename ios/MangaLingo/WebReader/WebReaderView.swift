@@ -16,11 +16,25 @@ enum ReaderPalette {
 }
 
 /// Shows the current tab's web view (the tabs own their web views, so switching tabs swaps the view inside this container).
+/// Holds the web view and tells the page whenever its size changes (rotation, bars appearing, tab switch).
+final class ReaderContainerView: UIView {
+    var onResize: (() -> Void)?
+    private var lastSize: CGSize = .zero
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        guard bounds.size != lastSize else { return }
+        lastSize = bounds.size
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in self?.onResize?() }
+    }
+}
+
 struct ReaderWebHost: UIViewRepresentable {
     let web: WKWebView
 
     func makeUIView(context: Context) -> UIView {
-        let v = UIView()
+        let v = ReaderContainerView()
+        v.onResize = { [weak web] in web?.evaluateJavaScript("window.dispatchEvent(new Event('resize'));", completionHandler: nil) }
         v.backgroundColor = .clear
         return v
     }

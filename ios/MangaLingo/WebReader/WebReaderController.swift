@@ -81,6 +81,8 @@ final class WebReaderController: NSObject, WKNavigationDelegate, WKUIDelegate {
         web.isOpaque = false
         web.backgroundColor = UIColor(red: 16 / 255, green: 18 / 255, blue: 24 / 255, alpha: 1)
         web.scrollView.backgroundColor = web.backgroundColor
+        // the page gets the web view's whole frame as its viewport (safe-area insets must not shrink or shift it)
+        web.scrollView.contentInsetAdjustmentBehavior = .never
         if #available(iOS 16.4, *) { web.isInspectable = true }
         observe()
     }
@@ -394,7 +396,14 @@ final class WebReaderController: NSObject, WKNavigationDelegate, WKUIDelegate {
         changed()
     }
 
+    /// Sites size their reader (fit the page to the window) from the window size at load time; when the web view was laid out
+    /// afterwards the page stayed small at the top. Telling the page that its window changed makes it fit again.
+    func refitPage() {
+        web.evaluateJavaScript("window.dispatchEvent(new Event('resize'));", completionHandler: nil)
+    }
+
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        for delay in [0.0, 0.8, 2.0] { DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in self?.refitPage() } }
         guard let url = webView.url, WebNavigationManager.isWebURL(url) else { return }
         library.addHistory(url: url.absoluteString, title: webView.title ?? "")
         pushSettings()
