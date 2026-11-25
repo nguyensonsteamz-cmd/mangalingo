@@ -10,11 +10,31 @@ import { Badge, Button, Empty, IconButton, Notice, Segmented, Select, cx } from 
 import { IconBook, IconDownload, IconSearch, IconTrash, IconUpload, IconVolume } from './icons';
 import { download, stamp } from './hooks';
 import { canSpeak, speak } from './speech';
+import { AddWordForm } from './AddWordForm';
+import { lookupWord } from './vocab-enrich';
+import { POS_VI } from './views';
 
 const kv = chromeLocal();
 export const vocabStore = new VocabStore(kv, () => new OcrCache(kv).evictOldest(60));
 
 const STATUS_VI: Record<LearningStatus, string> = { new: 'Mới', learning: 'Đang học', known: 'Đã thuộc' };
+
+let backfilled: Promise<void> | null = null;
+/**
+ * Once per session: single words saved without pronunciation and part of speech (for example from the Notes tab, before it filled them
+ * in) get them from the dictionary; a missing meaning is filled too. Nothing the user wrote is overwritten.
+ */
+export function backfillVocab(): Promise<void> {
+  backfilled ??= (async () => {
+    const todo = (await vocabStore.list()).filter((e) => !e.ipa && !e.pos && !/\s/.test(e.word)).slice(0, 60);
+    for (const e of todo) {
+      const info = await lookupWord(e.word);
+      if (!info) continue;
+      await vocabStore.update(e.id, { ipa: info.ipa, pos: info.pos, ...(e.meaning ? {} : { meaning: info.meaning }) });
+    }
+  })().catch(() => {});
+  return backfilled;
+}
 
 export function useVocab() {
   const [list, setList] = useState<VocabEntry[]>([]);
@@ -32,6 +52,10 @@ export function useVocab() {
 
 export function VocabManager({ compact }: { compact?: boolean }) {
   const { list, usage } = useVocab();
+  const [adding, setAdding] = useState(false);
+  useEffect(() => {
+    void backfillVocab();
+  }, []);
   const [q, setQ] = useState('');
   const [status, setStatus] = useState<LearningStatus | 'all'>('all');
   const [sort, setSort] = useState<'newest' | 'oldest' | 'az'>('newest');
@@ -55,6 +79,19 @@ export function VocabManager({ compact }: { compact?: boolean }) {
 
   return (
     <div className="space-y-2.5">
+      {adding ? (
+        <AddWordForm
+          store={vocabStore}
+          onDone={(text) => {
+            setAdding(false);
+            if (text) setMsg({ tone: 'info', text });
+          }}
+        />
+      ) : (
+        <Button size="sm" variant="primary" onClick={() => setAdding(true)} data-ml-add-word-open="">
+          + Thêm từ
+        </Button>
+      )}
       <div className="flex items-center gap-2">
         <div className="relative min-w-0 flex-1">
           <IconSearch size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-subtle" />
@@ -108,7 +145,7 @@ export function VocabManager({ compact }: { compact?: boolean }) {
       {msg && <Notice tone={msg.tone}>{msg.text}</Notice>}
       {!list.length ? (
         <Empty title="Sổ từ vựng trống" icon={<IconBook size={28} />}>
-          Bấm biểu tượng dấu trang trong popup tra từ để lưu từ, kèm câu gốc và nguồn.
+          Bấm “+ Thêm từ” để nhập từ mới, hoặc dấu trang trong popup tra từ để lưu kèm câu gốc và nguồn.
         </Empty>
       ) : !shown.length ? (
         <Empty title="Không có kết quả">Thử từ khóa hoặc bộ lọc khác.</Empty>
@@ -158,7 +195,7 @@ function VocabItem({ e, compact }: { e: VocabEntry; compact?: boolean }) {
           <div className="flex flex-wrap items-baseline gap-x-2">
             <span className="text-[16px] font-bold tracking-tight text-text">{e.word}</span>
             {e.ipa && <span className="ml-ipa text-[12px] text-accent">{e.ipa}</span>}
-            {e.pos && <span className="rounded-full bg-text/[0.06] px-1.5 text-[10.5px] font-medium text-muted">{e.pos}</span>}
+            {e.pos && <span className="rounded-full bg-text/[0.06] px-1.5 text-[10.5px] font-medium text-muted">{(POS_VI as Record<string, string>)[e.pos] ?? e.pos}</span>}
           </div>
           <div className="ml-tr mt-0.5 font-semibold text-text">{e.meaning || <span className="font-normal text-subtle">—</span>}</div>
         </div>

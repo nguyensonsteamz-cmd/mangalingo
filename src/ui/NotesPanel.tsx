@@ -1,11 +1,12 @@
 /**
- * Notes: write a phrase + your own meaning. Everything is saved AUTOMATICALLY while typing (no Save button) in two places: the notes
- * list and the vocabulary notebook ("Sổ từ"), kept in step when you edit. The list is split by day ("Hôm nay", "Hôm qua", "Thứ Ba,
- * 17/11/2026"). Every card has a copy button.
+ * Notes: write a phrase + your own meaning and press "Lưu". Saving puts it in two places: the notes list and the vocabulary notebook
+ * ("Sổ từ", with the pronunciation and part of speech filled from the dictionary for a single word). Nothing is saved while typing.
+ * The list is split by day ("Hôm nay", "Hôm qua", "Thứ Ba, 17/11/2026"). Every card has a copy button.
  */
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { cx } from '@/ui/components';
 import { vocabStore } from '@/ui/VocabManager';
+import { lookupWord } from './vocab-enrich';
 import { copyText } from '@/mobile/ios';
 import { groupByDay } from './dates';
 import { notesStore, useNotes, type Note } from './notes';
@@ -21,8 +22,11 @@ export async function syncNoteToVocab(prev: { phrase: string; meaning: string } 
     if (old && old.notes === NOTE_TAG) await vocabStore.remove(old.id); // only entries this note created
   }
   if (!next || !next.phrase.trim()) return;
-  const { entry, created } = await vocabStore.add({ word: next.phrase.trim(), lemma: lemma(next.phrase), meaning: next.meaning.trim(), sentence: next.context, notes: NOTE_TAG });
-  if (!created && entry.notes === NOTE_TAG && entry.meaning !== next.meaning.trim()) await vocabStore.update(entry.id, { meaning: next.meaning.trim() });
+  // a single word gets its pronunciation, part of speech (and a meaning when the user wrote none) from the dictionary
+  const info = await lookupWord(next.phrase, next.context);
+  const own = next.meaning.trim();
+  const { entry, created } = await vocabStore.add({ word: next.phrase.trim(), lemma: lemma(next.phrase), meaning: own || info?.meaning || '', ipa: info?.ipa, pos: info?.pos, sentence: next.context, notes: NOTE_TAG });
+  if (!created && entry.notes === NOTE_TAG && entry.meaning !== (own || info?.meaning || '')) await vocabStore.update(entry.id, { meaning: own || info?.meaning || '' });
 }
 
 type Draft = { id?: string; phrase: string; meaning: string };
@@ -33,45 +37,33 @@ export function NotesPanel({ context, className }: { context?: string; className
   const [status, setStatus] = useState<'' | 'saving' | 'saved'>('');
   const [flash, setFlash] = useState('');
   const [q, setQ] = useState('');
-  const saved = useRef<Draft>({ phrase: '', meaning: '' }); // what is already stored for the draft
-  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const latest = useRef(draft);
-  latest.current = draft;
+  const saved = useRef<Draft>({ phrase: '', meaning: '' }); // what is stored for the note being edited (empty for a new note)
 
   const say = (m: string) => {
     setFlash(m);
-    setTimeout(() => setFlash(''), 1500);
+    setTimeout(() => setFlash(''), 1800);
   };
 
-  const flush = async () => {
-    const d = latest.current;
-    if (!d.phrase.trim()) return;
-    const prev = saved.current;
-    if (prev.phrase === d.phrase && prev.meaning === d.meaning && d.id) return;
+  /** "Lưu": the note is stored AND added to the vocabulary notebook (with pronunciation / part of speech). Nothing happens before this. */
+  const save = async () => {
+    const d = draft;
+    if (!d.phrase.trim() || status === 'saving') return;
     setStatus('saving');
-    let id = d.id;
-    if (!id) {
-      const n = await notesStore.add({ phrase: d.phrase, meaning: d.meaning, context });
-      id = n.id;
-      setDraft((x) => (x === latest.current ? { ...x, id } : { ...x, id: x.id ?? id }));
-      latest.current = { ...latest.current, id };
-    } else await notesStore.update(id, { phrase: d.phrase.trim().slice(0, 500), meaning: d.meaning.trim().slice(0, 2000) });
-    await syncNoteToVocab(prev.phrase ? prev : null, { phrase: d.phrase, meaning: d.meaning, context });
-    saved.current = { id, phrase: d.phrase, meaning: d.meaning };
-    setStatus('saved');
+    try {
+      if (!d.id) await notesStore.add({ phrase: d.phrase, meaning: d.meaning, context });
+      else await notesStore.update(d.id, { phrase: d.phrase.trim().slice(0, 500), meaning: d.meaning.trim().slice(0, 2000) });
+      await syncNoteToVocab(saved.current.phrase ? saved.current : null, { phrase: d.phrase, meaning: d.meaning, context });
+      saved.current = { phrase: '', meaning: '' };
+      setDraft({ phrase: '', meaning: '' });
+      setStatus('saved');
+      say('Đã lưu vào ghi chú và Sổ từ ✓');
+    } catch (e) {
+      setStatus('');
+      say((e as Error).message || 'Không lưu được.');
+    }
   };
 
-  const change = (k: 'phrase' | 'meaning', v: string) => {
-    setDraft((d) => ({ ...d, [k]: v }));
-    setStatus('');
-    clearTimeout(timer.current);
-    timer.current = setTimeout(() => void flush(), 700); // auto-save shortly after the last keystroke
-  };
-  useEffect(() => () => clearTimeout(timer.current), []);
-
-  const newNote = async () => {
-    clearTimeout(timer.current);
-    await flush();
+  const cancelEdit = () => {
     saved.current = { phrase: '', meaning: '' };
     setDraft({ phrase: '', meaning: '' });
     setStatus('');
@@ -86,29 +78,33 @@ export function NotesPanel({ context, className }: { context?: string; className
         <div className="mb-1.5 flex items-center gap-2">
           <span className="text-[12px] font-bold uppercase tracking-wider text-accent">{draft.id ? 'Đang sửa ghi chú' : 'Ghi chú mới'}</span>
           <span className="sr-only" data-ml-notes-status="">
-            {status === 'saving' ? 'Đang lưu…' : status === 'saved' ? 'Đã tự lưu vào ghi chú và Sổ từ ✓' : 'Tự động lưu khi bạn gõ'}
+            {status === 'saving' ? 'Đang lưu…' : status === 'saved' ? 'Đã lưu vào ghi chú và Sổ từ ✓' : 'Bấm Lưu để thêm vào Sổ từ'}
           </span>
         </div>
         <input
           value={draft.phrase}
-          onChange={(e) => change('phrase', e.target.value)}
-          onBlur={() => void flush()}
+          onChange={(e) => setDraft((d) => ({ ...d, phrase: e.target.value }))}
+          onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), void save())}
           placeholder="Câu / cụm từ tiếng Anh"
           className="ml-focus mb-1.5 block w-full rounded-xl border border-accent/35 bg-accent/10 px-2.5 py-2 text-[15px] font-semibold text-text placeholder:font-normal placeholder:text-subtle"
           data-ml-note-phrase=""
         />
         <textarea
           value={draft.meaning}
-          onChange={(e) => change('meaning', e.target.value)}
-          onBlur={() => void flush()}
+          onChange={(e) => setDraft((d) => ({ ...d, meaning: e.target.value }))}
           rows={2}
-          placeholder="Nghĩa / ghi chú của bạn"
+          placeholder="Nghĩa / ghi chú của bạn (để trống: tự điền nghĩa nếu là một từ)"
           className="ml-focus block w-full resize-none rounded-xl border border-ok/35 bg-ok/10 px-2.5 py-2 text-[15px] text-text placeholder:text-subtle"
           data-ml-note-meaning=""
         />
         <div className="mt-1.5 flex items-center gap-2">
-                    <button type="button" disabled={!draft.phrase.trim()} onClick={() => void newNote()} className="ml-press ml-btn-primary ml-auto shrink-0 rounded-full px-3 py-1.5 text-[12.5px] font-semibold disabled:opacity-40" data-ml-notes-save="">
-            + Ghi chú mới
+          {draft.id && (
+            <button type="button" onClick={cancelEdit} className="ml-press rounded-full bg-text/[0.07] px-3 py-1.5 text-[12.5px] font-semibold text-muted" data-ml-notes-cancel="">
+              Hủy
+            </button>
+          )}
+          <button type="button" disabled={!draft.phrase.trim() || status === 'saving'} onClick={() => void save()} className="ml-press ml-btn-primary ml-auto shrink-0 rounded-full px-4 py-1.5 text-[12.5px] font-semibold disabled:opacity-40" data-ml-notes-save="">
+            {status === 'saving' ? 'Đang lưu…' : 'Lưu'}
           </button>
         </div>
       </div>
@@ -138,7 +134,6 @@ export function NotesPanel({ context, className }: { context?: string; className
             <ul className="space-y-2">
               {g.items.map((n, i) => (
                 <NoteCard key={n.id} n={n} stripe={STRIPES[i % STRIPES.length]} onSay={say} onEdit={() => {
-                  clearTimeout(timer.current);
                   saved.current = { id: n.id, phrase: n.phrase, meaning: n.meaning };
                   setDraft({ id: n.id, phrase: n.phrase, meaning: n.meaning });
                   setStatus('');

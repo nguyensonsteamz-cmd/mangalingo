@@ -769,30 +769,45 @@ try {
     return 'region overlay opened from the message; extension pages refused (' + refused.data.reason + ')';
   });
 
-  await step('Sidebar notes (own tab): typing is AUTO-SAVED to the notes AND the vocabulary notebook, grouped under "Hôm nay", with a copy button', async () => {
+  await step('Sidebar notes (own tab): NOTHING is saved while typing; "Lưu" saves the note AND the vocabulary notebook (a single word gets pronunciation + part of speech), grouped under "Hôm nay", with a copy button', async () => {
     await panel.evaluate(`document.querySelector('[data-ml-notes-open]').click()`);
     await waitFor(() => panel.evaluate(`!!document.querySelector('[data-ml-notes-panel]')`), { label: 'notes tab' });
+    assert(/^Lưu$/.test(await panel.evaluate(`document.querySelector('[data-ml-notes-save]').innerText.trim()`)), 'the button says "Lưu"');
     await panel.evaluate(`document.querySelector('[data-ml-note-phrase]').focus()`);
     await panel.send('Input.insertText', { text: 'piece of cake' });
     await panel.evaluate(`document.querySelector('[data-ml-note-meaning]').focus()`);
     await panel.send('Input.insertText', { text: 'dễ như ăn bánh' });
-    // NO save button is pressed: the auto-save fires shortly after the last keystroke
-    const stored = await waitFor(() => sw.evaluate(`chrome.storage.local.get('notes:v1').then(r => (r['notes:v1'] ?? []).find(n => n.phrase === 'piece of cake')?.meaning)`), { label: 'note auto-saved', timeout: 8000 });
+    await sleep(1800); // longer than the old auto-save delay
+    const before = await sw.evaluate(`chrome.storage.local.get(['notes:v1', 'vocab:v1']).then(r => ({ notes: (r['notes:v1'] ?? []).length, vocab: Object.values(r['vocab:v1'] ?? {}).filter(v => v.lemma === 'piece of cake').length }))`);
+    assert(before.notes === 0 && before.vocab === 0, 'nothing is saved before the user presses Lưu: ' + JSON.stringify(before));
+    await panel.evaluate(`document.querySelector('[data-ml-notes-save]').click()`);
+    const stored = await waitFor(() => sw.evaluate(`chrome.storage.local.get('notes:v1').then(r => (r['notes:v1'] ?? []).find(n => n.phrase === 'piece of cake')?.meaning)`), { label: 'note saved', timeout: 8000 });
     assert(stored === 'dễ như ăn bánh', 'note meaning stored');
     const vocab = await waitFor(() => sw.evaluate(`chrome.storage.local.get('vocab:v1').then(r => Object.values(r['vocab:v1'] ?? {}).find(v => v.lemma === 'piece of cake')?.meaning)`), { label: 'note mirrored into the vocabulary notebook', timeout: 8000 });
     assert(vocab === 'dễ như ăn bánh', 'vocabulary meaning: ' + vocab);
     const day = await waitFor(() => panel.evaluate(`document.querySelector('[data-ml-notes-day]')?.innerText ?? null`), { label: 'day group' });
     assert(/^HÔM NAY/i.test(day.trim()), 'grouped under today: ' + day.slice(0, 40));
     assert(await panel.evaluate(`!!document.querySelector('[data-ml-note-card] [data-ml-note-copy]')`), 'copy button on the note card');
-    // editing the phrase keeps the notebook in step (old entry replaced, not duplicated)
+    // the form is empty again after saving
+    assert(await panel.evaluate(`document.querySelector('[data-ml-note-phrase]').value === ''`), 'the form is cleared after saving');
+    // a single word with NO meaning typed: pronunciation, part of speech and the Vietnamese meaning come from the dictionary
+    await panel.evaluate(`document.querySelector('[data-ml-note-phrase]').focus()`);
+    await panel.send('Input.insertText', { text: 'village' });
+    await panel.evaluate(`document.querySelector('[data-ml-notes-save]').click()`);
+    const filled = await waitFor(() => sw.evaluate(`chrome.storage.local.get('vocab:v1').then(r => { const v = Object.values(r['vocab:v1'] ?? {}).find(x => x.lemma === 'village'); return v && v.ipa && v.pos && v.meaning ? { ipa: v.ipa, pos: v.pos, meaning: v.meaning } : null; })`), { label: 'dictionary data filled in', timeout: 8000 });
+    assert(/làng/.test(filled.meaning) && filled.pos === 'noun', 'village: ' + JSON.stringify(filled));
+    // editing a note keeps the notebook in step (old entry replaced, not duplicated) once "Lưu" is pressed again
+    await panel.evaluate(`[...document.querySelectorAll('[data-ml-note-card] button')].find((b) => b.textContent.trim() === 'Sửa' && b.closest('[data-ml-note-card]').innerText.includes('piece of cake')).click()`);
     await panel.evaluate(`document.querySelector('[data-ml-note-phrase]').focus()`);
     await panel.send('Input.insertText', { text: ' (idiom)' });
+    await panel.evaluate(`document.querySelector('[data-ml-notes-save]').click()`);
     await waitFor(() => sw.evaluate(`chrome.storage.local.get('vocab:v1').then(r => { const v = Object.values(r['vocab:v1'] ?? {}).filter(x => x.lemma.startsWith('piece of cake')); return v.length === 1 && v[0].lemma === 'piece of cake (idiom)'; })`), { label: 'notebook entry re-worded, not duplicated', timeout: 8000 });
     await panel.evaluate(`document.querySelector('[role=tab]').click()`);
     // the following steps work on the manga page
     await page.send('Page.navigate', { url: `${BASE}/manga.html` });
     await sleep(1500);
   });
+
 
   const { targetId: optId } = await browser.send('Target.createTarget', { url: `chrome-extension://${extId}/options/index.html#appearance` });
   const opt = await attach(browser, optId);
@@ -801,6 +816,7 @@ try {
   browser.on((m) => {
     if (m.method === 'Page.javascriptDialogOpening' && m.sessionId === opt.sessionId) void opt.send('Page.handleJavaScriptDialog', { accept: true });
   });
+
   await step('Settings Center: change theme → persisted → applied to other pages; Reset to Default', async () => {
     await waitFor(() => opt.evaluate(`document.body.innerText.includes('Giao diện')`), { label: 'options render' });
     await opt.evaluate(`[...document.querySelectorAll('button')].find(b => b.textContent === 'Sáng').click()`);

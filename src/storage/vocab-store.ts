@@ -113,7 +113,7 @@ export class VocabStore {
     return { entry, created: true };
   }
 
-  async update(id: string, patch: Partial<Pick<VocabEntry, 'status' | 'notes' | 'meaning' | 'translation'>>): Promise<VocabEntry> {
+  async update(id: string, patch: Partial<Pick<VocabEntry, 'status' | 'notes' | 'meaning' | 'translation' | 'ipa' | 'pos'>>): Promise<VocabEntry> {
     const map = await this.read();
     const cur = map[id];
     if (!cur) throw new Error('Không tìm thấy từ.');

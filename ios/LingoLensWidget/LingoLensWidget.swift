@@ -19,6 +19,22 @@ enum WordSkip {
     static func advance() { UserDefaults.standard.set(value + 1, forKey: key) }
 }
 
+/// What the user typed into any widget, kept for every widget of LingoLens (the widget extension's own storage, shared by its widgets).
+enum WidgetMemory {
+    private static let codeKey = "lingolens.syncCode"
+    private static let listKey = "lingolens.pastedList"
+
+    static var syncCode: String {
+        get { UserDefaults.standard.string(forKey: codeKey) ?? "" }
+        set { UserDefaults.standard.set(newValue, forKey: codeKey) }
+    }
+
+    static var pastedList: String {
+        get { UserDefaults.standard.string(forKey: listKey) ?? "" }
+        set { UserDefaults.standard.set(newValue, forKey: listKey) }
+    }
+}
+
 /// The last list read from GitHub, kept for when the phone is offline.
 enum WidgetCache {
     private static var url: URL? {
@@ -73,7 +89,11 @@ struct Provider: AppIntentTimelineProvider {
         if let snap = WidgetShared.read(), !snap.words.isEmpty { return (snap.words, "", false) }
         var note = ""
         var usesCloud = false
-        let code = configuration.code.trimmingCharacters(in: .whitespacesAndNewlines)
+        // The code is pasted into ONE widget but remembered for all of them (the lock-screen widgets are separate widgets and would
+        // otherwise each ask for it again). A newly pasted valid code replaces the remembered one.
+        let typed = configuration.code.trimmingCharacters(in: .whitespacesAndNewlines)
+        if WidgetSyncCode.parse(typed) != nil { WidgetMemory.syncCode = typed }
+        let code = typed.isEmpty ? WidgetMemory.syncCode : typed
         if let parsed = WidgetSyncCode.parse(code) {
             usesCloud = true
             do {
@@ -87,7 +107,9 @@ struct Provider: AppIntentTimelineProvider {
         } else if !code.isEmpty {
             note = "Mã đồng bộ không đúng. Chép lại từ LingoLens → Trang chủ → Widget từ vựng."
         }
-        let pasted = WidgetShared.parsePasted(configuration.pasted)
+        let typedList = configuration.pasted.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !WidgetShared.parsePasted(typedList).isEmpty { WidgetMemory.pastedList = typedList }
+        let pasted = WidgetShared.parsePasted(typedList.isEmpty ? WidgetMemory.pastedList : typedList)
         if !pasted.isEmpty { return (pasted, "", usesCloud) }
         if note.isEmpty {
             note = "Chưa có từ.\nGiữ widget → Chỉnh sửa widget → dán Mã đồng bộ (LingoLens → Trang chủ → Widget từ vựng)."
@@ -122,16 +144,23 @@ struct Provider: AppIntentTimelineProvider {
     }
 }
 
-private let widgetBackground = Color(red: 16 / 255, green: 18 / 255, blue: 24 / 255)
-private let widgetAccent = Color(red: 124 / 255, green: 156 / 255, blue: 255 / 255)
-private let widgetMuted = Color(red: 154 / 255, green: 164 / 255, blue: 184 / 255)
+// Home Screen widgets are white (easy to read); lock-screen widgets have no background at all, only text (the system tints them).
+private let widgetInk = Color(red: 17 / 255, green: 24 / 255, blue: 39 / 255)
+private let widgetAccent = Color(red: 52 / 255, green: 81 / 255, blue: 209 / 255)
+private let widgetMuted = Color(red: 107 / 255, green: 114 / 255, blue: 128 / 255)
 
 struct WordWidgetView: View {
     @Environment(\.widgetFamily) private var family
     let entry: WordEntry
 
+    private var isLockScreen: Bool { family == .accessoryInline || family == .accessoryRectangular || family == .accessoryCircular }
+
     var body: some View {
-        content.containerBackground(widgetBackground, for: .widget)
+        if isLockScreen {
+            content.containerBackground(Color.clear, for: .widget)
+        } else {
+            content.containerBackground(Color.white, for: .widget)
+        }
     }
 
     @ViewBuilder
@@ -141,13 +170,18 @@ struct WordWidgetView: View {
             case .accessoryInline:
                 Text("\(word.w): \(word.vi)")
             case .accessoryRectangular:
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(word.w).font(.headline).lineLimit(1)
-                    Text(word.vi).font(.caption).lineLimit(2)
+                // text only: word + pronunciation, then part of speech and meaning
+                VStack(alignment: .leading, spacing: 1) {
+                    Text([word.w, word.ipa ?? ""].filter { !$0.isEmpty }.joined(separator: "  ")).font(.headline).lineLimit(1)
+                    Text([word.p ?? "", word.vi].filter { !$0.isEmpty }.joined(separator: " · ")).font(.caption).lineLimit(2)
                 }
+            case .accessoryCircular:
+                Text(word.w).font(.caption).lineLimit(2).minimumScaleFactor(0.5)
             default:
                 card(word)
             }
+        } else if isLockScreen {
+            Text("Mở LingoLens").font(.caption)
         } else {
             VStack(alignment: .leading, spacing: 4) {
                 Text("LingoLens").font(.headline).foregroundColor(widgetAccent)
@@ -165,7 +199,7 @@ struct WordWidgetView: View {
         return VStack(alignment: .leading, spacing: 4) {
             Text(word.w)
                 .font(.system(size: small ? 24 : 30, weight: .bold))
-                .foregroundColor(.white)
+                .foregroundColor(widgetInk)
                 .lineLimit(1)
                 .minimumScaleFactor(0.5)
             HStack(spacing: 6) {
@@ -178,13 +212,13 @@ struct WordWidgetView: View {
                         .foregroundColor(widgetMuted)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
-                        .background(Capsule().fill(Color.white.opacity(0.1)))
+                        .background(Capsule().fill(Color.black.opacity(0.07)))
                         .lineLimit(1)
                 }
             }
             Text(word.vi)
                 .font(.system(size: small ? 15 : 19, weight: .medium))
-                .foregroundColor(.white)
+                .foregroundColor(widgetInk)
                 .lineLimit(3)
             Spacer(minLength: 0)
         }
@@ -206,7 +240,7 @@ struct LingoLensWordWidget: Widget {
         }
         .configurationDisplayName("Từ vựng")
         .description("Một từ đã lưu, đổi mỗi giờ. Bấm mũi tên để sang từ khác ngay.")
-        .supportedFamilies([.systemSmall, .systemMedium, .accessoryRectangular, .accessoryInline])
+        .supportedFamilies([.systemSmall, .systemMedium, .accessoryRectangular, .accessoryInline, .accessoryCircular])
     }
 }
 

@@ -82,3 +82,10 @@ Khi chưa có Client ID, app chỉ hiện cách nhập token thủ công.
 
 ### Cách không cần cài đặt gì
 Toàn bộ phần đồng bộ là cách vòng cho việc cài bằng Apple ID miễn phí. Với tài khoản Apple Developer trả phí (hoặc phát hành lên App Store), widget dùng App Group và **tự cập nhật không cần làm gì**; mã trong dự án sẽ tự dùng đường đó.
+
+## Bản 5: đủ thông tin, nền trắng, nhớ mã cho mọi widget
+- **Từ đủ thông tin:** từ thêm tay hoặc từ Ghi chú (một từ đơn) tự điền **phiên âm, loại từ** và nghĩa (nếu bạn để trống) từ từ điển. Từ đã lưu trước đây thiếu phiên âm/loại từ được bổ sung một lần mỗi phiên. Widget và Sổ từ hiện đủ: từ, phiên âm, loại từ (tiếng Việt), nghĩa.
+- **Sổ từ có "+ Thêm từ"** (từ hoặc cụm từ, nghĩa tuỳ chọn, nút **Lưu**).
+- **Ghi chú:** nút đổi thành **Lưu**; không còn tự lưu khi gõ. Chỉ khi bấm Lưu mới thêm vào ghi chú và Sổ từ.
+- **Nhập mã một lần:** mã đồng bộ (và danh sách dán) được widget nhớ cho **mọi** widget của LingoLens. Widget màn hình khoá không phải nhập lại. Dán mã mới vào bất kỳ widget nào sẽ thay mã cũ.
+- **Giao diện:** widget màn hình chính nền **trắng**, chữ đậm dễ đọc. Widget màn hình khoá **không nền**, chỉ chữ (dòng, chữ nhật, tròn).

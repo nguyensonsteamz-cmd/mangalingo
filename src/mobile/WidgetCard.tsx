@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { VOCAB_KEY } from '@/storage/vocab-store';
-import { vocabStore } from '@/ui/VocabManager';
+import { backfillVocab, vocabStore } from '@/ui/VocabManager';
 import { copyText, githubPoll, githubStart, iosBridge, iosPost, widgetConfigure, widgetDisconnect, widgetStatus, widgetSync, type GithubStart, type WidgetStatus } from './ios';
 import { pasteText, widgetWords } from './widget';
 
@@ -12,7 +12,8 @@ export function useWidgetSync() {
   useEffect(() => {
     if (!iosBridge()) return;
     let timer: ReturnType<typeof setTimeout> | undefined;
-    const push = () => void vocabStore.list().then((l) => widgetSync(widgetWords(l)));
+    // words saved without pronunciation / part of speech get them first, so the widget can show them
+    const push = () => void backfillVocab().then(() => vocabStore.list()).then((l) => widgetSync(widgetWords(l)));
     push();
     const on = (changes: Record<string, unknown>, area: string) => {
       if (area !== 'local' || !(VOCAB_KEY in changes)) return;
@@ -53,6 +54,7 @@ export function WidgetCard() {
 
   const refresh = useCallback(async () => setSt(await widgetStatus()), []);
   const sync = useCallback(async () => {
+    await backfillVocab();
     const l = await vocabStore.list();
     const r = await widgetSync(widgetWords(l)); // uploads when connected
     await refresh();
