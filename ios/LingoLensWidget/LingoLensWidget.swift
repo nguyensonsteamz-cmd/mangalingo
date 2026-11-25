@@ -15,8 +15,17 @@ struct NextWordIntent: AppIntent {
 /// How many words the button has skipped (kept by the widget itself).
 enum WordSkip {
     private static let key = "lingolens.wordSkip"
+    private static let tapKey = "lingolens.lastTap"
     static var value: Int { UserDefaults.standard.integer(forKey: key) }
-    static func advance() { UserDefaults.standard.set(value + 1, forKey: key) }
+
+    static func advance() {
+        UserDefaults.standard.set(value + 1, forKey: key)
+        UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: tapKey)
+    }
+
+    /// The widget is being refreshed because the button was just pressed: the list is already known, so the next word must appear at once
+    /// (asking the network first made the button feel slow).
+    static var tappedJustNow: Bool { Date().timeIntervalSince1970 - UserDefaults.standard.double(forKey: tapKey) < 5 }
 }
 
 /// What the user typed into any widget, kept for every widget of LingoLens (the widget extension's own storage, shared by its widgets).
@@ -96,8 +105,11 @@ struct Provider: AppIntentTimelineProvider {
         let code = typed.isEmpty ? WidgetMemory.syncCode : typed
         if let parsed = WidgetSyncCode.parse(code) {
             usesCloud = true
+            // the button was just pressed: show the next word from the list we already have, without waiting for the network
+            if WordSkip.tappedJustNow, let cached = WidgetCache.load(), !cached.words.isEmpty { return (cached.words, "", true) }
             do {
-                let snap = try await WidgetCloud.fetch(parsed)
+                // a short wait: with a cached list a slow network must not hold the widget back
+                let snap = try await WidgetCloud.fetch(parsed, timeout: WidgetCache.load() == nil ? 15 : 6)
                 WidgetCache.save(snap)
                 if !snap.words.isEmpty { return (snap.words, "", true) }
             } catch {
@@ -172,9 +184,10 @@ struct WordWidgetView: View {
             case .accessoryRectangular:
                 // text only: word + pronunciation, then part of speech and meaning
                 VStack(alignment: .leading, spacing: 1) {
-                    Text([word.w, word.ipa ?? ""].filter { !$0.isEmpty }.joined(separator: "  ")).font(.headline).lineLimit(1)
-                    Text([word.p ?? "", word.vi].filter { !$0.isEmpty }.joined(separator: " · ")).font(.caption).lineLimit(2)
+                    Text([word.w, word.ipa ?? ""].filter { !$0.isEmpty }.joined(separator: "  ")).font(.headline).lineLimit(1).minimumScaleFactor(0.6)
+                    Text([word.p ?? "", word.vi].filter { !$0.isEmpty }.joined(separator: " · ")).font(.caption).lineLimit(2).minimumScaleFactor(0.7)
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
             case .accessoryCircular:
                 Text(word.w).font(.caption).lineLimit(2).minimumScaleFactor(0.5)
             default:
@@ -193,43 +206,69 @@ struct WordWidgetView: View {
         }
     }
 
-    /// The word, its pronunciation and part of speech, and the meaning. Nothing else.
+    /// One colour per part of speech (the label is the Vietnamese one the app sends: "danh từ", "động từ"…).
+    private func posColor(_ label: String) -> Color {
+        let l = label.lowercased()
+        if l.contains("danh từ") { return Color(red: 37 / 255, green: 99 / 255, blue: 235 / 255) } // noun: blue
+        if l.contains("động từ") { return Color(red: 22 / 255, green: 163 / 255, blue: 74 / 255) } // verb (incl. auxiliary, modal): green
+        if l.contains("tính từ") { return Color(red: 234 / 255, green: 88 / 255, blue: 12 / 255) } // adjective: orange
+        if l.contains("trạng từ") { return Color(red: 147 / 255, green: 51 / 255, blue: 234 / 255) } // adverb: purple
+        if l.contains("đại từ") { return Color(red: 219 / 255, green: 39 / 255, blue: 119 / 255) } // pronoun: pink
+        if l.contains("giới từ") { return Color(red: 13 / 255, green: 148 / 255, blue: 136 / 255) } // preposition: teal
+        if l.contains("liên từ") { return Color(red: 202 / 255, green: 138 / 255, blue: 4 / 255) } // conjunction: amber
+        if l.contains("thán từ") { return Color(red: 220 / 255, green: 38 / 255, blue: 38 / 255) } // interjection: red
+        if l.contains("số từ") { return Color(red: 8 / 255, green: 145 / 255, blue: 178 / 255) } // numeral: cyan
+        return widgetMuted
+    }
+
+    /// Row 1: the word and, on the SAME line, its pronunciation. Row 2: the part of speech (coloured by kind). Row 3: the meaning on its
+    /// own line, big. Every text shrinks to fit the widget instead of being cut.
     private func card(_ word: WidgetWord) -> some View {
         let small = family == .systemSmall
-        return VStack(alignment: .leading, spacing: 4) {
-            Text(word.w)
-                .font(.system(size: small ? 24 : 30, weight: .bold))
-                .foregroundColor(widgetInk)
-                .lineLimit(1)
-                .minimumScaleFactor(0.5)
-            HStack(spacing: 6) {
+        return VStack(alignment: .leading, spacing: small ? 4 : 6) {
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text(word.w)
+                    .font(.system(size: small ? 26 : 34, weight: .bold))
+                    .foregroundColor(widgetInk)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.4)
+                    .layoutPriority(2)
                 if let ipa = word.ipa, !ipa.isEmpty {
-                    Text(ipa).font(.system(size: 13)).foregroundColor(widgetAccent).lineLimit(1)
+                    Text(ipa)
+                        .font(.system(size: small ? 14 : 18))
+                        .foregroundColor(widgetAccent)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.5)
+                        .layoutPriority(1)
                 }
+            }
+            HStack(spacing: 6) {
                 if let p = word.p, !p.isEmpty {
+                    let c = posColor(p)
                     Text(p)
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundColor(widgetMuted)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(Capsule().fill(Color.black.opacity(0.07)))
+                        .font(.system(size: small ? 11 : 13, weight: .bold))
+                        .foregroundColor(c)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(Capsule().fill(c.opacity(0.14)))
                         .lineLimit(1)
                 }
+                Spacer(minLength: 0)
+                // the next word at once (no waiting for the next hour)
+                Button(intent: NextWordIntent()) {
+                    Image(systemName: "arrow.right.circle.fill").font(.system(size: small ? 24 : 28)).foregroundColor(widgetAccent)
+                }
+                .buttonStyle(.plain)
             }
             Text(word.vi)
-                .font(.system(size: small ? 15 : 19, weight: .medium))
+                .font(.system(size: small ? 20 : 28, weight: .semibold))
                 .foregroundColor(widgetInk)
                 .lineLimit(3)
-            Spacer(minLength: 0)
+                .minimumScaleFactor(0.4)
+                .multilineTextAlignment(.leading)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .overlay(alignment: .bottomTrailing) {
-            // the next word at once (no waiting for the next hour)
-            Button(intent: NextWordIntent()) {
-                Image(systemName: "arrow.right.circle.fill").font(.system(size: 24)).foregroundColor(widgetAccent)
-            }
-            .buttonStyle(.plain)
-        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 }
 

@@ -13,6 +13,7 @@ import { canSpeak, speak } from './speech';
 import { AddWordForm } from './AddWordForm';
 import { lookupWord } from './vocab-enrich';
 import { POS_VI } from './views';
+import { posChipClass } from './pos-colors';
 
 const kv = chromeLocal();
 export const vocabStore = new VocabStore(kv, () => new OcrCache(kv).evictOldest(60));
@@ -79,19 +80,6 @@ export function VocabManager({ compact }: { compact?: boolean }) {
 
   return (
     <div className="space-y-2.5">
-      {adding ? (
-        <AddWordForm
-          store={vocabStore}
-          onDone={(text) => {
-            setAdding(false);
-            if (text) setMsg({ tone: 'info', text });
-          }}
-        />
-      ) : (
-        <Button size="sm" variant="primary" onClick={() => setAdding(true)} data-ml-add-word-open="">
-          + Thêm từ
-        </Button>
-      )}
       <div className="flex items-center gap-2">
         <div className="relative min-w-0 flex-1">
           <IconSearch size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-subtle" />
@@ -143,6 +131,19 @@ export function VocabManager({ compact }: { compact?: boolean }) {
       </div>
       {pct > 85 && <Notice tone="warn">Bộ nhớ tiện ích sắp đầy. Hãy xuất sổ từ ra tệp hoặc xóa cache OCR trong Cài đặt → Dữ liệu.</Notice>}
       {msg && <Notice tone={msg.tone}>{msg.text}</Notice>}
+      {adding ? (
+        <AddWordForm
+          store={vocabStore}
+          onDone={(text) => {
+            setAdding(false);
+            if (text) setMsg({ tone: 'info', text });
+          }}
+        />
+      ) : (
+        <button type="button" onClick={() => setAdding(true)} className="ml-focus ml-press ml-btn-primary flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-3 text-[15px] font-semibold" data-ml-add-word-open="">
+          <span className="text-[18px] leading-none">+</span> Thêm từ
+        </button>
+      )}
       {!list.length ? (
         <Empty title="Sổ từ vựng trống" icon={<IconBook size={28} />}>
           Bấm “+ Thêm từ” để nhập từ mới, hoặc dấu trang trong popup tra từ để lưu kèm câu gốc và nguồn.
@@ -195,7 +196,7 @@ function VocabItem({ e, compact }: { e: VocabEntry; compact?: boolean }) {
           <div className="flex flex-wrap items-baseline gap-x-2">
             <span className="text-[16px] font-bold tracking-tight text-text">{e.word}</span>
             {e.ipa && <span className="ml-ipa text-[12px] text-accent">{e.ipa}</span>}
-            {e.pos && <span className="rounded-full bg-text/[0.06] px-1.5 text-[10.5px] font-medium text-muted">{(POS_VI as Record<string, string>)[e.pos] ?? e.pos}</span>}
+            {e.pos && <span className={cx('rounded-full px-2 py-0.5 text-[11px] font-bold', posChipClass(e.pos))} data-ml-pos={e.pos}>{(POS_VI as Record<string, string>)[e.pos] ?? e.pos}</span>}
           </div>
           <div className="ml-tr mt-0.5 font-semibold text-text">{e.meaning || <span className="font-normal text-subtle">—</span>}</div>
         </div>

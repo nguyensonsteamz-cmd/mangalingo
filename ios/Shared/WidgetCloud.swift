@@ -89,8 +89,8 @@ enum WidgetCloud {
     }
 
     /// Widget side: reads the public file (no token) and decrypts it.
-    static func fetch(_ code: WidgetSyncCode) async throws -> WidgetSnapshot {
-        var req = URLRequest(url: try contentsURL(code.repo), cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 15)
+    static func fetch(_ code: WidgetSyncCode, timeout: TimeInterval = 15) async throws -> WidgetSnapshot {
+        var req = URLRequest(url: try contentsURL(code.repo), cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: timeout)
         req.setValue("application/vnd.github.raw+json", forHTTPHeaderField: "Accept")
         req.setValue("LingoLens-widget", forHTTPHeaderField: "User-Agent")
         let (data, resp) = try await URLSession.shared.data(for: req)

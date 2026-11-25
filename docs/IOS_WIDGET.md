@@ -89,3 +89,8 @@ Toàn bộ phần đồng bộ là cách vòng cho việc cài bằng Apple ID m
 - **Ghi chú:** nút đổi thành **Lưu**; không còn tự lưu khi gõ. Chỉ khi bấm Lưu mới thêm vào ghi chú và Sổ từ.
 - **Nhập mã một lần:** mã đồng bộ (và danh sách dán) được widget nhớ cho **mọi** widget của LingoLens. Widget màn hình khoá không phải nhập lại. Dán mã mới vào bất kỳ widget nào sẽ thay mã cũ.
 - **Giao diện:** widget màn hình chính nền **trắng**, chữ đậm dễ đọc. Widget màn hình khoá **không nền**, chỉ chữ (dòng, chữ nhật, tròn).
+
+## Bản 6: bố cục widget, nút Thêm từ rộng, mũi tên nhanh
+- **Widget:** phiên âm **cùng dòng** với từ tiếng Anh; nhãn loại từ **có màu theo loại** (danh từ xanh dương, động từ xanh lá, tính từ cam, trạng từ tím, đại từ hồng, giới từ xanh ngọc, liên từ vàng, thán từ đỏ, số từ lục lam, khác xám); **nghĩa ở dòng riêng**, chữ lớn, tự thu nhỏ để vừa widget thay vì bị cắt; widget màn hình khoá (chữ nhật) **căn trái**.
+- **Sổ từ:** nút **Thêm từ** rộng hết màn hình, đặt ngay trên danh sách từ; form thêm từ mở ngay tại đó. Nhãn loại từ trong thẻ từ cũng có màu theo loại.
+- **Mũi tên đổi từ nhanh hơn:** trước đây mỗi lần bấm, widget nạp lại và **gọi GitHub qua mạng** rồi mới đổi từ. Giờ sau khi bấm, widget dùng danh sách đã lưu tạm (không chờ mạng), và các lần nạp khác chỉ chờ mạng tối đa 6 giây khi đã có bản lưu tạm.
