@@ -270,6 +270,7 @@ private extension WidgetTheme {
 
 struct WordWidgetView: View {
     @Environment(\.widgetFamily) private var family
+    @Environment(\.widgetRenderingMode) private var renderingMode
     let entry: WordEntry
 
     private var isLockScreen: Bool { family == .accessoryInline || family == .accessoryRectangular || family == .accessoryCircular }
@@ -320,6 +321,8 @@ struct WordWidgetView: View {
     /// Lock-screen widget (no background, the system tints the text): the same layout as the Home Screen widget, with bigger text and
     /// no buttons. Row 1: the word or sentence. Row 2: pronunciation and part-of-speech tag, which the system draws in its accent tone
     /// (a different tone than the word and the meaning). Row 3: the meaning.
+    private var fullColor: Bool { renderingMode == .fullColor }
+
     private func lockCard(_ word: WidgetWord) -> some View {
         let long = word.w.count > 24
         let hasTags = !(word.ipa ?? "").isEmpty || !(word.p ?? "").isEmpty
@@ -332,16 +335,24 @@ struct WordWidgetView: View {
             if hasTags {
                 HStack(spacing: 5) {
                     if let ipa = word.ipa, !ipa.isEmpty {
-                        Text(ipa).font(.system(size: 13)).lineLimit(1).minimumScaleFactor(0.6)
+                        // full colour (StandBy): light amber like the Home Screen widget; on the lock screen (tinted by the system) a softer tone
+                        Text(ipa)
+                            .font(.system(size: 13))
+                            .foregroundColor(fullColor ? hex(0xFDE68A) : Color.white.opacity(0.7))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.6)
                     }
                     if let p = word.p, !p.isEmpty {
+                        // full colour: the coloured tag of the Home Screen widget; tinted lock screen: a solid light pill with dark text
+                        // (the system keeps only brightness there, so the tag stands out from the word and the meaning)
                         Text(p)
-                            .font(.system(size: 11, weight: .bold))
+                            .font(.system(size: 11, weight: .heavy))
+                            .foregroundColor(fullColor ? hex(0x111827) : Color.black)
                             .lineLimit(1)
                             .minimumScaleFactor(0.6)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 1)
-                            .background(Capsule().fill(Color.white.opacity(0.28)))
+                            .background(Capsule().fill(fullColor ? posFillOnDark(p) : Color.white))
                     }
                 }
                 .widgetAccentable()

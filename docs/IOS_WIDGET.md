@@ -125,3 +125,6 @@ Không còn mục "Nguồn dịch" trong Cài đặt: chỉ dùng Google Dịch 
 ## Bản 11: widget luôn theo cài đặt trong app, widget màn hình khoá cùng bố cục
 - **Giao diện, tần suất, thứ tự từ không còn là tuỳ chọn riêng của từng widget** (đã bỏ khỏi *Chỉnh sửa widget*): mọi widget (màn hình chính và khoá) luôn theo *Cài đặt → Widget*. Đổi cài đặt là app gửi ngay cho widget (cùng đường với danh sách từ) và hiện kết quả ("Đã gửi cho widget" hoặc nhắc bật Tự cập nhật nếu chưa kết nối). Chỉ cần widget nhận được dữ liệu: với Apple ID miễn phí cần kết nối GitHub ("Bật tự cập nhật").
 - **Widget màn hình khoá (chữ nhật):** cùng bố cục với widget màn hình chính (dòng 1 từ/câu; dòng 2 phiên âm + thẻ loại từ; dòng 3 nghĩa), chữ to hơn, không có nút ‹ ›. iOS **không cho widget màn hình khoá dùng màu tuỳ ý**: hệ thống tự nhuộm chữ theo hình nền. Phiên âm và thẻ loại từ được đánh dấu là "accent" nên hiện ở tông khác với từ và nghĩa; nền không có (ràng buộc của iOS).
+
+## Bản 12: màu phiên âm và thẻ trên widget màn hình khoá
+iOS **không cho widget màn hình khoá dùng màu tuỳ ý** (hệ thống chỉ giữ độ sáng rồi nhuộm theo hình nền). Cách gần nhất: phiên âm hiện nhạt hơn từ và nghĩa; thẻ loại từ là **viên thuốc đặc màu sáng, chữ đen** nên nổi hẳn lên. Khi iOS hiển thị đủ màu (ví dụ chế độ StandBy), phiên âm có màu vàng nhạt và thẻ có màu theo loại từ như widget màn hình chính.
