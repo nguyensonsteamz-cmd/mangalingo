@@ -16,7 +16,7 @@ function WidgetPreview({ theme, size, sample }: { theme: WidgetThemeDef; size: '
   const long = sample.w.length > 28;
   // dark backgrounds: a bright tint of the tag colour with near-black text (never white, so it differs from the word and meaning)
   const pill = theme.onDark ? { background: '#86EFAC', color: '#111827' } : { background: 'rgba(21,128,61,.14)', color: '#15803D' };
-  const circle = { width: 26, height: 26, borderRadius: 13, background: theme.onDark ? '#fff' : '#111827', color: theme.onDark ? '#111827' : '#fff' };
+  const circle = { width: 22, height: 22, borderRadius: 11, background: theme.onDark ? '#fff' : '#111827', color: theme.onDark ? '#111827' : '#fff' };
   return (
     <div
       data-ml-widget-preview=""
@@ -44,8 +44,8 @@ function WidgetPreview({ theme, size, sample }: { theme: WidgetThemeDef; size: '
       )}
       <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', fontWeight: 600, fontSize: long ? 13 : 18, lineHeight: 1.2 }}>{sample.vi}</div>
       <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-        <span style={{ ...circle, display: 'grid', placeItems: 'center', fontWeight: 800, fontSize: 14 }}>‹</span>
-        <span style={{ ...circle, display: 'grid', placeItems: 'center', fontWeight: 800, fontSize: 14 }}>›</span>
+        <span style={{ ...circle, display: 'grid', placeItems: 'center', fontWeight: 800, fontSize: 12 }}>‹</span>
+        <span style={{ ...circle, display: 'grid', placeItems: 'center', fontWeight: 800, fontSize: 12 }}>›</span>
       </div>
     </div>
   );

@@ -444,9 +444,9 @@ struct WordWidgetView: View {
 
     private func navIcon(_ name: String, small: Bool) -> some View {
         Image(systemName: name)
-            .font(.system(size: small ? 11 : 13, weight: .heavy))
+            .font(.system(size: 10, weight: .heavy))
             .foregroundColor(pal.btnFG)
-            .frame(width: small ? 26 : 30, height: small ? 26 : 30)
+            .frame(width: 22, height: 22)
             .background(Circle().fill(pal.btnBG))
     }
 }
