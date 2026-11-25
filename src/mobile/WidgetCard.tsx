@@ -77,7 +77,7 @@ export function WidgetCard() {
             const words = widgetWords(await vocabStore.list());
             if (!words.length) return setMsg('Chưa có từ nào để chép: hãy lưu vài từ trước.');
             const ok = await copyText(pasteText(words));
-            setMsg(ok ? `Đã chép ${Math.min(words.length, 120)} từ. Giữ widget → Chỉnh sửa widget → dán vào ô “Danh sách từ” (một dòng).` : 'Không chép được.');
+            setMsg(ok ? `Đã chép ${Math.min(words.length, 150)} từ. Giữ widget → Chỉnh sửa widget → dán vào ô “Danh sách từ” (một dòng).` : 'Không chép được.');
           }}
         >
           Chép danh sách cho widget

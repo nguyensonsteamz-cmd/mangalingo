@@ -5,9 +5,9 @@ import WidgetKit
 /// reload. See Shared/WidgetShared.swift.
 enum WidgetSync {
     static func write(words: [[String: Any]]) -> Bool {
-        let parsed: [WidgetWord] = words.compactMap { d in
+        let parsed: [WidgetWord] = words.compactMap { d -> WidgetWord? in
             guard let w = d["w"] as? String, !w.isEmpty else { return nil }
-            return WidgetWord(w: w, ipa: d["ipa"] as? String, vi: d["vi"] as? String ?? "", ex: d["ex"] as? String)
+            return WidgetWord(w: w, ipa: d["ipa"] as? String, vi: d["vi"] as? String ?? "", p: d["p"] as? String)
         }
         let ok = WidgetShared.write(WidgetSnapshot(words: parsed, updated: Date().timeIntervalSince1970))
         WidgetCenter.shared.reloadAllTimelines()

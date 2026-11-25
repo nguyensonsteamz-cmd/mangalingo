@@ -36,3 +36,9 @@ Chỉ từ, phiên âm, nghĩa và câu ví dụ, nằm trong máy (container Ap
 - **App Group không dùng được**: chữ ký không có nhóm nào ("Nhóm trong chữ ký: không có"). Vì vậy đường tự động không chạy với Apple ID miễn phí.
 - Cách đi được: **dán danh sách** vào ô cấu hình của widget. Định dạng chép là **một dòng** (`từ | phiên âm | nghĩa | ví dụ`, các từ cách nhau bằng ` ¶ `) để chịu được ô nhập một dòng.
 - Nếu sau này dùng tài khoản Apple Developer trả phí, đường App Group (tự đồng bộ) trong mã sẽ tự hoạt động, không cần đổi gì.
+
+## Giao diện và thao tác (bản 2)
+- Chỉ hiện: **từ**, **phiên âm**, **loại từ** (nhãn nhỏ), **nghĩa**. Không còn ví dụ, nguồn hay số thứ tự.
+- **Nút mũi tên** (iOS 17+) ở góc phải dưới: bấm để sang từ khác **ngay**, không chờ một giờ. Widget tự nhớ đã bỏ qua bao nhiêu từ.
+- **Xếp chồng nhiều widget** (Stack): mỗi widget đặt "Từ thứ" khác nhau (0, 1, 2…) trong Chỉnh sửa widget; **vuốt lên/xuống** trên chồng để thấy từ khác. Đây là cách duy nhất để "vuốt" trên màn hình chính, vì một widget đơn không nhận thao tác vuốt.
+- Tự cập nhật khi thêm từ chỉ chạy khi widget đọc được sổ từ (App Group). Với Apple ID miễn phí qua Sideloadly thì chưa, xem mục kết quả thử.

@@ -5,7 +5,7 @@ struct WidgetWord: Codable, Hashable {
     var w: String
     var ipa: String?
     var vi: String
-    var ex: String?
+    var p: String? // part of speech (Vietnamese label)
 }
 
 struct WidgetSnapshot: Codable {
@@ -86,15 +86,15 @@ enum WidgetShared {
         return (try? data.write(to: c.url.appendingPathComponent(fileName), options: .atomic)) != nil
     }
 
-    /// "word | ipa | meaning | example" per entry; entries are separated by a line break or by "¶" (the widget's paste field may be a single line).
+    /// "word | ipa | meaning | part of speech" per entry; entries are separated by a line break or by "¶" (the widget's paste field may be a single line).
     static func parsePasted(_ text: String) -> [WidgetWord] {
         text.split(whereSeparator: { $0.isNewline || $0 == "¶" }).compactMap { line -> WidgetWord? in
             let parts = line.split(separator: "|", omittingEmptySubsequences: false).map { $0.trimmingCharacters(in: .whitespaces) }
             guard let w = parts.first, !w.isEmpty else { return nil }
             func at(_ i: Int) -> String? { i < parts.count && !parts[i].isEmpty ? parts[i] : nil }
-            if parts.count == 1 { return WidgetWord(w: w, ipa: nil, vi: "", ex: nil) }
-            if parts.count == 2 { return WidgetWord(w: w, ipa: nil, vi: parts[1], ex: nil) }
-            return WidgetWord(w: w, ipa: at(1), vi: parts[2], ex: at(3))
+            if parts.count == 1 { return WidgetWord(w: w, ipa: nil, vi: "", p: nil) }
+            if parts.count == 2 { return WidgetWord(w: w, ipa: nil, vi: parts[1], p: nil) }
+            return WidgetWord(w: w, ipa: at(1), vi: parts[2], p: at(3))
         }
     }
 
