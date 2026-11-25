@@ -130,7 +130,7 @@ struct WebContainer: UIViewRepresentable {
                 replyHandler(true, nil)
             case "widgetSync":
                 // the saved words for the home-screen widget (App Group file) + a reload request
-                WidgetSync.writeSerial(words: body["words"] as? [[String: Any]] ?? [], order: body["order"] as? String, theme: body["theme"] as? String) { replyHandler($0, nil) }
+                WidgetSync.writeSerial(words: body["words"] as? [[String: Any]] ?? [], order: body["order"] as? String, theme: body["theme"] as? String, interval: body["interval"] as? Int) { replyHandler($0, nil) }
             case "widgetStatus":
                 WidgetSync.statusAsync { replyHandler($0, nil) }
             case "githubStart":

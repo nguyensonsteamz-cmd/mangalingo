@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { Field, Segmented } from '@/ui/components';
-import { getWidgetOrder, getWidgetTheme, setWidgetOrder, setWidgetTheme, type WidgetOrder } from './widget';
+import { Field, Segmented, Select } from '@/ui/components';
+import { WIDGET_INTERVALS, getWidgetInterval, getWidgetOrder, getWidgetTheme, setWidgetInterval, setWidgetOrder, setWidgetTheme, type WidgetOrder } from './widget';
 import { WIDGET_THEMES, themeById, type WidgetThemeDef } from './widget-themes';
 import { WidgetCard } from './WidgetCard';
 
@@ -12,7 +12,8 @@ const SAMPLES = [
 /** Same layout as the Home Screen widget: word, pronunciation + part-of-speech tag, meaning, ‹ and › in the bottom corners. */
 function WidgetPreview({ theme, size, sample }: { theme: WidgetThemeDef; size: 'small' | 'medium'; sample: (typeof SAMPLES)[number] }) {
   const long = sample.w.length > 28;
-  const pill = theme.onDark ? { background: '#fff', color: '#15803D' } : { background: 'rgba(21,128,61,.14)', color: '#15803D' };
+  // dark backgrounds: a bright tint of the tag colour with near-black text (never white, so it differs from the word and meaning)
+  const pill = theme.onDark ? { background: '#86EFAC', color: '#111827' } : { background: 'rgba(21,128,61,.14)', color: '#15803D' };
   const circle = { width: 26, height: 26, borderRadius: 13, background: theme.onDark ? '#fff' : '#111827', color: theme.onDark ? '#111827' : '#fff' };
   return (
     <div
@@ -55,6 +56,7 @@ function WidgetPreview({ theme, size, sample }: { theme: WidgetThemeDef; size: '
  */
 export function WidgetSettings() {
   const [order, setOrder] = useState<WidgetOrder>(getWidgetOrder());
+  const [interval, setIntervalMin] = useState(String(getWidgetInterval()));
   const [themeId, setThemeId] = useState(getWidgetTheme());
   const [size, setSize] = useState<'small' | 'medium'>('small');
   const [sampleIdx, setSampleIdx] = useState(0);
@@ -109,6 +111,16 @@ export function WidgetSettings() {
         </div>
       </section>
 
+      <Field label="Tần suất đổi từ" description="Widget tự chuyển sang từ khác sau mỗi khoảng thời gian này. Bạn vẫn có thể bấm ‹ › để đổi ngay.">
+        <Select
+          value={interval}
+          onChange={(v) => {
+            setIntervalMin(v);
+            setWidgetInterval(Number(v));
+          }}
+          options={WIDGET_INTERVALS.map((x) => ({ value: x.value, label: x.label }))}
+        />
+      </Field>
       <Field label="Thứ tự từ" description="Sau mỗi giờ widget chuyển sang từ khác: ngẫu nhiên trong sổ từ, hoặc lần lượt theo thứ tự trong sổ từ (từ mới nhất trước).">
         <Segmented
           value={order}
@@ -123,7 +135,7 @@ export function WidgetSettings() {
         />
       </Field>
       <div className="rounded-xl bg-text/[0.04] px-3 py-2 text-[12.5px] leading-snug text-muted" data-ml-widget-tips="">
-        <b className="text-text">Áp dụng cho widget:</b> giữ widget trên màn hình chính → Chỉnh sửa widget → chọn <b>Theo cài đặt trong app</b> ở Giao diện và Thứ tự từ (hoặc chọn riêng cho từng widget).
+        <b className="text-text">Áp dụng cho widget:</b> giữ widget trên màn hình chính → Chỉnh sửa widget → chọn <b>Theo cài đặt trong app</b> ở Giao diện, Tần suất đổi từ và Thứ tự từ (hoặc chọn riêng cho từng widget).
         Bấm vào widget để mở Sổ từ; hai nút ‹ › ở hai góc dưới để về từ trước hoặc sang từ kế tiếp ngay.
       </div>
       <WidgetCard />

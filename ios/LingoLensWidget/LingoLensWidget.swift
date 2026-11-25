@@ -98,15 +98,19 @@ struct Provider: AppIntentTimelineProvider {
             return sample
         }
         let loaded = await loadWords(for: configuration)
-        return makeEntries(words: loaded.words, note: loaded.note, shift: shift(configuration), from: Date(), count: 1, theme: resolveTheme(configuration, loaded.theme), sequential: sequential(configuration, loaded.order)).first ?? placeholder(in: context)
+        return makeEntries(words: loaded.words, note: loaded.note, shift: shift(configuration), from: Date(), count: 1, theme: resolveTheme(configuration, loaded.theme), sequential: sequential(configuration, loaded.order), stepMinutes: stepMinutes(configuration, loaded.interval)).first ?? placeholder(in: context)
     }
 
     /// 24 entries, one per hour: the word changes every hour even if iOS does not refresh the widget in between. With the GitHub sync the
     /// list is read again every few hours (and at once when the app saves a word and asks for a reload).
     func timeline(for configuration: WordConfigIntent, in context: Context) async -> Timeline<WordEntry> {
         let loaded = await loadWords(for: configuration)
-        let start = Calendar.current.dateInterval(of: .hour, for: Date())?.start ?? Date()
-        let entries = makeEntries(words: loaded.words, note: loaded.note, shift: shift(configuration), from: start, count: 24, theme: resolveTheme(configuration, loaded.theme), sequential: sequential(configuration, loaded.order))
+        let minutes = stepMinutes(configuration, loaded.interval)
+        let step = Double(minutes) * 60
+        // the current slot, then enough slots for about two days (at most 96): the word keeps changing even if iOS does not refresh the widget
+        let start = Date(timeIntervalSince1970: (Date().timeIntervalSince1970 / step).rounded(.down) * step)
+        let count = min(96, max(6, Int(48 * 3600 / step)))
+        let entries = makeEntries(words: loaded.words, note: loaded.note, shift: shift(configuration), from: start, count: count, theme: resolveTheme(configuration, loaded.theme), sequential: sequential(configuration, loaded.order), stepMinutes: minutes)
         let policy: TimelineReloadPolicy = loaded.cloud ? .after(Date().addingTimeInterval(3 * 3600)) : .atEnd
         return Timeline(entries: entries, policy: policy)
     }
@@ -127,11 +131,18 @@ struct Provider: AppIntentTimelineProvider {
         return .white
     }
 
+    /// Minutes between two words: the widget's own setting, or the app's ("Theo cài đặt trong app"), else 1 hour.
+    private func stepMinutes(_ configuration: WordConfigIntent, _ fromApp: Int?) -> Int {
+        if let m = configuration.interval.minutes { return m }
+        if let m = fromApp, [15, 30, 60, 120, 180, 360, 720, 1440].contains(m) { return m }
+        return 60
+    }
+
     private func shift(_ configuration: WordConfigIntent) -> Int { WordSkip.value + configuration.offset }
 
     /// Where the words come from: 1) the App Group file, 2) the encrypted list on GitHub (sync code), 3) the pasted list.
-    private func loadWords(for configuration: WordConfigIntent) async -> (words: [WidgetWord], note: String, cloud: Bool, order: String?, theme: String?) {
-        if let snap = WidgetShared.read(), !snap.words.isEmpty { return (snap.words, "", false, snap.order, snap.theme) }
+    private func loadWords(for configuration: WordConfigIntent) async -> (words: [WidgetWord], note: String, cloud: Bool, order: String?, theme: String?, interval: Int?) {
+        if let snap = WidgetShared.read(), !snap.words.isEmpty { return (snap.words, "", false, snap.order, snap.theme, snap.interval) }
         var note = ""
         var usesCloud = false
         // The code is pasted into ONE widget but remembered for all of them (the lock-screen widgets are separate widgets and would
@@ -142,14 +153,14 @@ struct Provider: AppIntentTimelineProvider {
         if let parsed = WidgetSyncCode.parse(code) {
             usesCloud = true
             // the button was just pressed: show the next word from the list we already have, without waiting for the network
-            if WordSkip.tappedJustNow, let cached = WidgetCache.load(), !cached.words.isEmpty { return (cached.words, "", true, cached.order, cached.theme) }
+            if WordSkip.tappedJustNow, let cached = WidgetCache.load(), !cached.words.isEmpty { return (cached.words, "", true, cached.order, cached.theme, cached.interval) }
             do {
                 // a short wait: with a cached list a slow network must not hold the widget back
                 let snap = try await WidgetCloud.fetch(parsed, timeout: WidgetCache.load() == nil ? 15 : 6)
                 WidgetCache.save(snap)
-                if !snap.words.isEmpty { return (snap.words, "", true, snap.order, snap.theme) }
+                if !snap.words.isEmpty { return (snap.words, "", true, snap.order, snap.theme, snap.interval) }
             } catch {
-                if let cached = WidgetCache.load(), !cached.words.isEmpty { return (cached.words, "", true, cached.order, cached.theme) }
+                if let cached = WidgetCache.load(), !cached.words.isEmpty { return (cached.words, "", true, cached.order, cached.theme, cached.interval) }
                 note = (error as? WidgetCloudError)?.description ?? "Không tải được từ GitHub."
             }
         } else if !code.isEmpty {
@@ -158,11 +169,11 @@ struct Provider: AppIntentTimelineProvider {
         let typedList = configuration.pasted.trimmingCharacters(in: .whitespacesAndNewlines)
         if !WidgetShared.parsePasted(typedList).isEmpty { WidgetMemory.pastedList = typedList }
         let pasted = WidgetShared.parsePasted(typedList.isEmpty ? WidgetMemory.pastedList : typedList)
-        if !pasted.isEmpty { return (pasted, "", usesCloud, nil, nil) }
+        if !pasted.isEmpty { return (pasted, "", usesCloud, nil, nil, nil) }
         if note.isEmpty {
             note = "Chưa có từ.\nGiữ widget → Chỉnh sửa widget → dán Mã đồng bộ (LingoLens → Trang chủ → Widget từ vựng)."
         }
-        return ([], note, usesCloud, nil, nil)
+        return ([], note, usesCloud, nil, nil, nil)
     }
 
     /// Indices 0..<count in an order that changes every day (so every word shows before one repeats).
@@ -179,12 +190,13 @@ struct Provider: AppIntentTimelineProvider {
         }
     }
 
-    private func makeEntries(words: [WidgetWord], note: String, shift: Int, from start: Date, count: Int, theme: WidgetTheme, sequential: Bool) -> [WordEntry] {
+    private func makeEntries(words: [WidgetWord], note: String, shift: Int, from start: Date, count: Int, theme: WidgetTheme, sequential: Bool, stepMinutes: Int) -> [WordEntry] {
         if words.isEmpty { return [WordEntry(date: start, word: nil, note: note, theme: theme)] }
         return (0..<count).map { i -> WordEntry in
-            let date = start.addingTimeInterval(Double(i) * 3600)
-            let hour = Int(date.timeIntervalSince1970 / 3600)
-            let day = hour / 24
+            let step = Double(stepMinutes) * 60
+            let date = start.addingTimeInterval(Double(i) * step)
+            let hour = Int(date.timeIntervalSince1970 / step) // the number of the time slot (a "slot" is one word)
+            let day = Int(date.timeIntervalSince1970 / 86400)
             let order = sequential ? Array(0..<words.count) : Provider.dailyOrder(count: words.count, day: day)
             let slot = (((hour + shift) % words.count) + words.count) % words.count
             return WordEntry(date: date, word: words[order[slot]], note: "", theme: theme)
@@ -214,8 +226,12 @@ private extension WidgetTheme {
         case .white, .app: return Palette(ink: hex(0x111827), accent: hex(0x2F46C8), muted: hex(0x4B5563), onDark: false)
         case .glassLight: return Palette(ink: hex(0x0F172A), accent: hex(0x2F46C8), muted: hex(0x334155), onDark: false)
         case .dark: return Palette(ink: hex(0xFFFFFF), accent: hex(0x93C5FD), muted: hex(0xD1D5DB), onDark: true)
-        case .blue, .green, .pink, .orange, .sunset, .ocean, .aurora, .glassDark:
-            return Palette(ink: hex(0xFFFFFF), accent: hex(0xE0F2FE), muted: hex(0xE5E7EB), onDark: true)
+        case .orange, .sunset:
+            // pronunciation in light cyan (amber would blend into these warm backgrounds)
+            return Palette(ink: hex(0xFFFFFF), accent: hex(0xA5F3FC), muted: hex(0xE5E7EB), onDark: true)
+        case .blue, .green, .pink, .ocean, .aurora, .glassDark:
+            // pronunciation in light amber: clearly another colour than the white word and meaning
+            return Palette(ink: hex(0xFFFFFF), accent: hex(0xFDE68A), muted: hex(0xE5E7EB), onDark: true)
         }
     }
 
@@ -323,6 +339,22 @@ struct WordWidgetView: View {
         return hex(0x374151)
     }
 
+    /// Fill of the part-of-speech tag on dark backgrounds: a bright tint of the tag's colour (never white, so it differs from the text),
+    /// with near-black text on top.
+    private func posFillOnDark(_ label: String) -> Color {
+        let l = label.lowercased()
+        if l.contains("danh từ") { return hex(0x93C5FD) }
+        if l.contains("động từ") { return hex(0x86EFAC) }
+        if l.contains("tính từ") { return hex(0xFDBA74) }
+        if l.contains("trạng từ") { return hex(0xD8B4FE) }
+        if l.contains("đại từ") { return hex(0xF9A8D4) }
+        if l.contains("giới từ") { return hex(0x5EEAD4) }
+        if l.contains("liên từ") { return hex(0xFCD34D) }
+        if l.contains("thán từ") { return hex(0xFCA5A5) }
+        if l.contains("số từ") { return hex(0x67E8F9) }
+        return hex(0xD1D5DB)
+    }
+
     /// Row 1: the word or sentence (wraps over several lines, never cut; shrinks if very long). Row 2: pronunciation, part of speech
     /// (coloured by kind) and the previous / next buttons. Row 3: the meaning, big, shrinking to fit the widget.
     private func card(_ word: WidgetWord) -> some View {
@@ -352,10 +384,10 @@ struct WordWidgetView: View {
                     let c = posColor(p)
                     Text(p)
                         .font(.system(size: small ? 11 : 13, weight: .bold))
-                        .foregroundColor(c)
+                        .foregroundColor(pal.onDark ? hex(0x111827) : c)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 3)
-                        .background(Capsule().fill(pal.onDark ? Color.white : c.opacity(0.14)))
+                        .background(Capsule().fill(pal.onDark ? posFillOnDark(p) : c.opacity(0.14)))
                         .lineLimit(1)
                         .minimumScaleFactor(0.7)
                 }

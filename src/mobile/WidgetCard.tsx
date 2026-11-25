@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { VOCAB_KEY } from '@/storage/vocab-store';
 import { backfillVocab, vocabStore } from '@/ui/VocabManager';
 import { copyText, githubPoll, githubStart, iosBridge, iosPost, widgetConfigure, widgetDisconnect, widgetStatus, widgetSync, type GithubStart, type WidgetStatus } from './ios';
-import { WIDGET_ORDER_EVENT, getWidgetOrder, getWidgetTheme, pasteText, widgetWords } from './widget';
+import { WIDGET_ORDER_EVENT, getWidgetInterval, getWidgetOrder, getWidgetTheme, pasteText, widgetWords } from './widget';
 
 /**
  * Keeps the widget's data fresh: the saved words are sent to the app shell when the app starts and (debounced) whenever the notebook
@@ -13,7 +13,7 @@ export function useWidgetSync() {
     if (!iosBridge()) return;
     let timer: ReturnType<typeof setTimeout> | undefined;
     // words saved without pronunciation / part of speech get them first, so the widget can show them
-    const push = () => void backfillVocab().then(() => vocabStore.list()).then((l) => widgetSync(widgetWords(l), getWidgetOrder(), getWidgetTheme()));
+    const push = () => void backfillVocab().then(() => vocabStore.list()).then((l) => widgetSync(widgetWords(l), getWidgetOrder(), getWidgetTheme(), getWidgetInterval()));
     push();
     window.addEventListener(WIDGET_ORDER_EVENT, push);
     const on = (changes: Record<string, unknown>, area: string) => {
@@ -58,7 +58,7 @@ export function WidgetCard() {
   const sync = useCallback(async () => {
     await backfillVocab();
     const l = await vocabStore.list();
-    const r = await widgetSync(widgetWords(l), getWidgetOrder(), getWidgetTheme()); // uploads when connected
+    const r = await widgetSync(widgetWords(l), getWidgetOrder(), getWidgetTheme(), getWidgetInterval()); // uploads when connected
     await refresh();
     return r;
   }, [refresh]);

@@ -23,6 +23,39 @@ enum WidgetTheme: String, AppEnum {
     ]
 }
 
+/// How often the widget changes the word.
+@available(iOS 17.0, *)
+enum WidgetInterval: String, AppEnum {
+    case app, m15, m30, h1, h2, h3, h6, h12, h24
+
+    var minutes: Int? {
+        switch self {
+        case .app: return nil
+        case .m15: return 15
+        case .m30: return 30
+        case .h1: return 60
+        case .h2: return 120
+        case .h3: return 180
+        case .h6: return 360
+        case .h12: return 720
+        case .h24: return 1440
+        }
+    }
+
+    static var typeDisplayRepresentation: TypeDisplayRepresentation = "Tần suất đổi từ"
+    static var caseDisplayRepresentations: [WidgetInterval: DisplayRepresentation] = [
+        .app: "Theo cài đặt trong app",
+        .m15: "15 phút",
+        .m30: "30 phút",
+        .h1: "1 giờ",
+        .h2: "2 giờ",
+        .h3: "3 giờ",
+        .h6: "6 giờ",
+        .h12: "12 giờ",
+        .h24: "1 ngày",
+    ]
+}
+
 /// How the widget walks through the saved words every hour.
 @available(iOS 17.0, *)
 enum WidgetOrder: String, AppEnum {
@@ -45,6 +78,9 @@ struct WordConfigIntent: WidgetConfigurationIntent {
 
     @Parameter(title: "Giao diện", default: .app)
     var theme: WidgetTheme
+
+    @Parameter(title: "Tần suất đổi từ", default: .app)
+    var interval: WidgetInterval
 
     @Parameter(title: "Thứ tự từ", default: .app)
     var order: WidgetOrder

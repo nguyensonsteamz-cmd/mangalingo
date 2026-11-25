@@ -60,6 +60,37 @@ export function getWidgetOrder(): WidgetOrder {
   }
 }
 
+const INTERVAL_KEY = 'lingolens:widgetInterval';
+/** minutes between two words (Settings → Widget) */
+export const WIDGET_INTERVALS: { value: string; minutes: number; label: string }[] = [
+  { value: '15', minutes: 15, label: '15 phút' },
+  { value: '30', minutes: 30, label: '30 phút' },
+  { value: '60', minutes: 60, label: '1 giờ' },
+  { value: '120', minutes: 120, label: '2 giờ' },
+  { value: '180', minutes: 180, label: '3 giờ' },
+  { value: '360', minutes: 360, label: '6 giờ' },
+  { value: '720', minutes: 720, label: '12 giờ' },
+  { value: '1440', minutes: 1440, label: '1 ngày' },
+];
+
+export function getWidgetInterval(): number {
+  try {
+    const m = Number(localStorage.getItem(INTERVAL_KEY));
+    return WIDGET_INTERVALS.some((x) => x.minutes === m) ? m : 60;
+  } catch {
+    return 60;
+  }
+}
+
+export function setWidgetInterval(minutes: number): void {
+  try {
+    localStorage.setItem(INTERVAL_KEY, String(minutes));
+  } catch {
+    /* storage unavailable: the choice lasts until the page closes */
+  }
+  window.dispatchEvent(new Event(WIDGET_ORDER_EVENT));
+}
+
 const THEME_KEY = 'lingolens:widgetTheme';
 
 /** The look chosen in Settings → Widget (a WidgetThemeId); widgets set to "Theo cài đặt trong app" follow it. */

@@ -92,13 +92,13 @@ enum WidgetSync {
     }
 
     /// Writes the words for the widget and reports what happened: ["ok": App Group file written, "cloud": "off" | "ok" | an error text].
-    static func write(words: [[String: Any]], order: String? = nil, theme: String? = nil) async -> [String: Any] {
+    static func write(words: [[String: Any]], order: String? = nil, theme: String? = nil, interval: Int? = nil) async -> [String: Any] {
         let parsed = parse(words)
-        let snapshot = WidgetSnapshot(words: parsed, updated: Date().timeIntervalSince1970, order: order, theme: theme)
+        let snapshot = WidgetSnapshot(words: parsed, updated: Date().timeIntervalSince1970, order: order, theme: theme, interval: interval)
         let groupOK = WidgetShared.write(snapshot)
         var cloud = "off"
         if let code = code, let token = SyncTokenStore.get() {
-            let hash = fingerprint(parsed) + "|" + (order ?? "") + "|" + (theme ?? "")
+            let hash = fingerprint(parsed) + "|" + (order ?? "") + "|" + (theme ?? "") + "|" + String(interval ?? 0)
             if defaults.string(forKey: hashKey) == hash {
                 cloud = "ok" // the same list as last time: nothing to upload
             } else {
@@ -119,11 +119,11 @@ enum WidgetSync {
     }
 
     /// Calls are serialised (two uploads at once would fight over the file version). `done` runs on the main queue.
-    static func writeSerial(words: [[String: Any]], order: String? = nil, theme: String? = nil, done: @escaping ([String: Any]) -> Void) {
+    static func writeSerial(words: [[String: Any]], order: String? = nil, theme: String? = nil, interval: Int? = nil, done: @escaping ([String: Any]) -> Void) {
         let previous = chain
         chain = Task {
             _ = await previous.value
-            let result = await write(words: words, order: order, theme: theme)
+            let result = await write(words: words, order: order, theme: theme, interval: interval)
             DispatchQueue.main.async { done(result) }
         }
     }

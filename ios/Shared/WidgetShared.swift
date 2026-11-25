@@ -16,6 +16,8 @@ struct WidgetSnapshot: Codable {
     var order: String?
     /// raw value of WidgetTheme chosen in the app (Settings → Widget); used by widgets set to "Theo cài đặt trong app"
     var theme: String?
+    /// minutes between two words (the app setting); nil = 60
+    var interval: Int?
 }
 
 /// Code shared by the app and the widget extension: the saved words travel from the app to the widget through a JSON file in an

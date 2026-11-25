@@ -117,3 +117,7 @@ Không còn mục "Nguồn dịch" trong Cài đặt: chỉ dùng Google Dịch 
 - Nút **‹** ở góc dưới bên trái, nút **›** ở góc dưới bên phải của widget.
 - **Cài đặt → Widget:** chọn giao diện (11 kiểu) và xem trước ngay (cỡ nhỏ/vừa, từ ngắn/câu dài); chọn thứ tự từ. Giao diện được gửi cùng danh sách từ cho widget.
 - Trong *Chỉnh sửa widget*, **Giao diện** có thêm lựa chọn **Theo cài đặt trong app** (mặc định cho widget mới). Widget đã tạo trước đó đang đặt cố định (ví dụ "Trắng") thì phải chọn lại "Theo cài đặt trong app" một lần để đi theo cài đặt trong app.
+
+## Bản 10: màu phiên âm / thẻ loại từ khác chữ, tần suất đổi từ
+- Trên nền tối: **phiên âm** có màu riêng (vàng nhạt; xanh ngọc nhạt trên nền cam/hoàng hôn) thay vì gần trắng; **thẻ loại từ** nền là sắc sáng của màu loại từ (không còn nền trắng) với chữ gần đen. Nhờ vậy phiên âm và thẻ luôn khác màu với từ và nghĩa (trắng), mà vẫn tương phản cao. Nền sáng: phiên âm xanh, thẻ nền nhạt chữ đậm, khác chữ đen của từ và nghĩa.
+- **Tần suất đổi từ:** Cài đặt → Widget chọn 15 phút, 30 phút, 1 giờ (mặc định), 2, 3, 6, 12 giờ hoặc 1 ngày; mỗi widget có thể đặt riêng ở *Chỉnh sửa widget → Tần suất đổi từ* ("Theo cài đặt trong app" là mặc định). Widget tính sẵn các từ cho khoảng 2 ngày tới (tối đa 96 mốc) nên vẫn đổi đúng giờ dù iOS không làm mới widget; iOS có thể chậm vài phút ở tần suất ngắn.
