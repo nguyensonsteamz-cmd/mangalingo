@@ -38,7 +38,7 @@ targets:
         TARGETED_DEVICE_FAMILY: "1,2"
         SWIFT_VERSION: "5.0"
         LINGOLENS_GOOGLE_IOS_CLIENT_ID: ""
-        LINGOLENS_GITHUB_CLIENT_ID: ""
+        LINGOLENS_GITHUB_CLIENT_ID: "Ov23lil3xPyWdLkIAPRj" # public client id of the LingoLens GitHub OAuth app (device flow; no secret exists)
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS: YES
         ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES: "AppIcon-Clear AppIcon-Oil AppIcon-Sunset AppIcon-Clay AppIcon-Ink"

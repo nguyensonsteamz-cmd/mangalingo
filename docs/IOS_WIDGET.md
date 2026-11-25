@@ -76,7 +76,7 @@ Quyền GitHub: `public_repo` (GitHub không có quyền nhỏ hơn cho việc t
 Đăng nhập bằng mã ngắn cần một **GitHub OAuth App** do người phát triển đăng ký (không phải từng người dùng):
 1. GitHub → Settings → Developer settings → OAuth Apps → New OAuth App. Tên `LingoLens`, Homepage URL là trang repo, Authorization callback URL điền tuỳ ý (không dùng).
 2. Mở app vừa tạo, đánh dấu **Enable Device Flow**, rồi lưu.
-3. Chép **Client ID** (công khai, không phải bí mật) và đặt vào `LINGOLENS_GITHUB_CLIENT_ID` trong `ios/project.yml`.
+3. Chép **Client ID** (công khai, không phải bí mật) và đặt vào `LINGOLENS_GITHUB_CLIENT_ID` trong `ios/project.yml` (đã đặt: `Ov23lil3xPyWdLkIAPRj`). Phải **bỏ tick "Expire user access tokens"** (app điện thoại không có Client Secret để làm mới token).
 
 Khi chưa có Client ID, app chỉ hiện cách nhập token thủ công.
 
