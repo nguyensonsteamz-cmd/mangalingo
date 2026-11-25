@@ -92,7 +92,8 @@ export function createReaderBridge(deps: ReaderDeps) {
             return p;
           }
           if (r.kind === 'phrase') {
-            const p: ReaderPayload = { title: r.phrase, saveable: false };
+            const p: ReaderPayload = { title: r.phrase, saveable: true };
+            p.saved = await deps.hasLemma(r.phrase.toLowerCase());
             p.meanings = uniq(r.senses.flatMap((s) => s.vi ?? [])).slice(0, 3).map((vi) => ({ vi }));
             if (!p.meanings.length) await mtLine(text, p);
             return p;
@@ -100,8 +101,9 @@ export function createReaderBridge(deps: ReaderDeps) {
           if (r.kind === 'unsupported') return { title: text, error: 'Đây không phải tiếng Anh.', canSpeak: false };
         }
         // sentence / paragraph: the (guarded) translation of exactly the text the user chose
-        const p: ReaderPayload = { title: mode === 'paragraph' ? 'Bản dịch đoạn' : 'Bản dịch câu', saveable: false };
+        const p: ReaderPayload = { title: mode === 'paragraph' ? 'Bản dịch đoạn' : 'Bản dịch câu', saveable: true };
         await mtLine(text, p);
+        p.saved = await deps.hasLemma(text.toLowerCase());
         return p;
       } catch (e) {
         return { title: text.slice(0, 60), error: `Không tra được: ${(e as Error)?.message ?? e}` };
@@ -110,6 +112,15 @@ export function createReaderBridge(deps: ReaderDeps) {
 
     async save(req: { word: string; context?: string; url?: string; title?: string }): Promise<{ ok: boolean; message?: string }> {
       try {
+        const text = req.word.trim();
+        // a sentence, paragraph or phrase is saved as it is, with its translation as the meaning
+        if (/\s/.test(text) || text.length > 40) {
+          const known = await deps.lookup({ text, context: req.context, mode: 'word', assumeEnglish: true }).catch(() => undefined);
+          let meaning = known && known.kind === 'phrase' ? uniq(known.senses.flatMap((s) => s.vi ?? [])).slice(0, 3).join('; ') : '';
+          if (!meaning) meaning = await deps.translate(text).catch(() => '');
+          await deps.saveWord({ word: text, lemma: text.toLowerCase(), meaning, pos: 'phrase', sentence: req.context, sourceUrl: req.url, sourceTitle: req.title });
+          return { ok: true };
+        }
         const r = await deps.lookup({ text: req.word, context: req.context, mode: 'word', assumeEnglish: true });
         if (r.kind !== 'word' || !r.found) return { ok: false, message: 'Từ này chưa có trong từ điển nên chưa lưu được.' };
         await deps.saveWord({ word: r.query, lemma: r.lemma, meaning: await deps.primaryMeaning(r), pos: r.context?.likelyPos ?? r.posList[0], ipa: r.ipa, sentence: req.context, sourceUrl: req.url, sourceTitle: req.title });

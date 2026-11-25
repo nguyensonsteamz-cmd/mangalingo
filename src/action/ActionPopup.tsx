@@ -7,7 +7,6 @@ import { hostListed, normalizeHost } from '@/shared/settings';
 import { useSettings } from '@/ui/hooks';
 import { cx } from '@/ui/components';
 import { IconGear, IconLogo, IconPanel } from '@/ui/icons';
-import { MtStatus } from '@/ui/MtStatus';
 import { ScanButtons } from '@/ui/ScanButtons';
 
 function useActiveTab() {
@@ -122,14 +121,8 @@ export function ActionPopup() {
       </div>
 
       {/* OCR from the toolbar: only where LingoLens is switched on (it never touches other pages) */}
-      {on ? <ScanButtons onStarted={() => window.close()} /> : <div className="ml-glass-card rounded-2xl px-3 py-2 text-[12px] text-muted" data-ml-scan-off="">Bật LingoLens cho trang này để quét OCR (Quét ảnh / Chọn vùng quét).</div>}
+      {on ? <ScanButtons onStarted={() => window.close()} /> : <div className="ml-glass-card rounded-2xl px-3 py-2 text-[12px] text-muted" data-ml-scan-off="">Bật LingoLens cho trang này để quét OCR (Quét OCR / Quét vùng).</div>}
 
-      {s.reading.translationMode === 'machine' && (
-        <div className="ml-glass-card rounded-2xl px-3 py-1">
-          <div className="pt-1.5 text-[12px] font-semibold text-muted">Nguồn dịch</div>
-          <MtStatus />
-        </div>
-      )}
     </div>
   );
 }

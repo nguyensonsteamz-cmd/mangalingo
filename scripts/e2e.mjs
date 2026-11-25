@@ -748,7 +748,7 @@ try {
     await closePopup();
   });
 
-  await step('OCR scan buttons (toolbar popup + sidebar): "Chọn vùng quét" starts region selection in the active enabled tab; other pages are refused with a reason', async () => {
+  await step('OCR scan buttons (toolbar popup + sidebar): "Quét vùng" starts region selection in the active enabled tab; other pages are refused with a reason', async () => {
     assert(await panel.evaluate(`!!document.querySelector('[data-ml-scan-buttons]') && !!document.querySelector('[data-ml-scan-image-btn]') && !!document.querySelector('[data-ml-scan-region-btn]')`), 'sidebar has both scan buttons');
     await page.send('Page.bringToFront');
     await sleep(400);
@@ -837,25 +837,16 @@ try {
     return 'theme light → persisted → reset to dark (sites cleared)';
   });
 
-  await step('Settings → Nguồn dịch: Google Dịch (web) is the default; two sources only; no API key, billing or quota anywhere; choice persists', async () => {
-    // a fresh profile has no stored choice: the default applies. (The test run pins on-device at start so no real request goes to Google.)
+  await step('Settings: there is NO translation-source section any more; Google Dịch (web) is the only (default) source', async () => {
     await sw.evaluate(`chrome.storage.local.remove('usage:settings:v1')`);
     await opt.evaluate(`location.hash = 'usage'`);
-    const txt = await waitFor(() => opt.evaluate(`document.querySelector('[data-ml-usage-section]')?.innerText ?? null`), { label: 'usage section' });
-    assert(txt.includes('Nguồn dịch') && txt.includes('Google Dịch (web)') && txt.includes('Trên máy'), 'both sources offered');
-    assert(!/Dán khoá|Khoá API Google|Billing|hạn mức miễn phí|500\.000|Smart Setup/i.test(txt), 'no key / billing / quota wording: ' + txt.slice(0, 200));
-    assert(await opt.evaluate(`!document.querySelector('[data-ml-usage-key]') && !document.querySelector('[data-ml-usage-input]')`), 'no key or quota fields');
+    await sleep(500);
+    assert(await opt.evaluate(`!document.querySelector('[data-ml-usage-section]') && !/Nguồn dịch|Trên máy/.test(document.body.innerText)`), 'no "Nguồn dịch" section or on-device choice in the settings');
     const resp = await opt.evaluate(`chrome.runtime.sendMessage({ type: 'usage:snapshot' })`);
     assert(resp.ok && resp.data.settings.provider === 'google-web', 'default: Google Dịch (web)');
     assert(!('hasKey' in resp.data) && !('freeQuota' in resp.data), 'no key / quota in the snapshot');
-    const note = await waitFor(() => opt.evaluate(`document.querySelector('[data-ml-usage-web-note]')?.innerText ?? null`), { label: 'web note' });
-    assert(/không có hạn mức hay hoá đơn chính thức/.test(note), 'unofficial-service note shown');
-    // choosing "Trên máy" through the UI persists and stops all use of Google. NO translation is requested while Google is selected here.
-    await opt.evaluate(`[...document.querySelectorAll('button')].find((b) => b.textContent === 'Trên máy').click()`);
-    await waitFor(() => sw.evaluate(`chrome.storage.local.get('usage:settings:v1').then((r) => r['usage:settings:v1']?.provider === 'device')`), { label: 'provider saved' });
-    const dev = await opt.evaluate(`chrome.runtime.sendMessage({ type: 'usage:translate', text: 'hello' })`);
-    assert(dev.ok && dev.data.source === 'device', 'on-device translation sends nothing to Google');
-    await opt.evaluate(`chrome.runtime.sendMessage({ type: 'usage:reset' })`);
+    // the test run keeps the on-device engine (internal switch, no UI) so NOTHING is sent to Google
+    await sw.evaluate(`chrome.storage.local.set({ 'usage:settings:v1': { provider: 'device' } })`);
     await opt.evaluate(`location.hash = 'appearance'`);
   });
 

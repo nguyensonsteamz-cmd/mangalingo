@@ -376,6 +376,9 @@ enum ReaderScript {
     return zone;
   }
 
+  var PANEL = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M15 4v16"/></svg>';
+  var BOOKMARK = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4h10a1 1 0 0 1 1 1v15l-6-4-6 4V5a1 1 0 0 1 1-1Z"/></svg>';
+  var BOOKMARK_ON = '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4h10a1 1 0 0 1 1 1v15l-6-4-6 4V5a1 1 0 0 1 1-1Z"/></svg>';
   var SPEAKER = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6.5 9H3.5v6h3L11 19V5Z"/><path d="M15 9.5a3.5 3.5 0 0 1 0 5"/></svg>';
 
   function startLookup(req) {
@@ -387,6 +390,31 @@ enum ReaderScript {
     if (card.classList.contains('sheet')) card.appendChild(makeGrab());
     var head = el('div', 'row');
     var t = el('div', 'title', cur.text.length > 80 ? cur.text.slice(0, 80) + '…' : cur.text);
+    var side = el('button', 'x');
+    side.innerHTML = PANEL;
+    side.type = 'button';
+    side.setAttribute('aria-label', 'Mở Sidebar');
+    side.setAttribute('data-mlr', 'sidebar');
+    side.addEventListener('click', function (e) {
+      e.stopPropagation();
+      post({ t: 'details', text: cur.text, context: cur.context });
+    });
+    head.appendChild(side);
+    if (p.saveable) {
+      var svi = el('button', 'x');
+      svi.innerHTML = p.saved ? BOOKMARK_ON : BOOKMARK;
+      svi.type = 'button';
+      svi.setAttribute('aria-label', p.saved ? 'Đã lưu' : cur.mode === 'word' ? 'Lưu từ' : 'Lưu câu');
+      svi.setAttribute('data-mlr', 'save-icon');
+      if (p.saved) svi.disabled = true;
+      svi.addEventListener('click', function (e) {
+        e.stopPropagation();
+        if (svi.disabled) return;
+        svi.disabled = true;
+        post({ t: 'save', id: cur.id, word: cur.text, context: cur.context });
+      });
+      head.appendChild(svi);
+    }
     var x = el('button', 'x', '✕');
     x.type = 'button';
     x.setAttribute('aria-label', 'Đóng');
@@ -510,9 +538,11 @@ enum ReaderScript {
 
     var row = el('div', 'btns');
     if (p.saveable) {
-      var sv = btn(p.saved ? 'Đã lưu ✓' : 'Lưu từ', 'p', function (b) {
+      var sv = btn(p.saved ? 'Đã lưu ✓' : cur.mode === 'word' ? 'Lưu từ' : 'Lưu câu', 'p', function (b) {
         if (b.disabled) return;
         b.disabled = true;
+        var ic = root.querySelector('[data-mlr="save-icon"]');
+        if (ic) ic.disabled = true;
         post({ t: 'save', id: cur.id, word: cur.text, context: cur.context });
       });
       sv.setAttribute('data-mlr', 'save');
@@ -573,6 +603,12 @@ enum ReaderScript {
     if (b) {
       b.textContent = ok ? 'Đã lưu ✓' : 'Chưa lưu được';
       b.disabled = !!ok;
+    }
+    var si = root.querySelector('[data-mlr="save-icon"]');
+    if (si) {
+      si.innerHTML = ok ? BOOKMARK_ON : BOOKMARK;
+      si.disabled = !!ok;
+      si.setAttribute('aria-label', ok ? 'Đã lưu' : 'Lưu');
     }
     if (!ok && msg) toast(msg);
   }

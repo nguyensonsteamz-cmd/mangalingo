@@ -12,6 +12,7 @@ struct MangaLingoApp: App {
                 .modifier(TranslationHost())
                 // edge to edge: the web UI pads itself with env(safe-area-inset-*)
                 .ignoresSafeArea()
+                .onOpenURL { OpenTab.handle($0) } // the widget opens the vocabulary notebook
                 .background(Color(red: 16 / 255, green: 18 / 255, blue: 24 / 255).ignoresSafeArea())
                 // the in-app browser (translate websites while reading) – the web UI keeps running underneath
                 .fullScreenCover(isPresented: $reader.isPresented) {

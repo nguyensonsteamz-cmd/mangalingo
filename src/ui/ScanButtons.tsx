@@ -35,10 +35,10 @@ export function ScanButtons({ onStarted, className }: { onStarted?: (mode: 'imag
     <div className={className} data-ml-scan-buttons="">
       <div className="grid grid-cols-2 gap-2">
         <button type="button" data-ml-magnetic="" disabled={busy} className={cx(btn)} onClick={() => void start('image')} data-ml-scan-image-btn="">
-          <IconScan size={16} /> Quét ảnh (OCR)
+          <IconScan size={16} /> Quét OCR
         </button>
         <button type="button" data-ml-magnetic="" disabled={busy} className={cx(btn)} onClick={() => void start('region')} data-ml-scan-region-btn="">
-          <IconCrop size={16} /> Chọn vùng quét
+          <IconCrop size={16} /> Quét vùng
         </button>
       </div>
       {hint && (

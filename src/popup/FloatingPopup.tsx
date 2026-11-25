@@ -14,6 +14,7 @@ import { computePopupPosition } from './position';
 import { OcrMeaning } from './OcrMeaning';
 import { MachineTranslation } from '@/ui/MachineTranslation';
 import { CopyButton } from '@/ui/CopyButton';
+import { useMt } from '@/ui/useMt';
 import { glassAttr, popupSurface, prefersDark, resolveTheme } from '@/ui/theme';
 import { crossfadeClass } from '@/ui/motion';
 import { findBlock, useStore, type PopupView } from '@/content/store';
@@ -226,6 +227,12 @@ function SaveButton({ onSave, lemma }: { onSave: () => void; lemma: string }) {
       {saved ? <IconCheck /> : <IconBookmark />}
     </IconButton>
   );
+}
+
+/** Saves a whole sentence / paragraph to the notebook, with its translation as the meaning (the translation is already cached by the card). */
+function SaveText({ text, s }: { text: string; s: Settings }) {
+  const mt = useMt(text, s, true);
+  return <SaveButton lemma={text.toLowerCase()} onSave={() => void A.savePhrase(text, mt ?? '', text)} />;
 }
 
 function Body({ children }: { children: ReactNode }) {
@@ -460,7 +467,12 @@ function SentenceView({ r, s, canBack, tab }: { r: SentenceAnalysis; s: Settings
             {r.grammar.tense && <Badge>{r.grammar.tense.nameVi}</Badge>}
           </>
         }
-        actions={<CopySpeak text={r.text} s={s} />}
+        actions={
+          <>
+            <CopySpeak text={r.text} s={s} />
+            <SaveText text={r.fullText ?? r.text} s={s} />
+          </>
+        }
       />
       {tabs.length > 1 && <Tabs className="px-2" tabs={tabs.map((t) => (t.id === 'context' ? { ...t, count: r.notes.length } : t.id === 'vocab' ? { ...t, count: r.vocabulary.length } : t))} value={active} onChange={A.setTab} />}
       <Body>
@@ -498,7 +510,12 @@ function ParagraphView({ r, s, canBack, tab }: { r: ParagraphAnalysis; s: Settin
         title={<span className="text-[14px] font-medium text-text">Đoạn văn · {r.sentences.length} câu</span>}
         sub={<span className="line-clamp-2">{r.text}</span>}
         badges={<Badge tone="accent">{MODE_LABEL.paragraph}</Badge>}
-        actions={<CopySpeak text={r.text} s={s} />}
+        actions={
+          <>
+            <CopySpeak text={r.text} s={s} />
+            <SaveText text={r.fullText ?? r.text} s={s} />
+          </>
+        }
       />
       {tabs.length > 1 && <Tabs className="px-2" tabs={tabs} value={active} onChange={A.setTab} />}
       <Body>

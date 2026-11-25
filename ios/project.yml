@@ -28,6 +28,10 @@ targets:
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
         UISupportedInterfaceOrientations~ipad: [UIInterfaceOrientationPortrait, UIInterfaceOrientationPortraitUpsideDown, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
         ITSAppUsesNonExemptEncryption: false
+        # the widget opens the app on the vocabulary notebook (lingolens://vocab)
+        CFBundleURLTypes:
+          - CFBundleURLName: app.lingolens
+            CFBundleURLSchemes: [lingolens]
         # Smart Setup (Google sign-in): a PUBLIC OAuth client id (iOS-type, no secret), supplied at build time
         LingoLensGoogleClientID: "$(LINGOLENS_GOOGLE_IOS_CLIENT_ID)"
         # Widget sync: the PUBLIC client id of the GitHub OAuth app (device flow, no secret). Empty = only the manual token form is offered.

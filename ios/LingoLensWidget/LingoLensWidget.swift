@@ -12,6 +12,16 @@ struct NextWordIntent: AppIntent {
     }
 }
 
+/// "Previous word" button: goes one word back.
+struct PrevWordIntent: AppIntent {
+    static var title: LocalizedStringResource = "Từ trước"
+
+    func perform() async throws -> some IntentResult {
+        WordSkip.back()
+        return .result()
+    }
+}
+
 /// How many words the button has skipped (kept by the widget itself).
 enum WordSkip {
     private static let key = "lingolens.wordSkip"
@@ -20,6 +30,11 @@ enum WordSkip {
 
     static func advance() {
         UserDefaults.standard.set(value + 1, forKey: key)
+        UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: tapKey)
+    }
+
+    static func back() {
+        UserDefaults.standard.set(value - 1, forKey: key)
         UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: tapKey)
     }
 
@@ -83,7 +98,7 @@ struct Provider: AppIntentTimelineProvider {
             return sample
         }
         let loaded = await loadWords(for: configuration)
-        return makeEntries(words: loaded.words, note: loaded.note, shift: shift(configuration), from: Date(), count: 1, theme: configuration.theme).first ?? placeholder(in: context)
+        return makeEntries(words: loaded.words, note: loaded.note, shift: shift(configuration), from: Date(), count: 1, theme: configuration.theme, sequential: sequential(configuration, loaded.order)).first ?? placeholder(in: context)
     }
 
     /// 24 entries, one per hour: the word changes every hour even if iOS does not refresh the widget in between. With the GitHub sync the
@@ -91,16 +106,25 @@ struct Provider: AppIntentTimelineProvider {
     func timeline(for configuration: WordConfigIntent, in context: Context) async -> Timeline<WordEntry> {
         let loaded = await loadWords(for: configuration)
         let start = Calendar.current.dateInterval(of: .hour, for: Date())?.start ?? Date()
-        let entries = makeEntries(words: loaded.words, note: loaded.note, shift: shift(configuration), from: start, count: 24, theme: configuration.theme)
+        let entries = makeEntries(words: loaded.words, note: loaded.note, shift: shift(configuration), from: start, count: 24, theme: configuration.theme, sequential: sequential(configuration, loaded.order))
         let policy: TimelineReloadPolicy = loaded.cloud ? .after(Date().addingTimeInterval(3 * 3600)) : .atEnd
         return Timeline(entries: entries, policy: policy)
+    }
+
+    /// The widget's own setting wins; "Theo cài đặt trong app" follows what the app sent.
+    private func sequential(_ configuration: WordConfigIntent, _ fromApp: String?) -> Bool {
+        switch configuration.order {
+        case .sequential: return true
+        case .random: return false
+        case .app: return fromApp == "sequential"
+        }
     }
 
     private func shift(_ configuration: WordConfigIntent) -> Int { WordSkip.value + configuration.offset }
 
     /// Where the words come from: 1) the App Group file, 2) the encrypted list on GitHub (sync code), 3) the pasted list.
-    private func loadWords(for configuration: WordConfigIntent) async -> (words: [WidgetWord], note: String, cloud: Bool) {
-        if let snap = WidgetShared.read(), !snap.words.isEmpty { return (snap.words, "", false) }
+    private func loadWords(for configuration: WordConfigIntent) async -> (words: [WidgetWord], note: String, cloud: Bool, order: String?) {
+        if let snap = WidgetShared.read(), !snap.words.isEmpty { return (snap.words, "", false, snap.order) }
         var note = ""
         var usesCloud = false
         // The code is pasted into ONE widget but remembered for all of them (the lock-screen widgets are separate widgets and would
@@ -111,14 +135,14 @@ struct Provider: AppIntentTimelineProvider {
         if let parsed = WidgetSyncCode.parse(code) {
             usesCloud = true
             // the button was just pressed: show the next word from the list we already have, without waiting for the network
-            if WordSkip.tappedJustNow, let cached = WidgetCache.load(), !cached.words.isEmpty { return (cached.words, "", true) }
+            if WordSkip.tappedJustNow, let cached = WidgetCache.load(), !cached.words.isEmpty { return (cached.words, "", true, cached.order) }
             do {
                 // a short wait: with a cached list a slow network must not hold the widget back
                 let snap = try await WidgetCloud.fetch(parsed, timeout: WidgetCache.load() == nil ? 15 : 6)
                 WidgetCache.save(snap)
-                if !snap.words.isEmpty { return (snap.words, "", true) }
+                if !snap.words.isEmpty { return (snap.words, "", true, snap.order) }
             } catch {
-                if let cached = WidgetCache.load(), !cached.words.isEmpty { return (cached.words, "", true) }
+                if let cached = WidgetCache.load(), !cached.words.isEmpty { return (cached.words, "", true, cached.order) }
                 note = (error as? WidgetCloudError)?.description ?? "Không tải được từ GitHub."
             }
         } else if !code.isEmpty {
@@ -127,11 +151,11 @@ struct Provider: AppIntentTimelineProvider {
         let typedList = configuration.pasted.trimmingCharacters(in: .whitespacesAndNewlines)
         if !WidgetShared.parsePasted(typedList).isEmpty { WidgetMemory.pastedList = typedList }
         let pasted = WidgetShared.parsePasted(typedList.isEmpty ? WidgetMemory.pastedList : typedList)
-        if !pasted.isEmpty { return (pasted, "", usesCloud) }
+        if !pasted.isEmpty { return (pasted, "", usesCloud, nil) }
         if note.isEmpty {
             note = "Chưa có từ.\nGiữ widget → Chỉnh sửa widget → dán Mã đồng bộ (LingoLens → Trang chủ → Widget từ vựng)."
         }
-        return ([], note, usesCloud)
+        return ([], note, usesCloud, nil)
     }
 
     /// Indices 0..<count in an order that changes every day (so every word shows before one repeats).
@@ -148,13 +172,13 @@ struct Provider: AppIntentTimelineProvider {
         }
     }
 
-    private func makeEntries(words: [WidgetWord], note: String, shift: Int, from start: Date, count: Int, theme: WidgetTheme) -> [WordEntry] {
+    private func makeEntries(words: [WidgetWord], note: String, shift: Int, from start: Date, count: Int, theme: WidgetTheme, sequential: Bool) -> [WordEntry] {
         if words.isEmpty { return [WordEntry(date: start, word: nil, note: note, theme: theme)] }
         return (0..<count).map { i -> WordEntry in
             let date = start.addingTimeInterval(Double(i) * 3600)
             let hour = Int(date.timeIntervalSince1970 / 3600)
             let day = hour / 24
-            let order = Provider.dailyOrder(count: words.count, day: day)
+            let order = sequential ? Array(0..<words.count) : Provider.dailyOrder(count: words.count, day: day)
             let slot = (((hour + shift) % words.count) + words.count) % words.count
             return WordEntry(date: date, word: words[order[slot]], note: "", theme: theme)
         }
@@ -173,6 +197,8 @@ private struct Palette {
     let accent: Color // pronunciation, arrow button
     let muted: Color // secondary text
     let onDark: Bool // dark background: part-of-speech tags become white pills
+    var btnBG: Color { onDark ? .white : hex(0x111827) } // round buttons: always the opposite of the background
+    var btnFG: Color { onDark ? hex(0x111827) : .white }
 }
 
 private extension WidgetTheme {
@@ -234,8 +260,10 @@ struct WordWidgetView: View {
     var body: some View {
         if isLockScreen {
             content.containerBackground(Color.clear, for: .widget)
+                .widgetURL(URL(string: "lingolens://vocab"))
         } else {
             content.containerBackground(for: .widget) { entry.theme.background }
+                .widgetURL(URL(string: "lingolens://vocab"))
         }
     }
 
@@ -250,7 +278,7 @@ struct WordWidgetView: View {
             case .accessoryRectangular:
                 // text only: word + pronunciation, then part of speech and meaning
                 VStack(alignment: .leading, spacing: 1) {
-                    Text([word.w, word.ipa ?? ""].filter { !$0.isEmpty }.joined(separator: "  ")).font(.headline).lineLimit(1).minimumScaleFactor(0.6)
+                    Text([word.w, word.ipa ?? ""].filter { !$0.isEmpty }.joined(separator: "  ")).font(.headline).lineLimit(2).minimumScaleFactor(0.6)
                     Text([word.p ?? "", word.vi].filter { !$0.isEmpty }.joined(separator: " · ")).font(.caption).lineLimit(2).minimumScaleFactor(0.7)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -288,28 +316,31 @@ struct WordWidgetView: View {
         return hex(0x374151)
     }
 
-    /// Row 1: the word and, on the SAME line, its pronunciation. Row 2: the part of speech (coloured by kind). Row 3: the meaning on its
-    /// own line, big. Every text shrinks to fit the widget instead of being cut.
+    /// Row 1: the word or sentence (wraps over several lines, never cut; shrinks if very long). Row 2: pronunciation, part of speech
+    /// (coloured by kind) and the previous / next buttons. Row 3: the meaning, big, shrinking to fit the widget.
     private func card(_ word: WidgetWord) -> some View {
         let small = family == .systemSmall
+        let long = word.w.count > 28
+        let wordSize: CGFloat = long ? (small ? 15 : 20) : (small ? 24 : 32)
         return VStack(alignment: .leading, spacing: small ? 4 : 6) {
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
-                Text(word.w)
-                    .font(.system(size: small ? 26 : 34, weight: .bold))
-                    .foregroundColor(pal.ink)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.4)
-                    .layoutPriority(2)
+            Text(word.w)
+                .font(.system(size: wordSize, weight: .bold))
+                .foregroundColor(pal.ink)
+                .lineLimit(long ? 5 : 2)
+                .minimumScaleFactor(0.5)
+                .multilineTextAlignment(.leading)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .layoutPriority(3)
+            HStack(spacing: 6) {
                 if let ipa = word.ipa, !ipa.isEmpty {
                     Text(ipa)
-                        .font(.system(size: small ? 14 : 18))
+                        .font(.system(size: small ? 13 : 16))
                         .foregroundColor(pal.accent)
                         .lineLimit(1)
                         .minimumScaleFactor(0.5)
                         .layoutPriority(1)
                 }
-            }
-            HStack(spacing: 6) {
                 if let p = word.p, !p.isEmpty {
                     let c = posColor(p)
                     Text(p)
@@ -319,23 +350,30 @@ struct WordWidgetView: View {
                         .padding(.vertical, 3)
                         .background(Capsule().fill(pal.onDark ? Color.white : c.opacity(0.14)))
                         .lineLimit(1)
+                        .minimumScaleFactor(0.7)
                 }
                 Spacer(minLength: 0)
-                // the next word at once (no waiting for the next hour)
-                Button(intent: NextWordIntent()) {
-                    Image(systemName: "arrow.right.circle.fill").font(.system(size: small ? 24 : 28)).foregroundColor(pal.accent)
-                }
-                .buttonStyle(.plain)
+                // previous / next word at once (no waiting for the next hour); the circle contrasts with the background
+                Button(intent: PrevWordIntent()) { navIcon("chevron.left", small: small) }.buttonStyle(.plain)
+                Button(intent: NextWordIntent()) { navIcon("chevron.right", small: small) }.buttonStyle(.plain)
             }
             Text(word.vi)
-                .font(.system(size: small ? 20 : 28, weight: .semibold))
+                .font(.system(size: small ? 19 : 26, weight: .semibold))
                 .foregroundColor(pal.ink)
-                .lineLimit(3)
+                .lineLimit(5)
                 .minimumScaleFactor(0.4)
                 .multilineTextAlignment(.leading)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    private func navIcon(_ name: String, small: Bool) -> some View {
+        Image(systemName: name)
+            .font(.system(size: small ? 11 : 13, weight: .heavy))
+            .foregroundColor(pal.btnFG)
+            .frame(width: small ? 26 : 30, height: small ? 26 : 30)
+            .background(Circle().fill(pal.btnBG))
     }
 }
 

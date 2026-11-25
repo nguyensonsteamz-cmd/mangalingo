@@ -22,6 +22,19 @@ enum WidgetTheme: String, AppEnum {
     ]
 }
 
+/// How the widget walks through the saved words every hour.
+@available(iOS 17.0, *)
+enum WidgetOrder: String, AppEnum {
+    case app, random, sequential
+
+    static var typeDisplayRepresentation: TypeDisplayRepresentation = "Thứ tự từ"
+    static var caseDisplayRepresentations: [WidgetOrder: DisplayRepresentation] = [
+        .app: "Theo cài đặt trong app",
+        .random: "Ngẫu nhiên",
+        .sequential: "Theo thứ tự trong sổ từ",
+    ]
+}
+
 /// Widget settings (long-press the widget → Edit Widget). Shared by the widget and the app: the app reads the widget's settings back
 /// (WidgetCenter.getCurrentConfigurations) to tell the user whether the sync code was pasted correctly.
 @available(iOS 17.0, *)
@@ -31,6 +44,9 @@ struct WordConfigIntent: WidgetConfigurationIntent {
 
     @Parameter(title: "Giao diện", default: .white)
     var theme: WidgetTheme
+
+    @Parameter(title: "Thứ tự từ", default: .app)
+    var order: WidgetOrder
 
     /// Paste ONCE the sync code copied from the app (LingoLens → Trang chủ → Widget từ vựng): the widget then follows the saved words by itself.
     @Parameter(title: "Mã đồng bộ (dán một lần)", default: "")

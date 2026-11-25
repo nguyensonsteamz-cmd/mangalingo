@@ -95,6 +95,16 @@ describe('Web Reader engine bridge', () => {
     expect(bad.ok).toBe(false);
     expect(d.saved).toHaveLength(1);
   });
+  it('a sentence can be saved too (as a phrase with its translation), and the popup offers the save icon for it', async () => {
+    const d = deps({ hasLemma: async (l) => l === 'the village burned.' });
+    const b = createReaderBridge(d);
+    const p = await b.lookup({ text: 'The village burned.', mode: 'sentence' });
+    expect(p.saveable).toBe(true);
+    expect(p.saved).toBe(true);
+    const ok = await b.save({ word: 'The village burned.', context: 'The village burned.' });
+    expect(ok.ok).toBe(true);
+    expect(d.saved[0]).toMatchObject({ word: 'The village burned.', lemma: 'the village burned.', pos: 'phrase', meaning: 'vi:The village burned.' });
+  });
   it('OCR lines are grouped into speech bubbles like on the scan screen', () => {
     const w = (text: string, x: number, y: number) => ({ text, confidence: 95, box: { x, y, w: 0.3, h: 0.04 }, words: [{ text, confidence: 95, box: { x, y, w: 0.3, h: 0.04 } }] });
     const lines: OcrLine[] = [w("I'M GONNA BECOME", 0.1, 0.1), w('THE STRONGEST NINJA!', 0.1, 0.145), w('WHAT THE HELL IS GOING ON?!', 0.55, 0.7)];

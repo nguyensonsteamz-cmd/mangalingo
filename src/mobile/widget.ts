@@ -22,11 +22,12 @@ const posLabel = (pos: string | undefined): string => oneLine(pos ? ((POS_VI as 
 /** The words the widget may show: the ones not marked "known", newest first, cut to what fits a widget. */
 export function widgetWords(entries: VocabEntry[], max = 300): WidgetWordJson[] {
   return entries
-    .filter((e) => e.status !== 'known' && oneLine(e.word, 60))
+    .filter((e) => e.status !== 'known' && oneLine(e.word, 240))
     .sort((a, b) => b.createdAt - a.createdAt)
     .slice(0, max)
     .map((e) => {
-      const w: WidgetWordJson = { w: oneLine(e.word, 60), vi: oneLine(e.meaning || e.translation, 110) };
+      // whole sentences are kept (the widget wraps them), only absurd lengths are cut
+      const w: WidgetWordJson = { w: oneLine(e.word, 240), vi: oneLine(e.meaning || e.translation, 300) };
       const ipa = oneLine(e.ipa, 40);
       const p = posLabel(e.pos);
       if (ipa) w.ipa = ipa;
@@ -44,4 +45,26 @@ export function pasteText(words: WidgetWordJson[], max = 150): string {
     .slice(0, max)
     .map((x) => [x.w, x.ipa ?? '', x.vi, x.p ?? ''].join(' | ').replace(/( \| )+$/, '').replace(/ \|\s*$/, ''))
     .join(' ¶ ');
+}
+
+/** How the widget walks through the words every hour (Settings → Widget). Kept on the phone; sent to the widget with the words. */
+export type WidgetOrder = 'random' | 'sequential';
+const ORDER_KEY = 'lingolens:widgetOrder';
+export const WIDGET_ORDER_EVENT = 'lingolens:widget-order';
+
+export function getWidgetOrder(): WidgetOrder {
+  try {
+    return localStorage.getItem(ORDER_KEY) === 'sequential' ? 'sequential' : 'random';
+  } catch {
+    return 'random';
+  }
+}
+
+export function setWidgetOrder(o: WidgetOrder): void {
+  try {
+    localStorage.setItem(ORDER_KEY, o);
+  } catch {
+    /* storage unavailable: the choice lasts until the page closes */
+  }
+  window.dispatchEvent(new Event(WIDGET_ORDER_EVENT)); // the words are sent again with the new order
 }

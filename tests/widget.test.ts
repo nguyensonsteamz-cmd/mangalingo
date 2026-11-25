@@ -27,7 +27,7 @@ describe('widget data', () => {
   it('is cut to widget size and the separator / line breaks of the paste format never appear inside a field', () => {
     const [w] = widgetWords([entry({ word: 'a|b', meaning: 'one | two\nthree ' + 'x'.repeat(300), pos: 'noun' })]);
     expect(w.w).toBe('a b');
-    expect(w.vi.length).toBeLessThanOrEqual(110);
+    expect(w.vi.length).toBeLessThanOrEqual(300);
     expect(w.vi).not.toMatch(/[|\n]/);
     expect(w.p).toBe('danh từ');
   });

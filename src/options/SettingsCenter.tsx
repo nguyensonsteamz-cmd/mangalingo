@@ -5,23 +5,22 @@ import { send, type DictStats } from '@/shared/messages';
 import { DEFAULT_SETTINGS, normalizeHost, type DeepPartial, type Settings } from '@/shared/settings';
 import { OCR_LANGUAGES } from '@/ocr/languages';
 import { useSettings } from '@/ui/hooks';
-import { MtStatus } from '@/ui/MtStatus';
 import { SettingsPreview } from './SettingsPreview';
 import { Badge, Button, Field, GlassIndicator, Notice, Segmented, Select, Slider, Toggle, cx, fastTap } from '@/ui/components';
 import { IconBack, IconChevron, IconLogo, IconTrash, IconUpload } from '@/ui/icons';
 import { VocabManager } from '@/ui/VocabManager';
 import { chromeLocal } from '@/storage/kv';
 import { OcrCache } from '@/storage/ocr-cache';
-import { UsageSection } from './UsageSection';
+import { WidgetSettings } from '@/mobile/WidgetSettings';
 
 type Update = (p: DeepPartial<Settings>) => void;
 
 // most used first: the account and the translation set-up, then the tools used while reading, then looks and data
 const SECTIONS = [
-  { id: 'usage', label: 'Nguồn dịch' },
   { id: 'popup', label: 'Floating Popup' },
   { id: 'sidebar', label: 'Sidebar' },
   { id: 'ocr', label: 'OCR' },
+  { id: 'widget', label: 'Widget' },
   { id: 'dictionary', label: 'Từ điển' },
   { id: 'reading', label: 'Hành vi đọc' },
   { id: 'appearance', label: 'Giao diện' },
@@ -33,7 +32,7 @@ const SECTIONS = [
 ] as const;
 type SectionId = (typeof SECTIONS)[number]['id'];
 /** a divider is drawn AFTER these sections (account + translation | reading tools | looks | data) */
-const GROUP_END: string[] = ['usage', 'dictionary', 'typography'];
+const GROUP_END: string[] = ['ocr', 'dictionary', 'typography'];
 const FEATURED: string = '';
 
 /** One line under each row of the phone settings list. */
@@ -44,7 +43,7 @@ const SECTION_DESC: Record<string, string> = {
   typography: 'Phông chữ và cỡ chữ',
   dictionary: 'Nguồn nghĩa, phiên âm, phát âm',
   reading: 'Chế độ dịch, hành vi khi đọc',
-  usage: 'Nguồn dịch: trên máy hoặc Google Dịch (web)',
+  widget: 'Widget từ vựng: thứ tự từ, giao diện',
   ocr: 'Quét chữ trong ảnh',
   shortcuts: 'Phím tắt',
   vocab: 'Từ đã lưu',
@@ -60,10 +59,12 @@ const ACCENTS = ['#7c9cff', '#5cc78c', '#e8b356', '#f06c6c', '#b48cff', '#4cc3d9
 /** `hidden`: sections that do not apply to the host (e.g. keyboard shortcuts in the Android app). */
 export function SettingsCenter({ hidden = [], topBar }: { hidden?: string[]; topBar?: ReactNode } = {}) {
   const { settings: s, update, reset, loaded, saveState } = useSettings('page');
+  // the widget settings only exist in the iPhone app
+  const hiddenAll = (globalThis as { MangaLingoPlatform?: string }).MangaLingoPlatform === 'ios' ? hidden : [...hidden, 'widget'];
   // a section can be requested from elsewhere in the phone app (e.g. "Cho phép dịch có phí" without billing → Billing)
   const requested = (globalThis as { __mlNextSettingsSection?: string }).__mlNextSettingsSection as SectionId | undefined;
-  const initial = (requested ?? decodeURIComponent(location.hash.slice(1))) as SectionId || 'usage';
-  const [section, setSection] = useState<SectionId>(SECTIONS.some((x) => x.id === initial) ? initial : 'usage');
+  const initial = (requested ?? decodeURIComponent(location.hash.slice(1))) as SectionId || 'popup';
+  const [section, setSection] = useState<SectionId>(SECTIONS.some((x) => x.id === initial) ? initial : 'popup');
   // list mode (phone app): the list is the first screen, a row opens its page; a section asked for from elsewhere opens straight on it
   const IS_APP = isApp();
   const [detailOpen, setDetailOpen] = useState(IS_APP && !!requested && SECTIONS.some((x) => x.id === requested));
@@ -98,7 +99,7 @@ export function SettingsCenter({ hidden = [], topBar }: { hidden?: string[]; top
         <div className="w-full" data-ml-settings-list="">
           {topBar}
           <ul className="divide-y divide-border/60 px-3 pb-28 pt-1">
-            {SECTIONS.filter((x) => !hidden.includes(x.id)).map((x) => (
+            {SECTIONS.filter((x) => !hiddenAll.includes(x.id)).map((x) => (
               <li key={x.id} className={cx(x.id === FEATURED && 'mb-2 mt-1 rounded-2xl bg-accent/10 px-3 ring-1 ring-accent/30', GROUP_END.includes(x.id) && 'border-b-4 border-border/40')}>
                 <button
                   type="button"
@@ -143,7 +144,7 @@ export function SettingsCenter({ hidden = [], topBar }: { hidden?: string[]; top
         )}
         <ul className="relative flex gap-1 overflow-x-auto md:flex-col">
           <GlassIndicator activeKey={section} className="rounded-full md:rounded-xl" />
-          {SECTIONS.filter((x) => !hidden.includes(x.id)).map((x) => (
+          {SECTIONS.filter((x) => !hiddenAll.includes(x.id)).map((x) => (
             <Fragment key={x.id}>
             <li className={cx(x.id === FEATURED && 'md:mb-1')}>
               <button
@@ -195,7 +196,7 @@ export function SettingsCenter({ hidden = [], topBar }: { hidden?: string[]; top
             {section === 'typography' && <Typography s={s} update={update} />}
             {section === 'dictionary' && <DictionarySettings s={s} update={update} />}
             {section === 'reading' && <Reading s={s} update={update} />}
-            {section === 'usage' && <UsageSection />}
+            {section === 'widget' && <WidgetSettings />}
             {section === 'ocr' && <OcrSettings s={s} update={update} />}
             {section === 'shortcuts' && <Shortcuts s={s} update={update} />}
             {section === 'vocab' && (
@@ -551,11 +552,10 @@ function Reading({ s, update }: { s: Settings; update: Update }) {
       <Toggle label="Tự nhận diện ngôn ngữ" description="Nhận diện cục bộ (chữ viết + từ phổ biến). Văn bản không phải tiếng Anh sẽ không bị dịch sai." checked={r.autoDetectLanguage} onChange={(v) => update({ reading: { autoDetectLanguage: v } })} />
       <Field
         label="Chế độ dịch"
-        description="Dịch máy: câu tự nhiên Anh → Việt bằng Translator API có sẵn trong Chrome 138+ — lần đầu Chrome tải mô hình dịch từ Google, sau đó dịch hoàn toàn trên máy, văn bản không được gửi đi. Nghĩa từ điển vẫn hiện bên dưới để đối chiếu. Chỉ từ điển: không dùng dịch máy."
+        description="Dịch máy: câu tự nhiên Anh → Việt bằng Google Dịch (web), văn bản được gửi tới Google để dịch; không cần khoá hay tài khoản. Nghĩa từ điển vẫn hiện bên dưới để đối chiếu. Chỉ từ điển: không dùng dịch máy, không gửi gì đi."
       >
-        <Segmented value={r.translationMode} onChange={(v) => update({ reading: { translationMode: v } })} options={[{ value: 'machine', label: 'Dịch máy (Chrome)' }, { value: 'dictionary', label: 'Chỉ từ điển' }]} />
+        <Segmented value={r.translationMode} onChange={(v) => update({ reading: { translationMode: v } })} options={[{ value: 'machine', label: 'Dịch máy (Google Dịch)' }, { value: 'dictionary', label: 'Chỉ từ điển' }]} />
       </Field>
-      {r.translationMode === 'machine' && <MtStatus />}
       <Field label="Ngôn ngữ đích" description="Dữ liệu hiện có: tiếng Việt (bộ Starter + từ điển bạn nhập) và định nghĩa tiếng Anh.">
         <Segmented value={r.targetLanguage} onChange={(v) => update({ reading: { targetLanguage: v } })} options={[{ value: 'vi', label: 'Tiếng Việt' }, { value: 'en', label: 'English (định nghĩa)' }]} />
       </Field>

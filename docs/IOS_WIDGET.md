@@ -101,3 +101,14 @@ Toàn bộ phần đồng bộ là cách vòng cho việc cài bằng Apple ID m
 - **Chữ luôn tương phản cao:** nền sáng (Trắng, Kính mờ sáng) dùng chữ gần đen; mọi nền tối hoặc đậm màu dùng chữ trắng. Các nền màu đều được chọn đủ đậm để chữ trắng đọc rõ (màu loang còn phủ thêm lớp tối). Nhãn loại từ dùng sắc đậm: trên nền sáng là nhãn nền nhạt, trên nền tối là nhãn **nền trắng** chữ màu.
 - **"Kính mờ" là bản mô phỏng:** dùng lớp phủ trắng/mờ, vệt màu nhoè và viền sáng, không phải hiệu ứng Liquid Glass thật của iOS 26 (hiệu ứng thật tuỳ theo nền màn hình nên không đảm bảo độ tương phản).
 - Widget màn hình khoá vẫn **không nền**, không đổi theo giao diện (hệ thống tự đổi màu chữ).
+
+## Bản 8: câu dài, nút trước/sau, bấm mở Sổ từ, thứ tự từ
+- **Câu dài không bị cắt:** từ/câu xuống dòng đủ cả câu (thu nhỏ chữ nếu rất dài); app giữ tới 240 ký tự cho từ/câu và 300 cho nghĩa. Widget màn hình khoá (chữ nhật) cũng hiện tối đa 2 dòng.
+- **Bố cục:** dòng 1 là từ/câu; **dòng 2 là phiên âm + thẻ loại từ** (và hai nút ‹ ›); dòng 3 là nghĩa.
+- **Nút ‹ ›:** hình tròn **ngược màu nền** (nền sáng thì nút đen chữ trắng, nền tối thì nút trắng chữ đen) nên không bao giờ trùng màu. ‹ về từ trước, › sang từ kế tiếp.
+- **Bấm vào widget → mở Sổ từ** trong app (`lingolens://vocab`, đăng ký trong Info.plist). Chạy cả khi app đang đóng.
+- **Thứ tự từ:** *Cài đặt → Widget* chọn **Ngẫu nhiên** hoặc **Theo thứ tự** trong sổ từ (mới nhất trước); mỗi giờ chuyển một từ. Mỗi widget có thể đặt riêng ở *Chỉnh sửa widget → Thứ tự từ* (mặc định "Theo cài đặt trong app"). Cài đặt đi cùng danh sách từ lên GitHub nên widget biết ngay.
+- Popup dịch trong Trình duyệt web: thêm icon **Sidebar** và icon **Lưu** cho cả từ lẫn câu/đoạn (câu được lưu như một cụm, nghĩa là bản dịch).
+
+## Nguồn dịch
+Không còn mục "Nguồn dịch" trong Cài đặt: chỉ dùng Google Dịch (web). (Công tắc nội bộ "device" chỉ còn để chạy kiểm thử mà không gửi gì tới Google.)

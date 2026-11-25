@@ -12,6 +12,8 @@ struct WidgetSnapshot: Codable {
     var words: [WidgetWord]
     /// seconds since 1970 of the last write by the app
     var updated: Double
+    /// "random" or "sequential": how the widget walks through the words (the app setting); nil = random
+    var order: String?
 }
 
 /// Code shared by the app and the widget extension: the saved words travel from the app to the widget through a JSON file in an

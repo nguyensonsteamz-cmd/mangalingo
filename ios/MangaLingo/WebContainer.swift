@@ -60,10 +60,26 @@ struct WebContainer: UIViewRepresentable {
             observer = NotificationCenter.default.addObserver(forName: .mlNewScan, object: nil, queue: .main) { [weak self] _ in
                 self?.web?.evaluateJavaScript("window.__mlNewScan && window.__mlNewScan(\(PendingScan.stamp));", completionHandler: nil)
             }
+            openObserver = NotificationCenter.default.addObserver(forName: .mlOpenTab, object: nil, queue: .main) { [weak self] _ in
+                self?.openPendingTab()
+            }
+        }
+
+        private var openObserver: NSObjectProtocol?
+
+        private func openPendingTab() {
+            guard let web = web, MainWebHub.shared.web === web, let js = OpenTab.takeScript() else { return }
+            web.evaluateJavaScript(js, completionHandler: nil)
+        }
+
+        func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+            // a widget tap that launched the app: switch to the requested tab once the page is up
+            if OpenTab.pending != nil { DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in self?.openPendingTab() } }
         }
 
         deinit {
             if let observer { NotificationCenter.default.removeObserver(observer) }
+            if let openObserver { NotificationCenter.default.removeObserver(openObserver) }
         }
 
         /// iOS may stop the page's process to free memory: reload it (same URL = same tab) instead
@@ -114,7 +130,7 @@ struct WebContainer: UIViewRepresentable {
                 replyHandler(true, nil)
             case "widgetSync":
                 // the saved words for the home-screen widget (App Group file) + a reload request
-                WidgetSync.writeSerial(words: body["words"] as? [[String: Any]] ?? []) { replyHandler($0, nil) }
+                WidgetSync.writeSerial(words: body["words"] as? [[String: Any]] ?? [], order: body["order"] as? String) { replyHandler($0, nil) }
             case "widgetStatus":
                 WidgetSync.statusAsync { replyHandler($0, nil) }
             case "githubStart":

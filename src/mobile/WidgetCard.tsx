@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { VOCAB_KEY } from '@/storage/vocab-store';
 import { backfillVocab, vocabStore } from '@/ui/VocabManager';
 import { copyText, githubPoll, githubStart, iosBridge, iosPost, widgetConfigure, widgetDisconnect, widgetStatus, widgetSync, type GithubStart, type WidgetStatus } from './ios';
-import { pasteText, widgetWords } from './widget';
+import { WIDGET_ORDER_EVENT, getWidgetOrder, pasteText, widgetWords } from './widget';
 
 /**
  * Keeps the widget's data fresh: the saved words are sent to the app shell when the app starts and (debounced) whenever the notebook
@@ -13,8 +13,9 @@ export function useWidgetSync() {
     if (!iosBridge()) return;
     let timer: ReturnType<typeof setTimeout> | undefined;
     // words saved without pronunciation / part of speech get them first, so the widget can show them
-    const push = () => void backfillVocab().then(() => vocabStore.list()).then((l) => widgetSync(widgetWords(l)));
+    const push = () => void backfillVocab().then(() => vocabStore.list()).then((l) => widgetSync(widgetWords(l), getWidgetOrder()));
     push();
+    window.addEventListener(WIDGET_ORDER_EVENT, push);
     const on = (changes: Record<string, unknown>, area: string) => {
       if (area !== 'local' || !(VOCAB_KEY in changes)) return;
       clearTimeout(timer);
@@ -24,6 +25,7 @@ export function useWidgetSync() {
     return () => {
       clearTimeout(timer);
       chrome.storage.onChanged.removeListener(on);
+      window.removeEventListener(WIDGET_ORDER_EVENT, push);
     };
   }, []);
 }
@@ -56,7 +58,7 @@ export function WidgetCard() {
   const sync = useCallback(async () => {
     await backfillVocab();
     const l = await vocabStore.list();
-    const r = await widgetSync(widgetWords(l)); // uploads when connected
+    const r = await widgetSync(widgetWords(l), getWidgetOrder()); // uploads when connected
     await refresh();
     return r;
   }, [refresh]);
