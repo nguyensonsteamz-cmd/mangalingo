@@ -140,7 +140,7 @@ describe('paragraph translation', () => {
     const t0 = performance.now();
     const r = (await service.lookup({ text })) as ParagraphAnalysis;
     expect(r.sentences).toHaveLength(30);
-    expect(performance.now() - t0).toBeLessThan(3000);
+    expect(performance.now() - t0).toBeLessThan(3000 * (process.env.CI ? 4 : 1)); // loose on a shared CI runner
   });
   it('rejects non-English text instead of mistranslating', async () => {
     const r = await service.lookup({ text: 'Je ne sais pas ce que tu veux dire.' });

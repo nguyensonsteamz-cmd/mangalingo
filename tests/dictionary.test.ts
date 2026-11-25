@@ -88,7 +88,7 @@ describe('dictionary lookup (real packaged data)', () => {
     await word('village');
     const t0 = performance.now();
     await word('village');
-    expect(performance.now() - t0).toBeLessThan(30);
+    expect(performance.now() - t0).toBeLessThan(30 * (process.env.CI ? 8 : 1)); // loose on a shared CI runner
   });
 });
 

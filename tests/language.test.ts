@@ -8,6 +8,9 @@ import { expandContraction } from '@/language/lexicon';
 import { isPastForm, isPastParticiple } from '@/language/irregular';
 import { arpabetToIpa } from '@/dictionary/ipa';
 
+/** Wall-clock limits are tight on a developer machine and loose on a shared CI runner (an Intel macOS runner is several times slower). */
+const SLOWDOWN = process.env.CI ? 8 : 1;
+
 const at = (text: string, marker: string, delta = 0) => extractWordAt(text, text.indexOf(marker) + delta)?.word;
 
 describe('word extraction (click-to-lookup)', () => {
@@ -94,7 +97,7 @@ describe('sentence segmentation', () => {
     const para = Array.from({ length: 400 }, (_, i) => `Sentence number ${i} is here.`).join(' ');
     const t0 = performance.now();
     expect(splitSentences(para)).toHaveLength(400);
-    expect(performance.now() - t0).toBeLessThan(200);
+    expect(performance.now() - t0).toBeLessThan(200 * SLOWDOWN);
   });
 });
 
