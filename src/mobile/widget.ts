@@ -60,6 +60,26 @@ export function getWidgetOrder(): WidgetOrder {
   }
 }
 
+const THEME_KEY = 'lingolens:widgetTheme';
+
+/** The look chosen in Settings → Widget (a WidgetThemeId); widgets set to "Theo cài đặt trong app" follow it. */
+export function getWidgetTheme(): string {
+  try {
+    return localStorage.getItem(THEME_KEY) || 'white';
+  } catch {
+    return 'white';
+  }
+}
+
+export function setWidgetTheme(id: string): void {
+  try {
+    localStorage.setItem(THEME_KEY, id);
+  } catch {
+    /* storage unavailable: the choice lasts until the page closes */
+  }
+  window.dispatchEvent(new Event(WIDGET_ORDER_EVENT));
+}
+
 export function setWidgetOrder(o: WidgetOrder): void {
   try {
     localStorage.setItem(ORDER_KEY, o);

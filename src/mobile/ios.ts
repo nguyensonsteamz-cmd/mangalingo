@@ -53,10 +53,10 @@ export interface WidgetSyncResult {
  * Hands the saved words to the app shell: it writes them for the widget (App Group file when possible) and uploads them, encrypted, to
  * the GitHub repository when the sync is connected. Resolves when the upload is done.
  */
-export async function widgetSync(words: unknown[], order = 'random'): Promise<WidgetSyncResult> {
+export async function widgetSync(words: unknown[], order = 'random', theme = 'white'): Promise<WidgetSyncResult> {
   const h = handler();
   if (!h) return { ok: false, cloud: 'off' };
-  return h.postMessage({ cmd: 'widgetSync', words, order }).then(
+  return h.postMessage({ cmd: 'widgetSync', words, order, theme }).then(
     (r) => ({ ok: (r as WidgetSyncResult | null)?.ok === true, cloud: String((r as WidgetSyncResult | null)?.cloud ?? 'off') }),
     () => ({ ok: false, cloud: 'Không gửi được cho ứng dụng.' }),
   );

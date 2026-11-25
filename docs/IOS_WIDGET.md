@@ -112,3 +112,8 @@ Toàn bộ phần đồng bộ là cách vòng cho việc cài bằng Apple ID m
 
 ## Nguồn dịch
 Không còn mục "Nguồn dịch" trong Cài đặt: chỉ dùng Google Dịch (web). (Công tắc nội bộ "device" chỉ còn để chạy kiểm thử mà không gửi gì tới Google.)
+
+## Bản 9: nút ở hai góc dưới, giao diện chỉnh trong Cài đặt kèm bản xem trước
+- Nút **‹** ở góc dưới bên trái, nút **›** ở góc dưới bên phải của widget.
+- **Cài đặt → Widget:** chọn giao diện (11 kiểu) và xem trước ngay (cỡ nhỏ/vừa, từ ngắn/câu dài); chọn thứ tự từ. Giao diện được gửi cùng danh sách từ cho widget.
+- Trong *Chỉnh sửa widget*, **Giao diện** có thêm lựa chọn **Theo cài đặt trong app** (mặc định cho widget mới). Widget đã tạo trước đó đang đặt cố định (ví dụ "Trắng") thì phải chọn lại "Theo cài đặt trong app" một lần để đi theo cài đặt trong app.

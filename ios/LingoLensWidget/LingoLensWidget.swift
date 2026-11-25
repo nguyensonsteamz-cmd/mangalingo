@@ -94,11 +94,11 @@ struct Provider: AppIntentTimelineProvider {
         // the widget gallery shows a sample word, not the empty state
         if context.isPreview {
             var sample = placeholder(in: context)
-            sample.theme = configuration.theme
+            sample.theme = configuration.theme == .app ? .white : configuration.theme
             return sample
         }
         let loaded = await loadWords(for: configuration)
-        return makeEntries(words: loaded.words, note: loaded.note, shift: shift(configuration), from: Date(), count: 1, theme: configuration.theme, sequential: sequential(configuration, loaded.order)).first ?? placeholder(in: context)
+        return makeEntries(words: loaded.words, note: loaded.note, shift: shift(configuration), from: Date(), count: 1, theme: resolveTheme(configuration, loaded.theme), sequential: sequential(configuration, loaded.order)).first ?? placeholder(in: context)
     }
 
     /// 24 entries, one per hour: the word changes every hour even if iOS does not refresh the widget in between. With the GitHub sync the
@@ -106,7 +106,7 @@ struct Provider: AppIntentTimelineProvider {
     func timeline(for configuration: WordConfigIntent, in context: Context) async -> Timeline<WordEntry> {
         let loaded = await loadWords(for: configuration)
         let start = Calendar.current.dateInterval(of: .hour, for: Date())?.start ?? Date()
-        let entries = makeEntries(words: loaded.words, note: loaded.note, shift: shift(configuration), from: start, count: 24, theme: configuration.theme, sequential: sequential(configuration, loaded.order))
+        let entries = makeEntries(words: loaded.words, note: loaded.note, shift: shift(configuration), from: start, count: 24, theme: resolveTheme(configuration, loaded.theme), sequential: sequential(configuration, loaded.order))
         let policy: TimelineReloadPolicy = loaded.cloud ? .after(Date().addingTimeInterval(3 * 3600)) : .atEnd
         return Timeline(entries: entries, policy: policy)
     }
@@ -120,11 +120,18 @@ struct Provider: AppIntentTimelineProvider {
         }
     }
 
+    /// "Theo cài đặt trong app" follows the theme chosen in LingoLens → Cài đặt → Widget.
+    private func resolveTheme(_ configuration: WordConfigIntent, _ fromApp: String?) -> WidgetTheme {
+        if configuration.theme != .app { return configuration.theme }
+        if let raw = fromApp, let t = WidgetTheme(rawValue: raw), t != .app { return t }
+        return .white
+    }
+
     private func shift(_ configuration: WordConfigIntent) -> Int { WordSkip.value + configuration.offset }
 
     /// Where the words come from: 1) the App Group file, 2) the encrypted list on GitHub (sync code), 3) the pasted list.
-    private func loadWords(for configuration: WordConfigIntent) async -> (words: [WidgetWord], note: String, cloud: Bool, order: String?) {
-        if let snap = WidgetShared.read(), !snap.words.isEmpty { return (snap.words, "", false, snap.order) }
+    private func loadWords(for configuration: WordConfigIntent) async -> (words: [WidgetWord], note: String, cloud: Bool, order: String?, theme: String?) {
+        if let snap = WidgetShared.read(), !snap.words.isEmpty { return (snap.words, "", false, snap.order, snap.theme) }
         var note = ""
         var usesCloud = false
         // The code is pasted into ONE widget but remembered for all of them (the lock-screen widgets are separate widgets and would
@@ -135,14 +142,14 @@ struct Provider: AppIntentTimelineProvider {
         if let parsed = WidgetSyncCode.parse(code) {
             usesCloud = true
             // the button was just pressed: show the next word from the list we already have, without waiting for the network
-            if WordSkip.tappedJustNow, let cached = WidgetCache.load(), !cached.words.isEmpty { return (cached.words, "", true, cached.order) }
+            if WordSkip.tappedJustNow, let cached = WidgetCache.load(), !cached.words.isEmpty { return (cached.words, "", true, cached.order, cached.theme) }
             do {
                 // a short wait: with a cached list a slow network must not hold the widget back
                 let snap = try await WidgetCloud.fetch(parsed, timeout: WidgetCache.load() == nil ? 15 : 6)
                 WidgetCache.save(snap)
-                if !snap.words.isEmpty { return (snap.words, "", true, snap.order) }
+                if !snap.words.isEmpty { return (snap.words, "", true, snap.order, snap.theme) }
             } catch {
-                if let cached = WidgetCache.load(), !cached.words.isEmpty { return (cached.words, "", true, cached.order) }
+                if let cached = WidgetCache.load(), !cached.words.isEmpty { return (cached.words, "", true, cached.order, cached.theme) }
                 note = (error as? WidgetCloudError)?.description ?? "Không tải được từ GitHub."
             }
         } else if !code.isEmpty {
@@ -151,11 +158,11 @@ struct Provider: AppIntentTimelineProvider {
         let typedList = configuration.pasted.trimmingCharacters(in: .whitespacesAndNewlines)
         if !WidgetShared.parsePasted(typedList).isEmpty { WidgetMemory.pastedList = typedList }
         let pasted = WidgetShared.parsePasted(typedList.isEmpty ? WidgetMemory.pastedList : typedList)
-        if !pasted.isEmpty { return (pasted, "", usesCloud, nil) }
+        if !pasted.isEmpty { return (pasted, "", usesCloud, nil, nil) }
         if note.isEmpty {
             note = "Chưa có từ.\nGiữ widget → Chỉnh sửa widget → dán Mã đồng bộ (LingoLens → Trang chủ → Widget từ vựng)."
         }
-        return ([], note, usesCloud, nil)
+        return ([], note, usesCloud, nil, nil)
     }
 
     /// Indices 0..<count in an order that changes every day (so every word shows before one repeats).
@@ -204,7 +211,7 @@ private struct Palette {
 private extension WidgetTheme {
     var palette: Palette {
         switch self {
-        case .white: return Palette(ink: hex(0x111827), accent: hex(0x2F46C8), muted: hex(0x4B5563), onDark: false)
+        case .white, .app: return Palette(ink: hex(0x111827), accent: hex(0x2F46C8), muted: hex(0x4B5563), onDark: false)
         case .glassLight: return Palette(ink: hex(0x0F172A), accent: hex(0x2F46C8), muted: hex(0x334155), onDark: false)
         case .dark: return Palette(ink: hex(0xFFFFFF), accent: hex(0x93C5FD), muted: hex(0xD1D5DB), onDark: true)
         case .blue, .green, .pink, .orange, .sunset, .ocean, .aurora, .glassDark:
@@ -215,7 +222,7 @@ private extension WidgetTheme {
     @ViewBuilder
     var background: some View {
         switch self {
-        case .white: Color.white
+        case .white, .app: Color.white
         case .dark: hex(0x111827)
         case .blue: LinearGradient(colors: [hex(0x1E3A8A), hex(0x2563EB)], startPoint: .topLeading, endPoint: .bottomTrailing)
         case .green: LinearGradient(colors: [hex(0x064E3B), hex(0x15803D)], startPoint: .topLeading, endPoint: .bottomTrailing)
@@ -353,9 +360,6 @@ struct WordWidgetView: View {
                         .minimumScaleFactor(0.7)
                 }
                 Spacer(minLength: 0)
-                // previous / next word at once (no waiting for the next hour); the circle contrasts with the background
-                Button(intent: PrevWordIntent()) { navIcon("chevron.left", small: small) }.buttonStyle(.plain)
-                Button(intent: NextWordIntent()) { navIcon("chevron.right", small: small) }.buttonStyle(.plain)
             }
             Text(word.vi)
                 .font(.system(size: small ? 19 : 26, weight: .semibold))
@@ -364,6 +368,12 @@ struct WordWidgetView: View {
                 .minimumScaleFactor(0.4)
                 .multilineTextAlignment(.leading)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            // previous (bottom left) / next (bottom right) word at once, no waiting for the next hour; the circles contrast with the background
+            HStack {
+                Button(intent: PrevWordIntent()) { navIcon("chevron.left", small: small) }.buttonStyle(.plain)
+                Spacer(minLength: 0)
+                Button(intent: NextWordIntent()) { navIcon("chevron.right", small: small) }.buttonStyle(.plain)
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }

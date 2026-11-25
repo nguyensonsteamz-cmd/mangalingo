@@ -4,10 +4,11 @@ import AppIntents
 /// light backgrounds use near-black text, dark/coloured ones use white text.
 @available(iOS 17.0, *)
 enum WidgetTheme: String, AppEnum {
-    case white, dark, blue, green, pink, orange, sunset, ocean, aurora, glassLight, glassDark
+    case app, white, dark, blue, green, pink, orange, sunset, ocean, aurora, glassLight, glassDark
 
     static var typeDisplayRepresentation: TypeDisplayRepresentation = "Giao diện"
     static var caseDisplayRepresentations: [WidgetTheme: DisplayRepresentation] = [
+        .app: "Theo cài đặt trong app",
         .white: "Trắng",
         .dark: "Tối",
         .blue: "Xanh dương",
@@ -42,7 +43,7 @@ struct WordConfigIntent: WidgetConfigurationIntent {
     static var title: LocalizedStringResource = "Từ vựng"
     static var description = IntentDescription("Một từ đã lưu, đổi mỗi giờ.")
 
-    @Parameter(title: "Giao diện", default: .white)
+    @Parameter(title: "Giao diện", default: .app)
     var theme: WidgetTheme
 
     @Parameter(title: "Thứ tự từ", default: .app)
