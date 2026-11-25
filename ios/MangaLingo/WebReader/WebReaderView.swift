@@ -12,7 +12,7 @@ enum ReaderPalette {
     /// Main text / icon colour.
     static var text: Color { light ? Color(red: 22 / 255, green: 25 / 255, blue: 35 / 255) : Color.white }
     /// Hairlines and outlines.
-    static func line(_ opacity: Double) -> Color { light ? Color.black.opacity(opacity) : ReaderPalette.line(opacity) }
+    static func line(_ opacity: Double) -> Color { light ? Color.black.opacity(opacity) : Color.white.opacity(opacity) }
 }
 
 /// Shows the current tab's web view (the tabs own their web views, so switching tabs swaps the view inside this container).
