@@ -94,7 +94,7 @@ struct Provider: AppIntentTimelineProvider {
         // the widget gallery shows a sample word, not the empty state
         if context.isPreview {
             var sample = placeholder(in: context)
-            sample.theme = configuration.theme == .app ? .white : configuration.theme
+            sample.theme = .white
             return sample
         }
         let loaded = await loadWords(for: configuration)
@@ -115,25 +115,19 @@ struct Provider: AppIntentTimelineProvider {
         return Timeline(entries: entries, policy: policy)
     }
 
-    /// The widget's own setting wins; "Theo cài đặt trong app" follows what the app sent.
+    /// Follows the order chosen in the app (Cài đặt → Widget).
     private func sequential(_ configuration: WordConfigIntent, _ fromApp: String?) -> Bool {
-        switch configuration.order {
-        case .sequential: return true
-        case .random: return false
-        case .app: return fromApp == "sequential"
-        }
+        fromApp == "sequential"
     }
 
     /// "Theo cài đặt trong app" follows the theme chosen in LingoLens → Cài đặt → Widget.
     private func resolveTheme(_ configuration: WordConfigIntent, _ fromApp: String?) -> WidgetTheme {
-        if configuration.theme != .app { return configuration.theme }
         if let raw = fromApp, let t = WidgetTheme(rawValue: raw), t != .app { return t }
         return .white
     }
 
     /// Minutes between two words: the widget's own setting, or the app's ("Theo cài đặt trong app"), else 1 hour.
     private func stepMinutes(_ configuration: WordConfigIntent, _ fromApp: Int?) -> Int {
-        if let m = configuration.interval.minutes { return m }
         if let m = fromApp, [15, 30, 60, 120, 180, 360, 720, 1440].contains(m) { return m }
         return 60
     }
@@ -299,14 +293,14 @@ struct WordWidgetView: View {
             case .accessoryInline:
                 Text("\(word.w): \(word.vi)")
             case .accessoryRectangular:
-                // text only: word + pronunciation, then part of speech and meaning
-                VStack(alignment: .leading, spacing: 1) {
-                    Text([word.w, word.ipa ?? ""].filter { !$0.isEmpty }.joined(separator: "  ")).font(.headline).lineLimit(2).minimumScaleFactor(0.6)
-                    Text([word.p ?? "", word.vi].filter { !$0.isEmpty }.joined(separator: " · ")).font(.caption).lineLimit(2).minimumScaleFactor(0.7)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
+                lockCard(word)
             case .accessoryCircular:
-                Text(word.w).font(.caption).lineLimit(2).minimumScaleFactor(0.5)
+                Text(word.w)
+                    .font(.system(size: 15, weight: .bold))
+                    .multilineTextAlignment(.center)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.4)
+                    .padding(2)
             default:
                 card(word)
             }
@@ -321,6 +315,44 @@ struct WordWidgetView: View {
                     .lineLimit(8)
             }
         }
+    }
+
+    /// Lock-screen widget (no background, the system tints the text): the same layout as the Home Screen widget, with bigger text and
+    /// no buttons. Row 1: the word or sentence. Row 2: pronunciation and part-of-speech tag, which the system draws in its accent tone
+    /// (a different tone than the word and the meaning). Row 3: the meaning.
+    private func lockCard(_ word: WidgetWord) -> some View {
+        let long = word.w.count > 24
+        let hasTags = !(word.ipa ?? "").isEmpty || !(word.p ?? "").isEmpty
+        return VStack(alignment: .leading, spacing: 1) {
+            Text(word.w)
+                .font(.system(size: long ? 14 : 19, weight: .bold))
+                .lineLimit(long ? 2 : 1)
+                .minimumScaleFactor(0.5)
+                .multilineTextAlignment(.leading)
+            if hasTags {
+                HStack(spacing: 5) {
+                    if let ipa = word.ipa, !ipa.isEmpty {
+                        Text(ipa).font(.system(size: 13)).lineLimit(1).minimumScaleFactor(0.6)
+                    }
+                    if let p = word.p, !p.isEmpty {
+                        Text(p)
+                            .font(.system(size: 11, weight: .bold))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.6)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 1)
+                            .background(Capsule().fill(Color.white.opacity(0.28)))
+                    }
+                }
+                .widgetAccentable()
+            }
+            Text(word.vi)
+                .font(.system(size: long ? 13 : 15, weight: .semibold))
+                .lineLimit(long || !hasTags ? 2 : 1)
+                .minimumScaleFactor(0.5)
+                .multilineTextAlignment(.leading)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
     /// One colour per part of speech (the label is the Vietnamese one the app sends: "danh từ", "động từ"…).

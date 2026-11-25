@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import { vocabStore } from '@/ui/VocabManager';
+import { widgetSync } from './ios';
 import { Field, Segmented, Select } from '@/ui/components';
-import { WIDGET_INTERVALS, getWidgetInterval, getWidgetOrder, getWidgetTheme, setWidgetInterval, setWidgetOrder, setWidgetTheme, type WidgetOrder } from './widget';
+import { widgetWords, WIDGET_INTERVALS, getWidgetInterval, getWidgetOrder, getWidgetTheme, setWidgetInterval, setWidgetOrder, setWidgetTheme, type WidgetOrder } from './widget';
 import { WIDGET_THEMES, themeById, type WidgetThemeDef } from './widget-themes';
 import { WidgetCard } from './WidgetCard';
 
@@ -61,6 +63,20 @@ export function WidgetSettings() {
   const [size, setSize] = useState<'small' | 'medium'>('small');
   const [sampleIdx, setSampleIdx] = useState(0);
   const theme = themeById(themeId);
+  const [sent, setSent] = useState<{ ok: boolean; text: string } | null>(null);
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  /** The change is sent to the widget at once (the same data the app sends when words change) and the result is shown. */
+  const apply = () => {
+    setSent({ ok: true, text: 'Đang gửi cho widget…' });
+    clearTimeout(timer.current);
+    timer.current = setTimeout(async () => {
+      const r = await widgetSync(widgetWords(await vocabStore.list()), getWidgetOrder(), getWidgetTheme(), getWidgetInterval());
+      if (r.cloud === 'ok') setSent({ ok: true, text: 'Đã gửi cho widget: widget cập nhật trong vài giây.' });
+      else if (r.cloud === 'off' && r.ok) setSent({ ok: true, text: 'Đã gửi cho widget.' });
+      else if (r.cloud === 'off') setSent({ ok: false, text: 'Widget chưa nhận được cài đặt: hãy bật “Tự cập nhật” (kết nối GitHub) ở bên dưới.' });
+      else setSent({ ok: false, text: r.cloud });
+    }, 400);
+  };
   return (
     <div className="space-y-5" data-ml-widget-settings="">
       <h1 className="text-[20px] font-semibold tracking-tight text-text">Widget từ vựng</h1>
@@ -100,6 +116,7 @@ export function WidgetSettings() {
               onClick={() => {
                 setThemeId(t.id);
                 setWidgetTheme(t.id);
+                apply();
               }}
               className="ml-press flex flex-col items-center gap-1 rounded-xl p-1.5 text-[11.5px]"
               style={{ outline: t.id === themeId ? '2px solid var(--ml-accent, #7c9cff)' : '1px solid rgba(128,128,128,.25)' }}
@@ -117,6 +134,7 @@ export function WidgetSettings() {
           onChange={(v) => {
             setIntervalMin(v);
             setWidgetInterval(Number(v));
+            apply();
           }}
           options={WIDGET_INTERVALS.map((x) => ({ value: x.value, label: x.label }))}
         />
@@ -127,6 +145,7 @@ export function WidgetSettings() {
           onChange={(v) => {
             setOrder(v);
             setWidgetOrder(v);
+            apply();
           }}
           options={[
             { value: 'random', label: 'Ngẫu nhiên' },
@@ -134,9 +153,14 @@ export function WidgetSettings() {
           ]}
         />
       </Field>
+      {sent && (
+        <div className={'rounded-xl px-3 py-2 text-[12.5px] ' + (sent.ok ? 'bg-text/[0.04] text-muted' : 'bg-red-500/10 text-red-500')} role="status" data-ml-widget-sent="">
+          {sent.text}
+        </div>
+      )}
       <div className="rounded-xl bg-text/[0.04] px-3 py-2 text-[12.5px] leading-snug text-muted" data-ml-widget-tips="">
-        <b className="text-text">Áp dụng cho widget:</b> giữ widget trên màn hình chính → Chỉnh sửa widget → chọn <b>Theo cài đặt trong app</b> ở Giao diện, Tần suất đổi từ và Thứ tự từ (hoặc chọn riêng cho từng widget).
-        Bấm vào widget để mở Sổ từ; hai nút ‹ › ở hai góc dưới để về từ trước hoặc sang từ kế tiếp ngay.
+        <b className="text-text">Widget luôn theo cài đặt này</b> (màn hình chính và màn hình khoá), nên không cần chọn lại trong Chỉnh sửa widget.
+        Bấm vào widget để mở Sổ từ; hai nút ‹ › ở hai góc dưới của widget màn hình chính để về từ trước hoặc sang từ kế tiếp ngay.
       </div>
       <WidgetCard />
     </div>
