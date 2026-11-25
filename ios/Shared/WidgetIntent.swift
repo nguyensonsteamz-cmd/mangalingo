@@ -1,11 +1,36 @@
 import AppIntents
 
+/// Looks of the Home Screen widget (the lock-screen widgets have no background). Every theme keeps its text clearly readable:
+/// light backgrounds use near-black text, dark/coloured ones use white text.
+@available(iOS 17.0, *)
+enum WidgetTheme: String, AppEnum {
+    case white, dark, blue, green, pink, orange, sunset, ocean, aurora, glassLight, glassDark
+
+    static var typeDisplayRepresentation: TypeDisplayRepresentation = "Giao diện"
+    static var caseDisplayRepresentations: [WidgetTheme: DisplayRepresentation] = [
+        .white: "Trắng",
+        .dark: "Tối",
+        .blue: "Xanh dương",
+        .green: "Xanh lá",
+        .pink: "Hồng",
+        .orange: "Cam",
+        .sunset: "Hoàng hôn",
+        .ocean: "Đại dương",
+        .aurora: "Màu loang (cực quang)",
+        .glassLight: "Kính mờ sáng",
+        .glassDark: "Kính mờ tối",
+    ]
+}
+
 /// Widget settings (long-press the widget → Edit Widget). Shared by the widget and the app: the app reads the widget's settings back
 /// (WidgetCenter.getCurrentConfigurations) to tell the user whether the sync code was pasted correctly.
 @available(iOS 17.0, *)
 struct WordConfigIntent: WidgetConfigurationIntent {
     static var title: LocalizedStringResource = "Từ vựng"
     static var description = IntentDescription("Một từ đã lưu, đổi mỗi giờ.")
+
+    @Parameter(title: "Giao diện", default: .white)
+    var theme: WidgetTheme
 
     /// Paste ONCE the sync code copied from the app (LingoLens → Trang chủ → Widget từ vựng): the widget then follows the saved words by itself.
     @Parameter(title: "Mã đồng bộ (dán một lần)", default: "")

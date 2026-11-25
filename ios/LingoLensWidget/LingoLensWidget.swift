@@ -64,6 +64,7 @@ struct WordEntry: TimelineEntry {
     let date: Date
     let word: WidgetWord?
     let note: String
+    var theme: WidgetTheme = .white
 }
 
 struct Provider: AppIntentTimelineProvider {
@@ -76,9 +77,13 @@ struct Provider: AppIntentTimelineProvider {
 
     func snapshot(for configuration: WordConfigIntent, in context: Context) async -> WordEntry {
         // the widget gallery shows a sample word, not the empty state
-        if context.isPreview { return placeholder(in: context) }
+        if context.isPreview {
+            var sample = placeholder(in: context)
+            sample.theme = configuration.theme
+            return sample
+        }
         let loaded = await loadWords(for: configuration)
-        return makeEntries(words: loaded.words, note: loaded.note, shift: shift(configuration), from: Date(), count: 1).first ?? placeholder(in: context)
+        return makeEntries(words: loaded.words, note: loaded.note, shift: shift(configuration), from: Date(), count: 1, theme: configuration.theme).first ?? placeholder(in: context)
     }
 
     /// 24 entries, one per hour: the word changes every hour even if iOS does not refresh the widget in between. With the GitHub sync the
@@ -86,7 +91,7 @@ struct Provider: AppIntentTimelineProvider {
     func timeline(for configuration: WordConfigIntent, in context: Context) async -> Timeline<WordEntry> {
         let loaded = await loadWords(for: configuration)
         let start = Calendar.current.dateInterval(of: .hour, for: Date())?.start ?? Date()
-        let entries = makeEntries(words: loaded.words, note: loaded.note, shift: shift(configuration), from: start, count: 24)
+        let entries = makeEntries(words: loaded.words, note: loaded.note, shift: shift(configuration), from: start, count: 24, theme: configuration.theme)
         let policy: TimelineReloadPolicy = loaded.cloud ? .after(Date().addingTimeInterval(3 * 3600)) : .atEnd
         return Timeline(entries: entries, policy: policy)
     }
@@ -143,23 +148,82 @@ struct Provider: AppIntentTimelineProvider {
         }
     }
 
-    private func makeEntries(words: [WidgetWord], note: String, shift: Int, from start: Date, count: Int) -> [WordEntry] {
-        if words.isEmpty { return [WordEntry(date: start, word: nil, note: note)] }
+    private func makeEntries(words: [WidgetWord], note: String, shift: Int, from start: Date, count: Int, theme: WidgetTheme) -> [WordEntry] {
+        if words.isEmpty { return [WordEntry(date: start, word: nil, note: note, theme: theme)] }
         return (0..<count).map { i -> WordEntry in
             let date = start.addingTimeInterval(Double(i) * 3600)
             let hour = Int(date.timeIntervalSince1970 / 3600)
             let day = hour / 24
             let order = Provider.dailyOrder(count: words.count, day: day)
             let slot = (((hour + shift) % words.count) + words.count) % words.count
-            return WordEntry(date: date, word: words[order[slot]], note: "")
+            return WordEntry(date: date, word: words[order[slot]], note: "", theme: theme)
         }
     }
 }
 
 // Home Screen widgets are white (easy to read); lock-screen widgets have no background at all, only text (the system tints them).
-private let widgetInk = Color(red: 17 / 255, green: 24 / 255, blue: 39 / 255)
-private let widgetAccent = Color(red: 52 / 255, green: 81 / 255, blue: 209 / 255)
-private let widgetMuted = Color(red: 107 / 255, green: 114 / 255, blue: 128 / 255)
+private func hex(_ v: UInt32) -> Color {
+    Color(red: Double((v >> 16) & 0xFF) / 255, green: Double((v >> 8) & 0xFF) / 255, blue: Double(v & 0xFF) / 255)
+}
+
+/// Colours of one theme. Text is always far from the background in lightness (light background → near-black text, dark/coloured
+/// background → white text), so it stays readable.
+private struct Palette {
+    let ink: Color // main text
+    let accent: Color // pronunciation, arrow button
+    let muted: Color // secondary text
+    let onDark: Bool // dark background: part-of-speech tags become white pills
+}
+
+private extension WidgetTheme {
+    var palette: Palette {
+        switch self {
+        case .white: return Palette(ink: hex(0x111827), accent: hex(0x2F46C8), muted: hex(0x4B5563), onDark: false)
+        case .glassLight: return Palette(ink: hex(0x0F172A), accent: hex(0x2F46C8), muted: hex(0x334155), onDark: false)
+        case .dark: return Palette(ink: hex(0xFFFFFF), accent: hex(0x93C5FD), muted: hex(0xD1D5DB), onDark: true)
+        case .blue, .green, .pink, .orange, .sunset, .ocean, .aurora, .glassDark:
+            return Palette(ink: hex(0xFFFFFF), accent: hex(0xE0F2FE), muted: hex(0xE5E7EB), onDark: true)
+        }
+    }
+
+    @ViewBuilder
+    var background: some View {
+        switch self {
+        case .white: Color.white
+        case .dark: hex(0x111827)
+        case .blue: LinearGradient(colors: [hex(0x1E3A8A), hex(0x2563EB)], startPoint: .topLeading, endPoint: .bottomTrailing)
+        case .green: LinearGradient(colors: [hex(0x064E3B), hex(0x15803D)], startPoint: .topLeading, endPoint: .bottomTrailing)
+        case .pink: LinearGradient(colors: [hex(0x831843), hex(0xBE185D)], startPoint: .topLeading, endPoint: .bottomTrailing)
+        case .orange: LinearGradient(colors: [hex(0x7C2D12), hex(0xB45309)], startPoint: .topLeading, endPoint: .bottomTrailing)
+        case .sunset: LinearGradient(colors: [hex(0x4C1D95), hex(0xBE185D), hex(0xB45309)], startPoint: .topLeading, endPoint: .bottomTrailing)
+        case .ocean: LinearGradient(colors: [hex(0x0C4A6E), hex(0x0E7490), hex(0x115E59)], startPoint: .top, endPoint: .bottomTrailing)
+        case .aurora:
+            // blurred blobs of colour on a very dark base, darkened again so the white text stays clear
+            ZStack {
+                hex(0x0B1020)
+                Circle().fill(hex(0x7C3AED)).frame(width: 170, height: 170).blur(radius: 40).offset(x: -60, y: -50)
+                Circle().fill(hex(0x0891B2)).frame(width: 150, height: 150).blur(radius: 40).offset(x: 70, y: 10)
+                Circle().fill(hex(0xDB2777)).frame(width: 140, height: 140).blur(radius: 40).offset(x: -20, y: 80)
+                Color.black.opacity(0.35)
+            }
+        case .glassLight:
+            // look-alike of frosted glass: pale colours with a white veil and a thin bright edge
+            ZStack {
+                LinearGradient(colors: [hex(0xDBEAFE), hex(0xFCE7F3)], startPoint: .topLeading, endPoint: .bottomTrailing)
+                Circle().fill(hex(0xA5B4FC).opacity(0.55)).frame(width: 140, height: 140).blur(radius: 30).offset(x: 60, y: -40)
+                Color.white.opacity(0.4)
+                ContainerRelativeShape().strokeBorder(Color.white.opacity(0.9), lineWidth: 1.5)
+            }
+        case .glassDark:
+            ZStack {
+                LinearGradient(colors: [hex(0x1E1B4B), hex(0x0F172A)], startPoint: .topLeading, endPoint: .bottomTrailing)
+                Circle().fill(hex(0x6366F1).opacity(0.5)).frame(width: 140, height: 140).blur(radius: 30).offset(x: 60, y: -40)
+                Color.white.opacity(0.08)
+                ContainerRelativeShape().strokeBorder(Color.white.opacity(0.35), lineWidth: 1.5)
+            }
+        }
+    }
+}
 
 struct WordWidgetView: View {
     @Environment(\.widgetFamily) private var family
@@ -171,9 +235,11 @@ struct WordWidgetView: View {
         if isLockScreen {
             content.containerBackground(Color.clear, for: .widget)
         } else {
-            content.containerBackground(Color.white, for: .widget)
+            content.containerBackground(for: .widget) { entry.theme.background }
         }
     }
+
+    private var pal: Palette { entry.theme.palette }
 
     @ViewBuilder
     private var content: some View {
@@ -197,10 +263,10 @@ struct WordWidgetView: View {
             Text("Mở LingoLens").font(.caption)
         } else {
             VStack(alignment: .leading, spacing: 4) {
-                Text("LingoLens").font(.headline).foregroundColor(widgetAccent)
+                Text("LingoLens").font(.headline).foregroundColor(pal.accent)
                 Text(entry.note.isEmpty ? "Lưu từ trong LingoLens để hiện ở đây." : entry.note)
                     .font(.system(size: 11))
-                    .foregroundColor(widgetMuted)
+                    .foregroundColor(pal.muted)
                     .lineLimit(8)
             }
         }
@@ -209,16 +275,17 @@ struct WordWidgetView: View {
     /// One colour per part of speech (the label is the Vietnamese one the app sends: "danh từ", "động từ"…).
     private func posColor(_ label: String) -> Color {
         let l = label.lowercased()
-        if l.contains("danh từ") { return Color(red: 37 / 255, green: 99 / 255, blue: 235 / 255) } // noun: blue
-        if l.contains("động từ") { return Color(red: 22 / 255, green: 163 / 255, blue: 74 / 255) } // verb (incl. auxiliary, modal): green
-        if l.contains("tính từ") { return Color(red: 234 / 255, green: 88 / 255, blue: 12 / 255) } // adjective: orange
-        if l.contains("trạng từ") { return Color(red: 147 / 255, green: 51 / 255, blue: 234 / 255) } // adverb: purple
-        if l.contains("đại từ") { return Color(red: 219 / 255, green: 39 / 255, blue: 119 / 255) } // pronoun: pink
-        if l.contains("giới từ") { return Color(red: 13 / 255, green: 148 / 255, blue: 136 / 255) } // preposition: teal
-        if l.contains("liên từ") { return Color(red: 202 / 255, green: 138 / 255, blue: 4 / 255) } // conjunction: amber
-        if l.contains("thán từ") { return Color(red: 220 / 255, green: 38 / 255, blue: 38 / 255) } // interjection: red
-        if l.contains("số từ") { return Color(red: 8 / 255, green: 145 / 255, blue: 178 / 255) } // numeral: cyan
-        return widgetMuted
+        // deep shades: readable as text on a light tint and on a white pill
+        if l.contains("danh từ") { return hex(0x1D4ED8) } // noun: blue
+        if l.contains("động từ") { return hex(0x15803D) } // verb (incl. auxiliary, modal): green
+        if l.contains("tính từ") { return hex(0xC2410C) } // adjective: orange
+        if l.contains("trạng từ") { return hex(0x7E22CE) } // adverb: purple
+        if l.contains("đại từ") { return hex(0xBE185D) } // pronoun: pink
+        if l.contains("giới từ") { return hex(0x0F766E) } // preposition: teal
+        if l.contains("liên từ") { return hex(0x92400E) } // conjunction: amber
+        if l.contains("thán từ") { return hex(0xB91C1C) } // interjection: red
+        if l.contains("số từ") { return hex(0x0E7490) } // numeral: cyan
+        return hex(0x374151)
     }
 
     /// Row 1: the word and, on the SAME line, its pronunciation. Row 2: the part of speech (coloured by kind). Row 3: the meaning on its
@@ -229,14 +296,14 @@ struct WordWidgetView: View {
             HStack(alignment: .firstTextBaseline, spacing: 6) {
                 Text(word.w)
                     .font(.system(size: small ? 26 : 34, weight: .bold))
-                    .foregroundColor(widgetInk)
+                    .foregroundColor(pal.ink)
                     .lineLimit(1)
                     .minimumScaleFactor(0.4)
                     .layoutPriority(2)
                 if let ipa = word.ipa, !ipa.isEmpty {
                     Text(ipa)
                         .font(.system(size: small ? 14 : 18))
-                        .foregroundColor(widgetAccent)
+                        .foregroundColor(pal.accent)
                         .lineLimit(1)
                         .minimumScaleFactor(0.5)
                         .layoutPriority(1)
@@ -250,19 +317,19 @@ struct WordWidgetView: View {
                         .foregroundColor(c)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 3)
-                        .background(Capsule().fill(c.opacity(0.14)))
+                        .background(Capsule().fill(pal.onDark ? Color.white : c.opacity(0.14)))
                         .lineLimit(1)
                 }
                 Spacer(minLength: 0)
                 // the next word at once (no waiting for the next hour)
                 Button(intent: NextWordIntent()) {
-                    Image(systemName: "arrow.right.circle.fill").font(.system(size: small ? 24 : 28)).foregroundColor(widgetAccent)
+                    Image(systemName: "arrow.right.circle.fill").font(.system(size: small ? 24 : 28)).foregroundColor(pal.accent)
                 }
                 .buttonStyle(.plain)
             }
             Text(word.vi)
                 .font(.system(size: small ? 20 : 28, weight: .semibold))
-                .foregroundColor(widgetInk)
+                .foregroundColor(pal.ink)
                 .lineLimit(3)
                 .minimumScaleFactor(0.4)
                 .multilineTextAlignment(.leading)

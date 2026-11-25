@@ -94,3 +94,10 @@ Toàn bộ phần đồng bộ là cách vòng cho việc cài bằng Apple ID m
 - **Widget:** phiên âm **cùng dòng** với từ tiếng Anh; nhãn loại từ **có màu theo loại** (danh từ xanh dương, động từ xanh lá, tính từ cam, trạng từ tím, đại từ hồng, giới từ xanh ngọc, liên từ vàng, thán từ đỏ, số từ lục lam, khác xám); **nghĩa ở dòng riêng**, chữ lớn, tự thu nhỏ để vừa widget thay vì bị cắt; widget màn hình khoá (chữ nhật) **căn trái**.
 - **Sổ từ:** nút **Thêm từ** rộng hết màn hình, đặt ngay trên danh sách từ; form thêm từ mở ngay tại đó. Nhãn loại từ trong thẻ từ cũng có màu theo loại.
 - **Mũi tên đổi từ nhanh hơn:** trước đây mỗi lần bấm, widget nạp lại và **gọi GitHub qua mạng** rồi mới đổi từ. Giờ sau khi bấm, widget dùng danh sách đã lưu tạm (không chờ mạng), và các lần nạp khác chỉ chờ mạng tối đa 6 giây khi đã có bản lưu tạm.
+
+## Bản 7: chọn giao diện (theme) cho widget màn hình chính
+- **Cách đổi:** giữ widget → **Chỉnh sửa widget** → **Giao diện**. Mỗi widget chọn riêng, đổi bất cứ lúc nào.
+- **11 giao diện:** Trắng (mặc định), Tối, Xanh dương, Xanh lá, Hồng, Cam, Hoàng hôn, Đại dương, **Màu loang (cực quang)** (các vệt màu mờ trên nền tối), **Kính mờ sáng** và **Kính mờ tối**.
+- **Chữ luôn tương phản cao:** nền sáng (Trắng, Kính mờ sáng) dùng chữ gần đen; mọi nền tối hoặc đậm màu dùng chữ trắng. Các nền màu đều được chọn đủ đậm để chữ trắng đọc rõ (màu loang còn phủ thêm lớp tối). Nhãn loại từ dùng sắc đậm: trên nền sáng là nhãn nền nhạt, trên nền tối là nhãn **nền trắng** chữ màu.
+- **"Kính mờ" là bản mô phỏng:** dùng lớp phủ trắng/mờ, vệt màu nhoè và viền sáng, không phải hiệu ứng Liquid Glass thật của iOS 26 (hiệu ứng thật tuỳ theo nền màn hình nên không đảm bảo độ tương phản).
+- Widget màn hình khoá vẫn **không nền**, không đổi theo giao diện (hệ thống tự đổi màu chữ).
