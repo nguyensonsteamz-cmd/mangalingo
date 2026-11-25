@@ -132,3 +132,7 @@ iOS **không cho widget màn hình khoá dùng màu tuỳ ý** (hệ thống ch�
 ## Bản 13: phản hồi nhanh hơn, ô giao diện đang chọn rõ hơn
 - **Nút ‹ › phản hồi nhanh hơn:** ngay sau khi bấm, widget chỉ đọc bản danh sách đã lưu (bỏ bước dò App Group và bỏ mạng), và thứ tự theo ngày chỉ tính một lần cho mỗi ngày thay vì cho từng mốc (trước đây tính tới 96 lần). Phần còn lại là độ trễ của chính iOS khi chạy nút tương tác của widget (thường vài trăm mili giây đến khoảng một giây), app không rút ngắn được.
 - **Chọn giao diện:** ô đang chọn phóng to nhẹ, có viền đậm màu nhấn, nền nhạt, chữ đậm và dấu ✓ ở góc; các ô khác mờ đi.
+
+## Bản 14: phản hồi tức thì khi bấm, giới hạn màu ở màn hình khoá
+- Từ và nghĩa trên widget màn hình chính **mờ đi ngay khi bấm** (`invalidatableContent`), tới khi từ mới được vẽ, nên người dùng thấy lệnh đã nhận. Độ trễ thật (khoảng 1-2 giây) chủ yếu do iOS chạy nút tương tác của widget; app đã bỏ mọi việc thừa sau khi bấm (xem bản 13).
+- **Màn hình khoá không có màu theo từng chữ:** iOS vẽ widget khoá ở chế độ "vibrant" (chỉ độ sáng, nhuộm một màu theo hình nền). Cách duy nhất để đổi màu chữ là màu bạn chọn khi **Tuỳ chỉnh màn hình khoá** (chạm đồng hồ/widget chọn màu), áp dụng cho mọi widget. Phiên âm nhạt hơn và thẻ loại từ là viên thuốc sáng chữ đen để nổi bật.

@@ -5,6 +5,7 @@ import WidgetKit
 /// "Next word" button: skips one word right away, without waiting for the next hour (iOS 17 interactive widget).
 struct NextWordIntent: AppIntent {
     static var title: LocalizedStringResource = "Từ tiếp theo"
+    static var isDiscoverable: Bool { false }
 
     func perform() async throws -> some IntentResult {
         WordSkip.advance()
@@ -15,6 +16,7 @@ struct NextWordIntent: AppIntent {
 /// "Previous word" button: goes one word back.
 struct PrevWordIntent: AppIntent {
     static var title: LocalizedStringResource = "Từ trước"
+    static var isDiscoverable: Bool { false }
 
     func perform() async throws -> some IntentResult {
         WordSkip.back()
@@ -426,6 +428,7 @@ struct WordWidgetView: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .layoutPriority(3)
+                .invalidatableContent() // dims at once when a button is pressed, until the next word is drawn
             HStack(spacing: 6) {
                 if let ipa = word.ipa, !ipa.isEmpty {
                     Text(ipa)
@@ -454,6 +457,7 @@ struct WordWidgetView: View {
                 .lineLimit(5)
                 .minimumScaleFactor(0.4)
                 .multilineTextAlignment(.leading)
+                .invalidatableContent()
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             // previous (bottom left) / next (bottom right) word at once, no waiting for the next hour; the circles contrast with the background
             HStack {
