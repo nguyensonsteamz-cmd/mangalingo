@@ -14,6 +14,9 @@ targets:
           - web/**
       - path: MangaLingo/web
         type: folder # copied as-is into the app bundle (web UI + dictionary data)
+      - path: Shared # code shared with the widget extension
+    dependencies:
+      - target: LingoLensWidget # the home-screen widget is embedded in the app (PlugIns/)
     info:
       path: MangaLingo/Info.plist
       properties:
@@ -38,3 +41,29 @@ targets:
         ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES: "AppIcon-Clear AppIcon-Oil AppIcon-Sunset AppIcon-Clay AppIcon-Ink"
         GENERATE_INFOPLIST_FILE: NO
         CODE_SIGN_STYLE: Manual
+        CODE_SIGN_ENTITLEMENTS: Entitlements/MangaLingo.entitlements # App Group shared with the widget
+  # Home-screen widget: one saved word, changing every hour (WidgetKit, iOS 17+: the app itself still runs on iOS 16).
+  LingoLensWidget:
+    type: app-extension
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: LingoLensWidget
+      - path: Shared
+    info:
+      path: LingoLensWidget/Info.plist
+      properties:
+        CFBundleDisplayName: Từ vựng LingoLens
+        CFBundleShortVersionString: "0.1.0"
+        CFBundleVersion: "1"
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.mangalingo.ios.widget
+        TARGETED_DEVICE_FAMILY: "1,2"
+        SWIFT_VERSION: "5.0"
+        GENERATE_INFOPLIST_FILE: NO
+        CODE_SIGN_STYLE: Manual
+        CODE_SIGN_ENTITLEMENTS: Entitlements/LingoLensWidget.entitlements
+        SKIP_INSTALL: YES

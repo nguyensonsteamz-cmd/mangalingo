@@ -11,6 +11,8 @@ import WebKit
 ///   {cmd: "translate", text}            → {text} Vietnamese translation (Apple Translation, iOS 18+)
 ///   {cmd: "translateBatch", texts}      → {texts} several at once (see Translator.swift)
 ///   {cmd: "openReader", url?}           → opens the Web Reader (WebReader/) above the app
+///   {cmd: "widgetSync", words}           → writes the saved words for the home-screen widget
+///   {cmd: "widgetStatus"}               → {ok, group, count, text}: can the widget share data with the app?
 struct WebContainer: UIViewRepresentable {
     static let background = UIColor(red: 16 / 255, green: 18 / 255, blue: 24 / 255, alpha: 1)
 
@@ -108,6 +110,11 @@ struct WebContainer: UIViewRepresentable {
             case "speak":
                 Speaker.shared.speak(body["text"] as? String ?? "", rate: body["rate"] as? Double ?? 1)
                 replyHandler(true, nil)
+            case "widgetSync":
+                // the saved words for the home-screen widget (App Group file) + a reload request
+                replyHandler(["ok": WidgetSync.write(words: body["words"] as? [[String: Any]] ?? [])], nil)
+            case "widgetStatus":
+                replyHandler(WidgetSync.status(), nil)
             case "copy":
                 // "Sao chép": the system pasteboard (the web clipboard API is not available on app://)
                 UIPasteboard.general.string = body["text"] as? String ?? ""

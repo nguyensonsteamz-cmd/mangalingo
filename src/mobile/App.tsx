@@ -20,6 +20,7 @@ import { NotesDrawer } from '@/ui/NotesDrawer';
 import { TextReader, type TextRange } from './TextReader';
 import { renderPdf } from './pdf';
 import { IosGuide } from './IosGuide';
+import { WidgetCard, useWidgetSync } from './WidgetCard';
 
 type Tab = 'home' | 'lookup' | 'vocab' | 'settings' | 'scan';
 const TABS: { id: Tab; label: string; icon: ReactNode }[] = [
@@ -95,6 +96,7 @@ export function App() {
   const { settings, loaded } = useSettings('page');
   const { snap: usageSnap } = useUsage();
   const pack = useTranslationPack(usageSnap?.settings.provider);
+  useWidgetSync();
   // logo → app icon (iPhone alternate icon / Android launcher entry). Only once the saved settings
   // are loaded (not for the default logo shown before that) and only when the logo really changed
   // since the last switch – iOS shows an alert for every icon change.
@@ -414,6 +416,8 @@ function IosHome({ onOpen, pack }: { onOpen: (t: Tab) => void; pack: ReturnType<
         </span>
         <span className="text-[20px] text-muted">›</span>
       </button>
+
+      <WidgetCard />
 
       <IosGuide />
 

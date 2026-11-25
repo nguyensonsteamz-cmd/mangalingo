@@ -64,7 +64,19 @@ jobs:
         run: |
           set -o pipefail  # a failed compile must fail the job (the output is piped to tail)
           xcodebuild -project ios/MangaLingo.xcodeproj -target MangaLingo -configuration Release -sdk iphoneos \
-            SYMROOT="$PWD/ios/build" CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=""             LINGOLENS_GOOGLE_IOS_CLIENT_ID="${{ vars.LINGOLENS_GOOGLE_IOS_CLIENT_ID }}" build | tail -n 40
+            SYMROOT="$PWD/ios/build" CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=""             LINGOLENS_GOOGLE_IOS_CLIENT_ID="${{ vars.LINGOLENS_GOOGLE_IOS_CLIENT_ID }}" build 2>&1 | tee xcodebuild.log | tail -n 40
+
+      - name: Embed the App Group entitlements (ad-hoc signature; Sideloadly replaces it when it signs with your Apple ID)
+        run: |
+          APP="ios/build/Release-iphoneos/MangaLingo.app"
+          set -o pipefail
+          test -d "$APP/PlugIns/LingoLensWidget.appex" || { echo "the widget is missing from the app" | tee -a xcodebuild.log; exit 1; }  # the widget must be inside the app
+          {
+            set -e
+            codesign --force --sign - --entitlements ios/Entitlements/LingoLensWidget.entitlements "$APP/PlugIns/LingoLensWidget.appex"
+            codesign --force --sign - --entitlements ios/Entitlements/MangaLingo.entitlements "$APP"
+            codesign -d --entitlements :- "$APP" 2>&1 | head -20
+          } 2>&1 | tee -a xcodebuild.log
 
       - name: Package LingoLens.ipa
         run: |
@@ -96,3 +108,17 @@ jobs:
             --title "iOS build ${RUN_NUMBER} (${SHORT})" \
             --prerelease \
             --notes "Unsigned iOS build of commit ${SHORT}. SHA-256: ${SHA256}. Install with Sideloadly (free Apple ID: the app works for 7 days)."
+
+      # A build that fails publishes its compiler errors as a (public) pre-release, because the Actions log needs a sign-in to read.
+      - name: Publish the build log when the build failed
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_NUMBER: ${{ github.run_number }}
+        run: |
+          test -f xcodebuild.log || exit 0
+          ERRS=$(grep -E "error:|\*\* BUILD FAILED|fatal error|missing from|codesign" xcodebuild.log | sort -u | head -40)
+          gh release create "ios-failed-${RUN_NUMBER}" xcodebuild.log --target "$GITHUB_SHA" --prerelease \
+            --title "iOS build ${RUN_NUMBER} FAILED (${GITHUB_SHA::7})" \
+            --notes "Compiler errors:
+          ${ERRS}"

@@ -13,6 +13,28 @@ export const iosBridge = () => !!handler();
 /** Raw message to the iPhone shell (Smart Setup: Keychain, Google sign-in, Safari). */
 export const iosPost = (msg: unknown): Promise<unknown> => handler()?.postMessage(msg) ?? Promise.reject(new Error('no ios bridge'));
 
+export interface WidgetStatus {
+  /** the widget can share data with the app (an App Group is usable) */
+  ok: boolean;
+  group: string;
+  count: number;
+  text: string;
+}
+
+/** Hands the saved words to the app shell, which writes them for the home-screen widget. false = no shell / App Group unusable. */
+export async function widgetSync(words: unknown[]): Promise<boolean> {
+  const h = handler();
+  if (!h) return false;
+  return h.postMessage({ cmd: 'widgetSync', words }).then((r) => (r as { ok?: boolean } | null)?.ok === true, () => false);
+}
+
+/** What the app shell can see: signing groups, whether an App Group container exists, how many words were written. */
+export async function widgetStatus(): Promise<WidgetStatus | null> {
+  const h = handler();
+  if (!h) return null;
+  return (await h.postMessage({ cmd: 'widgetStatus' }).catch(() => null)) as WidgetStatus | null;
+}
+
 /** Seconds-since-1970 stamp of the latest image sent by the Shortcuts action (0 = none). */
 export async function pendingScanStamp(): Promise<number> {
   const h = handler();
