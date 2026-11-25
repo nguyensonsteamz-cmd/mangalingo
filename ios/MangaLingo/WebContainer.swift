@@ -13,6 +13,7 @@ import WebKit
 ///   {cmd: "openReader", url?}           → opens the Web Reader (WebReader/) above the app
 ///   {cmd: "widgetSync", words}           → writes the saved words for the home-screen widget
 ///   {cmd: "widgetStatus"}               → {ok, group, count, text, cloud, repo?, code?, last?}: how the widget gets its data
+///   {cmd: "githubStart"} → {userCode, verifyUrl, deviceCode, interval, expiresIn}; {cmd: "githubPoll", deviceCode} → {status: pending|ok}
 ///   {cmd: "widgetConfigure", repo, token} / {cmd: "widgetDisconnect"} → the encrypted GitHub sync
 struct WebContainer: UIViewRepresentable {
     static let background = UIColor(red: 16 / 255, green: 18 / 255, blue: 24 / 255, alpha: 1)
@@ -115,7 +116,33 @@ struct WebContainer: UIViewRepresentable {
                 // the saved words for the home-screen widget (App Group file) + a reload request
                 WidgetSync.writeSerial(words: body["words"] as? [[String: Any]] ?? []) { replyHandler($0, nil) }
             case "widgetStatus":
-                replyHandler(WidgetSync.status(), nil)
+                WidgetSync.statusAsync { replyHandler($0, nil) }
+            case "githubStart":
+                // sign in with GitHub, step 1: a short code for github.com/login/device
+                Task {
+                    do {
+                        let info = try await GitHubLogin.start()
+                        DispatchQueue.main.async { replyHandler(info, nil) }
+                    } catch {
+                        DispatchQueue.main.async { replyHandler(nil, "\(error)") }
+                    }
+                }
+            case "githubPoll":
+                // step 2 (repeated): pending, or done = token kept in the Keychain, repository created, sync connected
+                let deviceCode = body["deviceCode"] as? String ?? ""
+                Task {
+                    do {
+                        guard let token = try await GitHubLogin.poll(deviceCode: deviceCode) else {
+                            DispatchQueue.main.async { replyHandler(["status": "pending"], nil) }
+                            return
+                        }
+                        let repo = try await GitHubLogin.prepareRepository(token: token)
+                        if let problem = WidgetSync.configure(repo: repo, token: token) { throw GitHubLogin.Failure(description: problem) }
+                        DispatchQueue.main.async { replyHandler(["status": "ok"], nil) }
+                    } catch {
+                        DispatchQueue.main.async { replyHandler(nil, "\(error)") }
+                    }
+                }
             case "widgetConfigure":
                 // connect the encrypted GitHub sync (repository + token; the token goes to the Keychain and is never sent back)
                 if let error = WidgetSync.configure(repo: body["repo"] as? String ?? "", token: body["token"] as? String ?? "") {

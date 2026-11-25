@@ -62,3 +62,23 @@ Apple ID miễn phí không có App Group (xem kết quả thử), nên app đ�
 - Phụ thuộc GitHub (miễn phí, có giới hạn tần suất cho truy cập ẩn danh: 60 lần/giờ/địa chỉ IP, đủ cho một widget).
 - Gỡ app hoặc cài lại sẽ tạo khoá mới: phải dán mã mới vào widget.
 - Mã đồng bộ cho ai thì người đó đọc được danh sách của bạn: đừng chia sẻ.
+
+## Cài đặt đơn giản cho người mới (bản 4)
+Cho người dùng chỉ còn: **Bật tự cập nhật** → nhập mã ngắn trên GitHub → thêm widget → dán mã đồng bộ (đã được chép sẵn). Mỗi bước app tự kiểm tra và đánh dấu ✅.
+
+1. **Bật tự cập nhật:** app xin GitHub một mã (device flow), chép sẵn vào clipboard, mở github.com/login/device. Người dùng dán mã, bấm Authorize. App tự nhận ra, tạo repo công khai `lingolens-sync` trong tài khoản của họ, giữ token trong Keychain, và **chép sẵn mã đồng bộ**.
+2. **Thêm widget** (giữ màn hình chính → +). App đếm được số widget LingoLens đang có (iOS 17+).
+3. **Dán mã đồng bộ** vào ô "Mã đồng bộ" của widget. App đọc lại cấu hình widget và báo "Widget đã nhận mã" khi đúng.
+
+Quyền GitHub: `public_repo` (GitHub không có quyền nhỏ hơn cho việc tạo repo). Người dùng thu hồi tại github.com/settings/applications. Cách nhập token thủ công vẫn còn trong mục "Nâng cao".
+
+### Việc của người phát triển (một lần)
+Đăng nhập bằng mã ngắn cần một **GitHub OAuth App** do người phát triển đăng ký (không phải từng người dùng):
+1. GitHub → Settings → Developer settings → OAuth Apps → New OAuth App. Tên `LingoLens`, Homepage URL là trang repo, Authorization callback URL điền tuỳ ý (không dùng).
+2. Mở app vừa tạo, đánh dấu **Enable Device Flow**, rồi lưu.
+3. Chép **Client ID** (công khai, không phải bí mật) và đặt vào `LINGOLENS_GITHUB_CLIENT_ID` trong `ios/project.yml`.
+
+Khi chưa có Client ID, app chỉ hiện cách nhập token thủ công.
+
+### Cách không cần cài đặt gì
+Toàn bộ phần đồng bộ là cách vòng cho việc cài bằng Apple ID miễn phí. Với tài khoản Apple Developer trả phí (hoặc phát hành lên App Store), widget dùng App Group và **tự cập nhật không cần làm gì**; mã trong dự án sẽ tự dùng đường đó.

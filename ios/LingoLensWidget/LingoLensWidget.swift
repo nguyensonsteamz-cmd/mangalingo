@@ -2,24 +2,6 @@ import AppIntents
 import SwiftUI
 import WidgetKit
 
-/// Widget settings (long-press the widget → Edit Widget).
-struct WordConfigIntent: WidgetConfigurationIntent {
-    static var title: LocalizedStringResource = "Từ vựng"
-    static var description = IntentDescription("Một từ đã lưu, đổi mỗi giờ.")
-
-    /// Paste ONCE the sync code copied from the app (LingoLens → Trang chủ → Widget từ vựng): the widget then follows the saved words by itself.
-    @Parameter(title: "Mã đồng bộ (dán một lần)", default: "")
-    var code: String
-
-    /// Put several widgets in a Stack and give each a different number: swiping the stack shows the next word at once.
-    @Parameter(title: "Từ thứ (khi xếp chồng nhiều widget)", default: 0)
-    var offset: Int
-
-    /// Fallback without any sync: paste the list copied by the app.
-    @Parameter(title: "Danh sách từ (cách dự phòng)", default: "")
-    var pasted: String
-}
-
 /// "Next word" button: skips one word right away, without waiting for the next hour (iOS 17 interactive widget).
 struct NextWordIntent: AppIntent {
     static var title: LocalizedStringResource = "Từ tiếp theo"

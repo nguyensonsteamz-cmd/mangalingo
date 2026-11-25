@@ -26,6 +26,20 @@ export interface WidgetStatus {
   code?: string;
   /** result of the last upload, in words */
   last?: string;
+  /** "Sign in with GitHub" is available in this build */
+  github?: boolean;
+  /** widgets of LingoLens on the Home Screen, and whether one of them holds our sync code (iOS 17+) */
+  widgets?: number;
+  linked?: boolean;
+}
+
+export interface GithubStart {
+  userCode: string;
+  deviceCode: string;
+  verifyUrl: string;
+  /** seconds between checks */
+  interval: number;
+  expiresIn: number;
 }
 
 export interface WidgetSyncResult {
@@ -61,6 +75,29 @@ export async function widgetConfigure(repo: string, token: string): Promise<Widg
   if (!h) throw new Error('Không có cầu nối với ứng dụng iPhone.');
   try {
     return (await h.postMessage({ cmd: 'widgetConfigure', repo, token })) as WidgetStatus;
+  } catch (e) {
+    throw new Error(String((e as Error)?.message ?? e));
+  }
+}
+
+/** Sign in with GitHub, step 1: a short code to type on github.com/login/device. Rejects with a readable message. */
+export async function githubStart(): Promise<GithubStart> {
+  const h = handler();
+  if (!h) throw new Error('Không có cầu nối với ứng dụng iPhone.');
+  try {
+    return (await h.postMessage({ cmd: 'githubStart' })) as GithubStart;
+  } catch (e) {
+    throw new Error(String((e as Error)?.message ?? e));
+  }
+}
+
+/** Step 2, repeated: 'pending' until the user has authorised on GitHub, then 'ok' (token kept in the Keychain, repository created, sync connected). */
+export async function githubPoll(deviceCode: string): Promise<'pending' | 'ok'> {
+  const h = handler();
+  if (!h) throw new Error('Không có cầu nối với ứng dụng iPhone.');
+  try {
+    const r = (await h.postMessage({ cmd: 'githubPoll', deviceCode })) as { status?: string } | null;
+    return r?.status === 'ok' ? 'ok' : 'pending';
   } catch (e) {
     throw new Error(String((e as Error)?.message ?? e));
   }

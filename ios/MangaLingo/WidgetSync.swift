@@ -143,6 +143,32 @@ enum WidgetSync {
             out["code"] = c.string
             out["last"] = defaults.string(forKey: lastKey) ?? "Chưa đồng bộ"
         }
+        out["github"] = GitHubLogin.isConfigured
         return out
+    }
+
+    /// status() plus what the system knows about the widgets on the Home Screen: how many there are and whether one of them holds OUR sync
+    /// code (so the app can tell the user the paste worked). iOS 17+.
+    static func statusAsync(done: @escaping ([String: Any]) -> Void) {
+        var out = status()
+        out["widgets"] = 0
+        out["linked"] = false
+        guard #available(iOS 17.0, *), let mine = code else {
+            done(out)
+            return
+        }
+        WidgetCenter.shared.getCurrentConfigurations { result in
+            var count = 0
+            var linked = false
+            if case .success(let infos) = result {
+                for info in infos where info.kind == "LingoLensWord" {
+                    count += 1
+                    if let intent = info.widgetConfigurationIntent(of: WordConfigIntent.self), WidgetSyncCode.parse(intent.code) == mine { linked = true }
+                }
+            }
+            out["widgets"] = count
+            out["linked"] = linked
+            DispatchQueue.main.async { done(out) }
+        }
     }
 }
