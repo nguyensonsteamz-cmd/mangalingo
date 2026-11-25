@@ -128,3 +128,7 @@ Không còn mục "Nguồn dịch" trong Cài đặt: chỉ dùng Google Dịch 
 
 ## Bản 12: màu phiên âm và thẻ trên widget màn hình khoá
 iOS **không cho widget màn hình khoá dùng màu tuỳ ý** (hệ thống chỉ giữ độ sáng rồi nhuộm theo hình nền). Cách gần nhất: phiên âm hiện nhạt hơn từ và nghĩa; thẻ loại từ là **viên thuốc đặc màu sáng, chữ đen** nên nổi hẳn lên. Khi iOS hiển thị đủ màu (ví dụ chế độ StandBy), phiên âm có màu vàng nhạt và thẻ có màu theo loại từ như widget màn hình chính.
+
+## Bản 13: phản hồi nhanh hơn, ô giao diện đang chọn rõ hơn
+- **Nút ‹ › phản hồi nhanh hơn:** ngay sau khi bấm, widget chỉ đọc bản danh sách đã lưu (bỏ bước dò App Group và bỏ mạng), và thứ tự theo ngày chỉ tính một lần cho mỗi ngày thay vì cho từng mốc (trước đây tính tới 96 lần). Phần còn lại là độ trễ của chính iOS khi chạy nút tương tác của widget (thường vài trăm mili giây đến khoảng một giây), app không rút ngắn được.
+- **Chọn giao diện:** ô đang chọn phóng to nhẹ, có viền đậm màu nhấn, nền nhạt, chữ đậm và dấu ✓ ở góc; các ô khác mờ đi.

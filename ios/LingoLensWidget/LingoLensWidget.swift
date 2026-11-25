@@ -136,6 +136,11 @@ struct Provider: AppIntentTimelineProvider {
 
     /// Where the words come from: 1) the App Group file, 2) the encrypted list on GitHub (sync code), 3) the pasted list.
     private func loadWords(for configuration: WordConfigIntent) async -> (words: [WidgetWord], note: String, cloud: Bool, order: String?, theme: String?, interval: Int?) {
+        // Fast path right after a button press: nothing but the saved copy of the list (no App Group lookup, no network), so the next
+        // word appears as soon as the system lets the widget redraw.
+        if WordSkip.tappedJustNow, !WidgetMemory.syncCode.isEmpty, let cached = WidgetCache.load(), !cached.words.isEmpty {
+            return (cached.words, "", true, cached.order, cached.theme, cached.interval)
+        }
         if let snap = WidgetShared.read(), !snap.words.isEmpty { return (snap.words, "", false, snap.order, snap.theme, snap.interval) }
         var note = ""
         var usesCloud = false
@@ -186,12 +191,19 @@ struct Provider: AppIntentTimelineProvider {
 
     private func makeEntries(words: [WidgetWord], note: String, shift: Int, from start: Date, count: Int, theme: WidgetTheme, sequential: Bool, stepMinutes: Int) -> [WordEntry] {
         if words.isEmpty { return [WordEntry(date: start, word: nil, note: note, theme: theme)] }
+        var orders: [Int: [Int]] = [:] // the daily order is the same for every slot of a day: computed once, not for each entry
         return (0..<count).map { i -> WordEntry in
             let step = Double(stepMinutes) * 60
             let date = start.addingTimeInterval(Double(i) * step)
             let hour = Int(date.timeIntervalSince1970 / step) // the number of the time slot (a "slot" is one word)
             let day = Int(date.timeIntervalSince1970 / 86400)
-            let order = sequential ? Array(0..<words.count) : Provider.dailyOrder(count: words.count, day: day)
+            let order: [Int]
+            if let known = orders[day] {
+                order = known
+            } else {
+                order = sequential ? Array(0..<words.count) : Provider.dailyOrder(count: words.count, day: day)
+                orders[day] = order
+            }
             let slot = (((hour + shift) % words.count) + words.count) % words.count
             return WordEntry(date: date, word: words[order[slot]], note: "", theme: theme)
         }

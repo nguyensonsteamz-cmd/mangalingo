@@ -118,11 +118,22 @@ export function WidgetSettings() {
                 setWidgetTheme(t.id);
                 apply();
               }}
-              className="ml-press flex flex-col items-center gap-1 rounded-xl p-1.5 text-[11.5px]"
-              style={{ outline: t.id === themeId ? '2px solid var(--ml-accent, #7c9cff)' : '1px solid rgba(128,128,128,.25)' }}
+              className={
+                'ml-press relative flex flex-col items-center gap-1 rounded-xl p-1.5 text-[11.5px] transition-transform ' +
+                (t.id === themeId ? 'scale-[1.04] bg-accent/15 ring-[3px] ring-accent' : 'opacity-80 ring-1 ring-border')
+              }
             >
               <span style={{ width: '100%', height: 34, borderRadius: 9, background: t.bg, border: t.border ? `1px solid ${t.border}` : '1px solid rgba(128,128,128,.25)' }} />
-              <span className="text-text">{t.label}</span>
+              <span className={t.id === themeId ? 'font-bold text-accent' : 'text-text'}>{t.label}</span>
+              {t.id === themeId && (
+                <span
+                  aria-hidden="true"
+                  data-ml-widget-theme-check=""
+                  className="absolute -right-1.5 -top-1.5 grid h-5 w-5 place-items-center rounded-full bg-accent text-[12px] font-bold leading-none text-white shadow"
+                >
+                  ✓
+                </span>
+              )}
             </button>
           ))}
         </div>
