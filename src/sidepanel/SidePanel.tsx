@@ -232,7 +232,8 @@ export function SidePanel({ topBar }: { topBar?: ReactNode } = {}) {
             </button>
           </div>
         </form>
-        <ScanButtons className="px-3 pb-1.5" />
+        {/* the same page is the iPhone Reader's sidebar: there is no tab to scan there (Chrome only) */}
+        {document.documentElement.dataset.app !== 'mobile' && <ScanButtons className="px-3 pb-1.5" />}
         <SidebarTabs value={tab} onChange={setTab} />
       </header>
       <main className={cx('ml-scroll flex-1 px-3 py-3', crossfadeClass(`${tab}|${entry?.text ?? ''}|${ocr ? 1 : 0}`, fade.current))}>
