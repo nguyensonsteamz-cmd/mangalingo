@@ -25,7 +25,6 @@ const loader = async (path: string) => {
 const userDict = new UserDictProvider();
 // Once per diagnostics update: forget the pause left by earlier failures (a pause from an older build has no recorded cause), so the
 // next translation shows what Google really answers.
-// page being unable to read Google's reply, not from Google), so translating works at once after the update.
 if (iosWebFetch()) {
   try {
     if (!localStorage.getItem('gweb:nativeFetch2')) {
