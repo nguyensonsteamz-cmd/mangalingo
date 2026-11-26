@@ -106,14 +106,17 @@ struct Provider: AppIntentTimelineProvider {
     /// 24 entries, one per hour: the word changes every hour even if iOS does not refresh the widget in between. With the GitHub sync the
     /// list is read again every few hours (and at once when the app saves a word and asks for a reload).
     func timeline(for configuration: WordConfigIntent, in context: Context) async -> Timeline<WordEntry> {
+        // WidgetKit draws EVERY entry of a new timeline before showing it, so a long timeline slows the redraw after a button press:
+        // right after a press only a few entries are made (the full timeline is built again at the next normal refresh).
+        let tapped = WordSkip.tappedJustNow
         let loaded = await loadWords(for: configuration)
         let minutes = stepMinutes(configuration, loaded.interval)
         let step = Double(minutes) * 60
         // the current slot, then enough slots for about two days (at most 96): the word keeps changing even if iOS does not refresh the widget
         let start = Date(timeIntervalSince1970: (Date().timeIntervalSince1970 / step).rounded(.down) * step)
-        let count = min(96, max(6, Int(48 * 3600 / step)))
+        let count = tapped ? 3 : min(96, max(6, Int(48 * 3600 / step)))
         let entries = makeEntries(words: loaded.words, note: loaded.note, shift: shift(configuration), from: start, count: count, theme: resolveTheme(configuration, loaded.theme), sequential: sequential(configuration, loaded.order), stepMinutes: minutes)
-        let policy: TimelineReloadPolicy = loaded.cloud ? .after(Date().addingTimeInterval(3 * 3600)) : .atEnd
+        let policy: TimelineReloadPolicy = loaded.cloud && !tapped ? .after(Date().addingTimeInterval(3 * 3600)) : .atEnd
         return Timeline(entries: entries, policy: policy)
     }
 

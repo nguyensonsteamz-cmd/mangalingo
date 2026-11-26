@@ -139,3 +139,6 @@ iOS **không cho widget màn hình khoá dùng màu tuỳ ý** (hệ thống ch�
 
 ## Bản 15: bỏ hiệu ứng mờ khi bấm
 Từ nháy vài lần khi bấm ‹ › là do `invalidatableContent` (thêm ở bản 14). Đã bỏ; từ đổi thẳng sang từ mới như bản 13. Độ trễ do iOS vẫn còn (khoảng 1-2 giây).
+
+## Bản 16: timeline ngắn sau khi bấm ‹ ›
+WidgetKit vẽ sẵn **mọi** mốc của một timeline mới trước khi hiển thị. Timeline thường có 48-96 mốc, nên mỗi lần bấm widget phải vẽ chừng đó khung (nặng hơn với nền màu loang/kính mờ). Ngay sau khi bấm, app chỉ tạo 3 mốc; timeline đầy đủ được dựng lại ở lần làm mới tiếp theo (hết 3 mốc, tức khoảng 3 lần tần suất, hoặc khi app đổi cài đặt). Đây là suy luận từ cách WidgetKit hoạt động, chưa đo được trên máy.
