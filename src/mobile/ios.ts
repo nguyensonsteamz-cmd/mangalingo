@@ -3,6 +3,7 @@
  * Absent in browsers and in the Android app.
  */
 import type { OcrLine } from '@/shared/types';
+import type { WebFetch, WebFetchResponse } from '@/modules/usage/google-web';
 
 interface Handler {
   postMessage(msg: unknown): Promise<unknown>;
@@ -60,6 +61,35 @@ export async function widgetSync(words: unknown[], order = 'random', theme = 'wh
     (r) => ({ ok: (r as WidgetSyncResult | null)?.ok === true, cloud: String((r as WidgetSyncResult | null)?.cloud ?? 'off') }),
     () => ({ ok: false, cloud: 'Không gửi được cho ứng dụng.' }),
   );
+}
+
+/**
+ * Google Translate (web) through the app shell's own networking (iPhone app only; undefined elsewhere). From the app page the request
+ * fails with a bare "Load failed" (iOS hides the reply), so the shell sends it and hands back the real status and body. Only the public
+ * translate.googleapis.com endpoint is accepted by the shell.
+ */
+export function iosWebFetch(): WebFetch | undefined {
+  if (!handler()) return undefined;
+  return (url, init) =>
+    new Promise<WebFetchResponse>((resolve, reject) => {
+      const signal = init.signal;
+      if (signal?.aborted) return reject(new DOMException('aborted', 'AbortError'));
+      const onAbort = () => reject(new DOMException('aborted', 'AbortError'));
+      signal?.addEventListener('abort', onAbort, { once: true });
+      iosPost({ cmd: 'googleWebGet', url }).then(
+        (r) => {
+          signal?.removeEventListener('abort', onAbort);
+          const o = (r ?? {}) as { status?: number; url?: string; body?: string; error?: string };
+          if (typeof o.status !== 'number') return reject(new TypeError(o.error === 'timeout' ? 'timeout' : 'network'));
+          const body = o.body ?? '';
+          resolve({ status: o.status, url: o.url, text: async () => body });
+        },
+        () => {
+          signal?.removeEventListener('abort', onAbort);
+          reject(new TypeError('network'));
+        },
+      );
+    });
 }
 
 /** What the app shell can see: signing groups, whether an App Group container exists, the sync state and code. */

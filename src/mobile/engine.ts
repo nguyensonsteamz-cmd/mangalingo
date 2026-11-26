@@ -13,6 +13,7 @@ import { chromeLocal } from '@/storage/kv';
 import { SettingsStore } from '@/storage/settings-store';
 import { UserDictProvider } from '@/storage/user-dict';
 import { UsageService } from '@/modules/usage';
+import { iosWebFetch } from './ios';
 
 const settings = new SettingsStore(chromeLocal());
 
@@ -22,6 +23,19 @@ const loader = async (path: string) => {
   return res.json();
 };
 const userDict = new UserDictProvider();
+
+// Once, on the build that moved the iPhone's requests to the app shell: forget the pause left by the old failures (they came from the
+// page being unable to read Google's reply, not from Google), so translating works at once after the update.
+if (iosWebFetch()) {
+  try {
+    if (!localStorage.getItem('gweb:nativeFetch')) {
+      localStorage.setItem('gweb:nativeFetch', '1');
+      void chromeLocal().remove('gweb:cooldown');
+    }
+  } catch {
+    /* storage unavailable */
+  }
+}
 export const dict = createDictionary(loader, [userDict]);
 
 const broadcast = async (e: PageEvent) => {
@@ -29,7 +43,8 @@ const broadcast = async (e: PageEvent) => {
 };
 
 const route = createRouter({
-  usage: new UsageService(chromeLocal()),
+  // iPhone: Google Translate (web) goes through the app shell's networking (the page cannot read Google's reply itself)
+  usage: new UsageService(chromeLocal(), { webFetch: iosWebFetch() }),
   lookup: async (req) => {
     if (!req.assumeEnglish) {
       const s = await settings.load();

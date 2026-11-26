@@ -128,6 +128,9 @@ struct WebContainer: UIViewRepresentable {
             case "speak":
                 Speaker.shared.speak(body["text"] as? String ?? "", rate: body["rate"] as? Double ?? 1)
                 replyHandler(true, nil)
+            case "googleWebGet":
+                // Google Translate (web) through iOS's networking (see GoogleWebFetch): the page cannot read the reply itself
+                GoogleWebFetch.get(body["url"] as? String ?? "") { replyHandler($0, nil) }
             case "widgetSync":
                 // the saved words for the home-screen widget (App Group file) + a reload request
                 WidgetSync.writeSerial(words: body["words"] as? [[String: Any]] ?? [], order: body["order"] as? String, theme: body["theme"] as? String, interval: body["interval"] as? Int) { replyHandler($0, nil) }
