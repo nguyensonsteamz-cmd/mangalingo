@@ -41,7 +41,7 @@ export class UsageService {
   constructor(kv: KV, opts: UsageServiceOptions = {}) {
     this.clock = opts.clock ?? (() => new Date());
     this.webFetch = opts.webFetch;
-    this.webGate = new GoogleWebGate({ ...opts.webGate, store: opts.webGate?.store ?? { get: () => kv.get<number>('gweb:cooldown'), set: (n) => kv.set({ 'gweb:cooldown': n }) } });
+    this.webGate = new GoogleWebGate({ ...opts.webGate, store: opts.webGate?.store ?? { get: () => kv.get<number>('gweb:cooldown'), set: (n) => kv.set({ 'gweb:cooldown': n }), getCause: () => kv.get<string>('gweb:cause'), setCause: (c) => kv.set({ 'gweb:cause': c }) } });
     this.repo = new UsageRepository(kv);
     this.protection = new CostProtectionService(this.repo, this.meter, this.clock);
   }

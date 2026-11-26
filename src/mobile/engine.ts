@@ -23,14 +23,14 @@ const loader = async (path: string) => {
   return res.json();
 };
 const userDict = new UserDictProvider();
-
-// Once, on the build that moved the iPhone's requests to the app shell: forget the pause left by the old failures (they came from the
+// Once per diagnostics update: forget the pause left by earlier failures (a pause from an older build has no recorded cause), so the
+// next translation shows what Google really answers.
 // page being unable to read Google's reply, not from Google), so translating works at once after the update.
 if (iosWebFetch()) {
   try {
-    if (!localStorage.getItem('gweb:nativeFetch')) {
-      localStorage.setItem('gweb:nativeFetch', '1');
-      void chromeLocal().remove('gweb:cooldown');
+    if (!localStorage.getItem('gweb:nativeFetch2')) {
+      localStorage.setItem('gweb:nativeFetch2', '1');
+      void chromeLocal().remove(['gweb:cooldown', 'gweb:cause']);
     }
   } catch {
     /* storage unavailable */

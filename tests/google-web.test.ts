@@ -205,12 +205,27 @@ describe('gate: serialisation, spacing, retry policy, cooldown', () => {
     const g = new GoogleWebGate({ now: c.now, sleep: c.sleep, cooldownMs: 600_000 });
     await expect(g.run('Hello', 'en>vi', { fetchImpl: f })).rejects.toMatchObject({ code });
     expect(n).toBe(1);
-    await expect(g.run('Another', 'en>vi', { fetchImpl: f })).rejects.toMatchObject({ code: 'ACCESS_BLOCKED' });
-    await expect(g.run('Third', 'en>vi', { fetchImpl: f })).rejects.toMatchObject({ code: 'ACCESS_BLOCKED' });
+    await expect(g.run('Another', 'en>vi', { fetchImpl: f })).rejects.toMatchObject({ code: 'PAUSED' });
+    await expect(g.run('Third', 'en>vi', { fetchImpl: f })).rejects.toMatchObject({ code: 'PAUSED' });
     expect(n).toBe(1); // still 1: the cooldown sent nothing
     c.advance(600_001);
     const good: WebFetch = async (url) => ok(reply('VI', new URL(url).searchParams.get('q') ?? ''));
     expect(await g.run('Hello again', 'en>vi', { fetchImpl: good })).toBe('VI'); // free again after the cooldown
+  });
+
+  it('the refusal says what Google answered, and the pause names it (never the user text)', async () => {
+    const c = clock();
+    let cause: string | undefined;
+    const store = { get: async () => undefined, set: async () => {}, getCause: async () => cause, setCause: async (s: string) => void (cause = s) };
+    const g = new GoogleWebGate({ now: c.now, sleep: c.sleep, store });
+    const first = await g.run('Secret sentence', 'en>vi', { fetchImpl: async () => ({ status: 429, url: 'https://www.google.com/sorry/index?continue=Secret', text: async () => '<html>Sorry...</html>' }) }).catch((e) => e);
+    expect(first.code).toBe('CAPTCHA_REQUIRED');
+    expect(first.message).toContain('HTTP 429 · trang /sorry/ của Google');
+    const paused = await g.run('Other', 'en>vi', { fetchImpl: async () => ok(reply('x')) }).catch((e) => e);
+    expect(paused.code).toBe('PAUSED');
+    expect(paused.message).toMatch(/còn khoảng 15 phút; lần bị từ chối: \d\d:\d\d, HTTP 429/);
+    expect(cause).toContain('HTTP 429');
+    for (const m of [first.message, paused.message, cause]) expect(m).not.toContain('Secret');
   });
 
   it('the cooldown survives a restart (persisted) and a failing store never breaks translation', async () => {
@@ -222,7 +237,7 @@ describe('gate: serialisation, spacing, retry policy, cooldown', () => {
     expect(saved).toBeGreaterThan(c.now());
     const restarted = new GoogleWebGate({ now: c.now, sleep: c.sleep, store });
     let n = 0;
-    await expect(restarted.run('Hello', 'en>vi', { fetchImpl: async () => (n++, ok(reply('x'))) })).rejects.toMatchObject({ code: 'ACCESS_BLOCKED' });
+    await expect(restarted.run('Hello', 'en>vi', { fetchImpl: async () => (n++, ok(reply('x'))) })).rejects.toMatchObject({ code: 'PAUSED' });
     expect(n).toBe(0);
     const broken = new GoogleWebGate({ now: c.now, sleep: c.sleep, store: { get: async () => Promise.reject(new Error('x')), set: async () => Promise.reject(new Error('x')) } });
     expect(await broken.run('Hello', 'en>vi', { fetchImpl: async () => ok(reply('VI')) })).toBe('VI');
@@ -264,7 +279,7 @@ describe('UsageService with Google Translate web (no key, no billing, no quota)'
   it('a block is reported as gweb-CAPTCHA_REQUIRED, counts as a failure (not as characters) and then nothing more is sent', async () => {
     const { svc, net } = await setup(() => ok(CAPTCHA, 429));
     await expect(svc.translate('Hello there', {})).rejects.toMatchObject({ code: 'gweb-CAPTCHA_REQUIRED' });
-    await expect(svc.translate('Something else', {})).rejects.toMatchObject({ code: 'gweb-ACCESS_BLOCKED' });
+    await expect(svc.translate('Something else', {})).rejects.toMatchObject({ code: 'gweb-PAUSED' });
     expect(net.urls).toHaveLength(1); // the cooldown stopped the second request before the network
     const snap = await svc.snapshot();
     expect(snap).toMatchObject({ usedChars: 0, requests: 0, failedRequests: 2 });
@@ -387,7 +402,7 @@ describe('long text through Google Translate web (chunking, order, failures, can
     const c = (code: string) => classifyError(Object.assign(new Error('m'), { code })).opts;
     expect(c('gweb-NETWORK_ERROR')).toMatchObject({ retryable: true, fatal: false });
     expect(c('gweb-TIMEOUT')).toMatchObject({ retryable: true, fatal: false });
-    for (const k of ['RATE_LIMITED', 'ACCESS_BLOCKED', 'CAPTCHA_REQUIRED']) expect(c('gweb-' + k)).toMatchObject({ retryable: false, fatal: true });
+    for (const k of ['RATE_LIMITED', 'ACCESS_BLOCKED', 'CAPTCHA_REQUIRED', 'PAUSED', 'UNREADABLE_REPLY']) expect(c('gweb-' + k)).toMatchObject({ retryable: false, fatal: true });
     expect(c('gweb-TRANSLATION_FAILED')).toMatchObject({ retryable: false, fatal: false });
   });
 });

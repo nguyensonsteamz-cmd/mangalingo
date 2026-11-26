@@ -41,7 +41,7 @@ export function classifyError(e: unknown): TranslationError {
   if (w) {
     // Google Translate web: a block / CAPTCHA / rate limit is FATAL for the job (nothing more is sent); only network errors and timeouts are retried
     const retryable = w[1] === 'NETWORK_ERROR' || w[1] === 'TIMEOUT';
-    const fatal = ['RATE_LIMITED', 'ACCESS_BLOCKED', 'CAPTCHA_REQUIRED', 'INVALID_LANGUAGE', 'CANCELLED'].includes(w[1]);
+    const fatal = ['RATE_LIMITED', 'ACCESS_BLOCKED', 'CAPTCHA_REQUIRED', 'UNREADABLE_REPLY', 'PAUSED', 'INVALID_LANGUAGE', 'CANCELLED'].includes(w[1]);
     return new TranslationError(String(err?.message ?? e), { retryable, fatal, code });
   }
   const message = String(err?.message ?? e);

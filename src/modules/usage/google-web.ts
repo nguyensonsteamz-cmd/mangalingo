@@ -24,7 +24,9 @@ export type GoogleWebErrorCode =
   | 'INVALID_LANGUAGE'
   | 'TEXT_TOO_LONG'
   | 'TRANSLATION_FAILED'
-  | 'CANCELLED';
+  | 'CANCELLED'
+  /** nothing was sent: the app is waiting out the pause after an earlier refusal */
+  | 'PAUSED';
 
 /** Codes after which NOTHING more is sent for a while. */
 export const BLOCKING_CODES: readonly GoogleWebErrorCode[] = ['RATE_LIMITED', 'ACCESS_BLOCKED', 'CAPTCHA_REQUIRED', 'UNREADABLE_REPLY'];
@@ -41,14 +43,24 @@ export const GOOGLE_WEB_MESSAGES: Record<GoogleWebErrorCode, string> = {
   TEXT_TOO_LONG: 'Đoạn văn bản quá dài cho một yêu cầu.',
   TRANSLATION_FAILED: 'Google Dịch trả về kết quả không hợp lệ.',
   CANCELLED: 'Đã hủy.',
+  PAUSED: 'Ứng dụng đang tạm dừng gửi yêu cầu tới Google Dịch sau một lần bị từ chối.',
 };
+
+/** What Google actually answered, in a few words for the user (never the body or the URL: they can hold the user's text). */
+export function describeReply(status: number, finalUrl: string | undefined, body: string): string {
+  const parts = ['HTTP ' + status];
+  if (finalUrl && /\/sorry\//.test(finalUrl)) parts.push('trang /sorry/ của Google');
+  else if (CAPTCHA_PAGE.test(body)) parts.push('trang chống truy cập tự động');
+  else if (body.trimStart().startsWith('<')) parts.push('trang HTML');
+  return parts.join(' · ');
+}
 
 export class GoogleWebError extends Error {
   constructor(
     public code: GoogleWebErrorCode,
-    public extra: { status?: number; cooldownUntil?: number } = {},
+    public extra: { status?: number; cooldownUntil?: number; detail?: string } = {},
   ) {
-    super(GOOGLE_WEB_MESSAGES[code]);
+    super(GOOGLE_WEB_MESSAGES[code] + (extra.detail ? ` [${extra.detail}]` : ''));
     this.name = 'GoogleWebError';
   }
   /** only a transient network failure may be tried again */
@@ -81,7 +93,7 @@ export interface WebFetchResponse {
 /** `fetch` restricted to what is needed: GET, an abort signal, NO custom headers. */
 export type WebFetch = (url: string, init: { method: 'GET'; signal?: AbortSignal; credentials?: 'omit' }) => Promise<WebFetchResponse>;
 
-const CAPTCHA_PAGE = /unusual traffic|automated queries|\/sorry\/|captcha|recaptcha|Sorry\.\.\./i;
+export const CAPTCHA_PAGE = /unusual traffic|automated queries|\/sorry\/|captcha|recaptcha|Sorry\.\.\./i;
 
 /** The text of a successful answer: `[[["translated","source",…],…],…]`. Anything else is an error. */
 export function parseTranslation(body: string, source: string): string {
@@ -162,8 +174,13 @@ export async function googleWebTranslate(text: string, pair: string, o: WebTrans
       throw new GoogleWebError('NETWORK_ERROR');
     }
     const err = classifyHttp(res.status, res.url, body);
-    if (err) throw err;
-    return parseTranslation(body, text);
+    if (err) throw new GoogleWebError(err.code, { ...err.extra, detail: describeReply(res.status, res.url, body) });
+    try {
+      return parseTranslation(body, text);
+    } catch (e) {
+      if (e instanceof GoogleWebError) throw new GoogleWebError(e.code, { status: res.status, detail: describeReply(res.status, res.url, body) });
+      throw e;
+    }
   } finally {
     clearTimeout(timer);
     o.signal?.removeEventListener('abort', onAbort);
@@ -195,7 +212,7 @@ export interface GateOptions {
   now?: () => number;
   sleep?: (ms: number) => Promise<void>;
   /** survives a suspended service worker / app restart */
-  store?: { get(): Promise<number | undefined>; set(until: number): Promise<void> };
+  store?: { get(): Promise<number | undefined>; set(until: number): Promise<void>; getCause?(): Promise<string | undefined>; setCause?(cause: string): Promise<void> };
 }
 
 /** Serialises requests (one at a time), spaces them, retries transient errors only, and enforces the cooldown after a block. */
@@ -203,6 +220,7 @@ export class GoogleWebGate {
   private chain: Promise<unknown> = Promise.resolve();
   private lastStart = 0;
   private until = 0;
+  private cause = '';
   private loaded = false;
   private o: Required<Omit<GateOptions, 'store'>> & Pick<GateOptions, 'store'>;
 
@@ -223,6 +241,7 @@ export class GoogleWebGate {
     if (!this.loaded) {
       this.loaded = true;
       this.until = Math.max(this.until, (await this.o.store?.get().catch(() => undefined)) ?? 0);
+      if (!this.cause) this.cause = (await this.o.store?.getCause?.().catch(() => undefined)) ?? '';
     }
     return Math.max(0, this.until - this.o.now());
   }
@@ -237,7 +256,8 @@ export class GoogleWebGate {
     for (let attempt = 0; ; attempt++) {
       if (o.signal?.aborted) throw new GoogleWebError('CANCELLED');
       // during the cooldown NOTHING is sent
-      if ((await this.cooldownLeft()) > 0) throw new GoogleWebError('ACCESS_BLOCKED', { cooldownUntil: this.until });
+      const left = await this.cooldownLeft();
+      if (left > 0) throw new GoogleWebError('PAUSED', { cooldownUntil: this.until, detail: `còn khoảng ${Math.max(1, Math.ceil(left / 60_000))} phút${this.cause ? '; lần bị từ chối: ' + this.cause : ''}` });
       const wait = this.lastStart + this.o.minIntervalMs - this.o.now();
       if (wait > 0) await this.o.sleep(wait);
       if (o.signal?.aborted) throw new GoogleWebError('CANCELLED');
@@ -249,7 +269,10 @@ export class GoogleWebGate {
         if (err.blocking) {
           this.until = this.o.now() + this.o.cooldownMs;
           err.extra.cooldownUntil = this.until;
+          const at = new Date(this.o.now());
+          this.cause = `${String(at.getHours()).padStart(2, '0')}:${String(at.getMinutes()).padStart(2, '0')}, ${err.extra.detail ?? err.code}`;
           await this.o.store?.set(this.until).catch(() => {});
+          await this.o.store?.setCause?.(this.cause).catch(() => {});
           throw err;
         }
         if (err.retryable && attempt < this.o.maxNetworkRetries) {
