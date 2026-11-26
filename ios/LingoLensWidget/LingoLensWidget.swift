@@ -32,17 +32,48 @@ enum WordSkip {
 
     static func advance() {
         UserDefaults.standard.set(value + 1, forKey: key)
+        WordPin.clear()
         UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: tapKey)
     }
 
     static func back() {
         UserDefaults.standard.set(value - 1, forKey: key)
+        WordPin.clear()
         UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: tapKey)
     }
 
     /// The widget is being refreshed because the button was just pressed: the list is already known, so the next word must appear at once
     /// (asking the network first made the button feel slow).
     static var tappedJustNow: Bool { Date().timeIntervalSince1970 - UserDefaults.standard.double(forKey: tapKey) < 5 }
+}
+
+/// A word just saved in the app is shown at once (for one interval), instead of waiting for its turn in the rotation.
+enum WordPin {
+    private static let knownKey = "lingolens.knownWords"
+    private static let wordKey = "lingolens.pinWord"
+    private static let untilKey = "lingolens.pinUntil"
+
+    /// Compares the list with the one seen last time; the newest word that was not there before is pinned.
+    static func observe(_ words: [WidgetWord], minutes: Int) {
+        let d = UserDefaults.standard
+        let names = words.map { $0.w }
+        let before = d.stringArray(forKey: knownKey)
+        d.set(names, forKey: knownKey)
+        guard let before = before, !before.isEmpty else { return } // first list ever: nothing is "new"
+        let old = Set(before)
+        if let fresh = names.first(where: { !old.contains($0) }) { // the list is newest first
+            d.set(fresh, forKey: wordKey)
+            d.set(Date().timeIntervalSince1970 + Double(max(15, minutes)) * 60, forKey: untilKey)
+        }
+    }
+
+    static func current(in words: [WidgetWord]) -> WidgetWord? {
+        let d = UserDefaults.standard
+        guard Date().timeIntervalSince1970 < d.double(forKey: untilKey), let w = d.string(forKey: wordKey) else { return nil }
+        return words.first { $0.w == w }
+    }
+
+    static func clear() { UserDefaults.standard.removeObject(forKey: untilKey) }
 }
 
 /// What the user typed into any widget, kept for every widget of LingoLens (the widget extension's own storage, shared by its widgets).
@@ -115,8 +146,18 @@ struct Provider: AppIntentTimelineProvider {
         // the current slot, then enough slots for about two days (at most 96): the word keeps changing even if iOS does not refresh the widget
         let start = Date(timeIntervalSince1970: (Date().timeIntervalSince1970 / step).rounded(.down) * step)
         let count = tapped ? 3 : min(96, max(6, Int(48 * 3600 / step)))
-        let entries = makeEntries(words: loaded.words, note: loaded.note, shift: shift(configuration), from: start, count: count, theme: resolveTheme(configuration, loaded.theme), sequential: sequential(configuration, loaded.order), stepMinutes: minutes)
-        let policy: TimelineReloadPolicy = loaded.cloud && !tapped ? .after(Date().addingTimeInterval(3 * 3600)) : .atEnd
+        if !tapped, !loaded.words.isEmpty { WordPin.observe(loaded.words, minutes: minutes) }
+        var entries = makeEntries(words: loaded.words, note: loaded.note, shift: shift(configuration), from: start, count: count, theme: resolveTheme(configuration, loaded.theme), sequential: sequential(configuration, loaded.order), stepMinutes: minutes)
+        // a word just saved shows now; the normal rotation takes over at the next interval or the next press of ‹ ›
+        if let pin = WordPin.current(in: loaded.words), !entries.isEmpty {
+            // entries[1] starts within one step of now: it is moved to the end of the pin (still before entries[2])
+            let now = Date()
+            var tail = Array(entries.dropFirst())
+            if let next = tail.first { tail[0] = WordEntry(date: now.addingTimeInterval(step), word: next.word, note: next.note, theme: next.theme) }
+            entries = [WordEntry(date: now, word: pin, note: "", theme: entries[0].theme)] + tail
+        }
+        // with the GitHub sync the list is read again every hour (and at once when the app saves a word)
+        let policy: TimelineReloadPolicy = loaded.cloud && !tapped ? .after(Date().addingTimeInterval(3600)) : .atEnd
         return Timeline(entries: entries, policy: policy)
     }
 

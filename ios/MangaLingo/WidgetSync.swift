@@ -97,6 +97,7 @@ enum WidgetSync {
         let snapshot = WidgetSnapshot(words: parsed, updated: Date().timeIntervalSince1970, order: order, theme: theme, interval: interval)
         let groupOK = WidgetShared.write(snapshot)
         var cloud = "off"
+        var uploaded = false
         if let code = code, let token = SyncTokenStore.get() {
             let hash = fingerprint(parsed) + "|" + (order ?? "") + "|" + (theme ?? "") + "|" + String(interval ?? 0)
             if defaults.string(forKey: hashKey) == hash {
@@ -106,6 +107,7 @@ enum WidgetSync {
                     try await WidgetCloud.push(snapshot, code: code, token: token)
                     defaults.set(hash, forKey: hashKey)
                     cloud = "ok"
+                    uploaded = true
                 } catch {
                     cloud = (error as? WidgetCloudError)?.description ?? "Không đẩy được lên GitHub: \(error.localizedDescription)"
                 }
@@ -115,6 +117,13 @@ enum WidgetSync {
             defaults.set(cloud == "ok" ? "Đã đồng bộ lúc \(f.string(from: Date()))" : cloud, forKey: lastKey)
         }
         WidgetCenter.shared.reloadAllTimelines()
+        if uploaded {
+            // GitHub may need a few seconds before every reader sees the new file: ask the widget once more a little later
+            Task {
+                try? await Task.sleep(nanoseconds: 20_000_000_000)
+                WidgetCenter.shared.reloadAllTimelines()
+            }
+        }
         return ["ok": groupOK, "cloud": cloud]
     }
 

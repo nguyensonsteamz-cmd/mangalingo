@@ -90,7 +90,14 @@ enum WidgetCloud {
 
     /// Widget side: reads the public file (no token) and decrypts it.
     static func fetch(_ code: WidgetSyncCode, timeout: TimeInterval = 15) async throws -> WidgetSnapshot {
-        var req = URLRequest(url: try contentsURL(code.repo), cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: timeout)
+        // GitHub answers unauthenticated reads with "Cache-Control: public, max-age=60": without a fresh query the widget, asked to reload
+        // right after the app uploaded, got the PREVIOUS list from a shared cache and kept it for hours. A changing query asks for the
+        // current file (the request is the same single read; nothing is retried).
+        var parts = URLComponents(url: try contentsURL(code.repo), resolvingAgainstBaseURL: false)
+        parts?.queryItems = [URLQueryItem(name: "t", value: String(Int(Date().timeIntervalSince1970)))]
+        guard let url = parts?.url else { throw WidgetCloudError.badRepo }
+        var req = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalAndRemoteCacheData, timeoutInterval: timeout)
+        req.setValue("no-cache", forHTTPHeaderField: "Cache-Control")
         req.setValue("application/vnd.github.raw+json", forHTTPHeaderField: "Accept")
         req.setValue("LingoLens-widget", forHTTPHeaderField: "User-Agent")
         let (data, resp) = try await URLSession.shared.data(for: req)

@@ -142,3 +142,8 @@ Từ nháy vài lần khi bấm ‹ › là do `invalidatableContent` (thêm ở
 
 ## Bản 16: timeline ngắn sau khi bấm ‹ ›
 WidgetKit vẽ sẵn **mọi** mốc của một timeline mới trước khi hiển thị. Timeline thường có 48-96 mốc, nên mỗi lần bấm widget phải vẽ chừng đó khung (nặng hơn với nền màu loang/kính mờ). Ngay sau khi bấm, app chỉ tạo 3 mốc; timeline đầy đủ được dựng lại ở lần làm mới tiếp theo (hết 3 mốc, tức khoảng 3 lần tần suất, hoặc khi app đổi cài đặt). Đây là suy luận từ cách WidgetKit hoạt động, chưa đo được trên máy.
+
+## Bản 17: từ mới lưu trong app hiện lên widget
+- **Lỗi:** widget không nhận từ mới. GitHub trả file cho người đọc không đăng nhập kèm `Cache-Control: public, max-age=60`. Khi app vừa đẩy danh sách mới rồi gọi widget tải lại, widget nhận **bản cũ** từ bộ nhớ đệm chung của GitHub, cất bản cũ đó, rồi 3 giờ sau mới hỏi lại.
+- **Sửa:** widget đọc file kèm tham số thời gian (`?t=…`) và `Cache-Control: no-cache`. Mỗi lần vẫn chỉ đọc một lần, không thử lại. App gọi widget tải lại ngay sau khi đẩy, rồi thêm một lần sau 20 giây. Khi không có lệnh từ app, widget tự đọc lại sau mỗi giờ (trước là 3 giờ).
+- **Từ vừa lưu hiện ngay:** widget nhớ danh sách lần trước. Nếu có từ mới, từ mới nhất được hiện ngay trong một khoảng tần suất, sau đó widget quay lại vòng xoay bình thường. Bấm ‹ › cũng bỏ ghim.
