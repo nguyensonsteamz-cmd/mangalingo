@@ -428,7 +428,6 @@ struct WordWidgetView: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .layoutPriority(3)
-                .invalidatableContent() // dims at once when a button is pressed, until the next word is drawn
             HStack(spacing: 6) {
                 if let ipa = word.ipa, !ipa.isEmpty {
                     Text(ipa)
@@ -457,7 +456,6 @@ struct WordWidgetView: View {
                 .lineLimit(5)
                 .minimumScaleFactor(0.4)
                 .multilineTextAlignment(.leading)
-                .invalidatableContent()
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             // previous (bottom left) / next (bottom right) word at once, no waiting for the next hour; the circles contrast with the background
             HStack {

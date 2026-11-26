@@ -134,5 +134,8 @@ iOS **không cho widget màn hình khoá dùng màu tuỳ ý** (hệ thống ch�
 - **Chọn giao diện:** ô đang chọn phóng to nhẹ, có viền đậm màu nhấn, nền nhạt, chữ đậm và dấu ✓ ở góc; các ô khác mờ đi.
 
 ## Bản 14: phản hồi tức thì khi bấm, giới hạn màu ở màn hình khoá
-- Từ và nghĩa trên widget màn hình chính **mờ đi ngay khi bấm** (`invalidatableContent`), tới khi từ mới được vẽ, nên người dùng thấy lệnh đã nhận. Độ trễ thật (khoảng 1-2 giây) chủ yếu do iOS chạy nút tương tác của widget; app đã bỏ mọi việc thừa sau khi bấm (xem bản 13).
+- ~~Hiệu ứng mờ khi bấm (`invalidatableContent`)~~ **đã bỏ ở bản 15**: nó làm từ nháy vài lần (mờ, sáng lại bằng từ cũ, rồi mới đổi sang từ mới) vì iOS bỏ hiệu ứng mờ ngay khi lệnh bấm chạy xong, trước khi widget vẽ từ mới. Độ trễ thật (khoảng 1-2 giây) chủ yếu do iOS chạy nút tương tác của widget; app đã bỏ mọi việc thừa sau khi bấm (xem bản 13).
 - **Màn hình khoá không có màu theo từng chữ:** iOS vẽ widget khoá ở chế độ "vibrant" (chỉ độ sáng, nhuộm một màu theo hình nền). Cách duy nhất để đổi màu chữ là màu bạn chọn khi **Tuỳ chỉnh màn hình khoá** (chạm đồng hồ/widget chọn màu), áp dụng cho mọi widget. Phiên âm nhạt hơn và thẻ loại từ là viên thuốc sáng chữ đen để nổi bật.
+
+## Bản 15: bỏ hiệu ứng mờ khi bấm
+Từ nháy vài lần khi bấm ‹ › là do `invalidatableContent` (thêm ở bản 14). Đã bỏ; từ đổi thẳng sang từ mới như bản 13. Độ trễ do iOS vẫn còn (khoảng 1-2 giây).
