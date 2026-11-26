@@ -48,7 +48,8 @@ enum WidgetCloudError: Error, CustomStringConvertible {
     var description: String {
         switch self {
         case .badRepo: return "Tên repo không hợp lệ (dạng chu-so-huu/ten-repo)."
-        case .http(let c) where c == 401 || c == 403: return "GitHub từ chối (\(c)): kiểm tra token và quyền Contents: Read and write."
+        case .http(let c) where c == 401: return "GitHub từ chối (401): quyền GitHub của app đã hết hiệu lực. Bấm “Đăng nhập lại GitHub”."
+        case .http(let c) where c == 403: return "GitHub từ chối (403): tài khoản không có quyền ghi vào repo. Bấm “Đăng nhập lại GitHub”."
         case .http(let c) where c == 404: return "Không thấy repo hoặc dữ liệu (404). Repo phải là CÔNG KHAI."
         case .http(let c): return "GitHub trả lỗi \(c)."
         case .format: return "Dữ liệu trên GitHub không đọc được."

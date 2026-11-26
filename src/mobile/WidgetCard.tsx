@@ -91,11 +91,14 @@ export function WidgetCard() {
   const finishLogin = async () => {
     stopPolling();
     setLogin(null);
+    const before = status?.code; // signing in again with the same account keeps the repository and the key: same code
     const r = await sync();
     const s = await widgetStatus();
     setSt(s);
+    const ok = r.cloud === 'ok' || r.cloud === 'off';
+    if (ok && before && s?.code === before) return setMsg('Đã đăng nhập lại GitHub và gửi sổ từ. Widget dùng tiếp mã cũ, không cần dán lại.');
     if (s?.code) await copyText(s.code); // one tap less: the code is already on the clipboard
-    setMsg(r.cloud === 'ok' || r.cloud === 'off' ? 'Đã kết nối GitHub. Mã đồng bộ đã được chép sẵn: giờ thêm widget và dán mã vào.' : r.cloud);
+    setMsg(ok ? (before ? 'Đã kết nối GitHub bằng tài khoản khác nên mã đồng bộ đã đổi. Mã mới đã được chép sẵn: giữ widget → Chỉnh sửa widget → dán vào ô Mã đồng bộ.' : 'Đã kết nối GitHub. Mã đồng bộ đã được chép sẵn: giờ thêm widget và dán mã vào.') : r.cloud);
   };
 
   const startLogin = async () => {
@@ -239,6 +242,17 @@ export function WidgetCard() {
               Giữ widget → <b>Chỉnh sửa widget</b> → dán vào ô <b>Mã đồng bộ</b>. {linked ? 'Widget đã nhận mã.' : 'Đang chờ…'}
             </Step>
           </ol>
+          {/GitHub từ chối \((401|403)\)/.test(status?.last ?? '') && !login && (
+            <div className="space-y-2 rounded-xl bg-red-500/10 px-3 py-2 text-[12.5px] leading-snug text-red-500" data-ml-widget-relogin-hint="">
+              <div>
+                Widget không nhận được từ mới vì GitHub không còn chấp nhận quyền của app. Đăng nhập lại <b>đúng tài khoản {status?.repo?.split('/')[0]}</b> thì
+                widget dùng tiếp, không cần dán lại mã. Nếu đăng nhập tài khoản khác thì phải chép mã đồng bộ mới vào widget.
+              </div>
+              <button type="button" disabled={busy} className={primaryCls + ' disabled:opacity-50'} onClick={() => void startLogin()} data-ml-widget-relogin="">
+                {busy ? 'Đang lấy mã…' : 'Đăng nhập lại GitHub'}
+              </button>
+            </div>
+          )}
           {linked ? (
             <div className="rounded-xl bg-ok/10 px-3 py-2 text-[12.5px] font-semibold text-ok" data-ml-widget-done="">
               🎉 Xong! Từ giờ widget tự đổi khi bạn lưu từ mới.
@@ -271,6 +285,11 @@ export function WidgetCard() {
             <button type="button" className={btnCls} onClick={async () => setMsg(status?.code && (await copyText(status.code)) ? 'Đã chép mã đồng bộ.' : 'Không chép được.')}>
               Chép mã
             </button>
+            {status?.github && (
+              <button type="button" className={btnCls} disabled={busy || !!login} onClick={() => void startLogin()} data-ml-widget-relogin-small="">
+                Đăng nhập lại GitHub
+              </button>
+            )}
             <button
               type="button"
               className={btnCls}
