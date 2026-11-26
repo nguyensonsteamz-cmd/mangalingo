@@ -391,3 +391,37 @@ describe('long text through Google Translate web (chunking, order, failures, can
     expect(c('gweb-TRANSLATION_FAILED')).toMatchObject({ retryable: false, fatal: false });
   });
 });
+
+describe('a failed request inside a web page (CORS hides the reply)', () => {
+  it('Google answered (opaque probe succeeds) → UNREADABLE_REPLY, which pauses requests; the probe never carries the user text', async () => {
+    const calls: { url: string; mode?: string }[] = [];
+    const orig = globalThis.fetch;
+    globalThis.fetch = (async (url: string, init?: RequestInit) => {
+      calls.push({ url: String(url), mode: init?.mode });
+      if (init?.mode === 'no-cors') return new Response(null);
+      throw new TypeError('Load failed');
+    }) as typeof fetch;
+    try {
+      const err = await googleWebTranslate('secret sentence here', 'en>vi').catch((e) => e);
+      expect(err.code).toBe('UNREADABLE_REPLY');
+      expect(err.blocking).toBe(true);
+      expect(calls).toHaveLength(2);
+      expect(calls[1].url).toMatch(/q=ok$/);
+      expect(calls[1].url).not.toMatch(/secret/);
+    } finally {
+      globalThis.fetch = orig;
+    }
+  });
+  it('no network at all (the probe fails too) → NETWORK_ERROR', async () => {
+    const orig = globalThis.fetch;
+    globalThis.fetch = (async () => {
+      throw new TypeError('Load failed');
+    }) as typeof fetch;
+    try {
+      const err = await googleWebTranslate('hello there', 'en>vi').catch((e) => e);
+      expect(err.code).toBe('NETWORK_ERROR');
+    } finally {
+      globalThis.fetch = orig;
+    }
+  });
+});

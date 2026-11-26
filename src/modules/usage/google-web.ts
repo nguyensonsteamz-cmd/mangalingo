@@ -18,6 +18,7 @@ export type GoogleWebErrorCode =
   | 'NETWORK_ERROR'
   | 'TIMEOUT'
   | 'RATE_LIMITED'
+  | 'UNREADABLE_REPLY'
   | 'ACCESS_BLOCKED'
   | 'CAPTCHA_REQUIRED'
   | 'INVALID_LANGUAGE'
@@ -26,12 +27,13 @@ export type GoogleWebErrorCode =
   | 'CANCELLED';
 
 /** Codes after which NOTHING more is sent for a while. */
-export const BLOCKING_CODES: readonly GoogleWebErrorCode[] = ['RATE_LIMITED', 'ACCESS_BLOCKED', 'CAPTCHA_REQUIRED'];
+export const BLOCKING_CODES: readonly GoogleWebErrorCode[] = ['RATE_LIMITED', 'ACCESS_BLOCKED', 'CAPTCHA_REQUIRED', 'UNREADABLE_REPLY'];
 
 /** Messages for the user (Vietnamese UI): accurate, no stack traces, no claim that Google supports this. */
 export const GOOGLE_WEB_MESSAGES: Record<GoogleWebErrorCode, string> = {
   NETWORK_ERROR: 'Không kết nối được tới Google Dịch. Kiểm tra mạng rồi thử lại.',
   TIMEOUT: 'Google Dịch phản hồi quá chậm. Hãy thử lại sau.',
+  UNREADABLE_REPLY: 'Google Dịch có trả lời nhưng ứng dụng không đọc được câu trả lời. Thường là do Google đang tạm giới hạn yêu cầu từ thiết bị hoặc mạng này. Hãy đợi khoảng 15 phút rồi thử lại.',
   RATE_LIMITED: 'Google Dịch đang giới hạn số yêu cầu. Hãy đợi một lúc rồi thử lại.',
   ACCESS_BLOCKED: 'Google Dịch tạm thời không dùng được: dịch vụ có thể đang chặn các yêu cầu tự động. Hãy đợi rồi thử lại sau, hoặc chuyển sang dịch trên thiết bị.',
   CAPTCHA_REQUIRED: 'Google Dịch tạm thời không dùng được: dịch vụ có thể đang giới hạn các yêu cầu tự động. Hãy đợi rồi thử lại sau, hoặc chuyển sang dịch trên thiết bị.',
@@ -151,7 +153,13 @@ export async function googleWebTranslate(text: string, pair: string, o: WebTrans
       body = await res.text();
     } catch {
       // never echo the error: its message can contain the URL (= the user's text)
-      throw new GoogleWebError(timedOut ? 'TIMEOUT' : o.signal?.aborted ? 'CANCELLED' : 'NETWORK_ERROR');
+      if (timedOut) throw new GoogleWebError('TIMEOUT');
+      if (o.signal?.aborted) throw new GoogleWebError('CANCELLED');
+      // In a web page (the iPhone / Android app) the browser hides a reply that carries no CORS header – which is what Google's
+      // "rate limited" / "unusual traffic" replies look like – behind the same error as "no network". One opaque request, with a fixed
+      // word instead of the user's text, tells the two apart: it succeeds whenever Google answered at all.
+      if (!o.fetchImpl && (await googleReachable())) throw new GoogleWebError('UNREADABLE_REPLY');
+      throw new GoogleWebError('NETWORK_ERROR');
     }
     const err = classifyHttp(res.status, res.url, body);
     if (err) throw err;
@@ -159,6 +167,20 @@ export async function googleWebTranslate(text: string, pair: string, o: WebTrans
   } finally {
     clearTimeout(timer);
     o.signal?.removeEventListener('abort', onAbort);
+  }
+}
+
+/** true when translate.googleapis.com answers at all (status unreadable: no-cors), false on a real network failure. */
+async function googleReachable(): Promise<boolean> {
+  const ctl = new AbortController();
+  const t = setTimeout(() => ctl.abort(), 5000);
+  try {
+    await fetch(`${GOOGLE_WEB_ENDPOINT}?client=gtx&sl=en&tl=vi&dt=t&q=ok`, { mode: 'no-cors', credentials: 'omit', signal: ctl.signal });
+    return true;
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(t);
   }
 }
 

@@ -70,22 +70,26 @@ struct WebReaderView: View {
         ZStack {
             ReaderPalette.background.ignoresSafeArea()
             VStack(spacing: 0) {
-                topBar
-                progressBar
+                if !model.hudHidden {
+                    topBar
+                    progressBar
+                }
                 ZStack {
                     ReaderWebHost(web: model.controller.web)
                         .id(model.current.id)
                     if let error = model.error { errorView(error) }
-                    if model.error == nil && settings.showTools { ReaderToolsDrawer(model: model) }
+                    if model.error == nil && (settings.showTools || model.hudHidden) { ReaderToolsDrawer(model: model) } // with the HUD hidden the tools handle is the way back
                 }
                 .overlay(alignment: .bottom) { toast }
-                bottomBar
+                if !model.hudHidden { bottomBar }
             }
         }
         .overlay {
             if model.sidebarOpen { ReaderSidebarPanel(model: model) }
         }
         .animation(.easeOut(duration: 0.22), value: model.sidebarOpen)
+        .animation(.easeOut(duration: 0.2), value: model.hudHidden)
+        .statusBarHidden(model.hudHidden)
         .preferredColorScheme(WebReaderSettings.shared.scheme)
         .sheet(isPresented: $model.showLibrary) {
             WebReaderLibraryView(model: model, library: library)

@@ -75,6 +75,8 @@ final class WebReaderViewModel: ObservableObject {
         didSet { controller.setRegionMode(regionMode) }
     }
     @Published var sidebarOpen = false
+    /// "Ẩn giao diện": the address bar and the bottom bars are hidden, only the tools handle stays (full-screen reading)
+    @Published var hudHidden = false
     /// "pick an image" mode of the OCR
     @Published var ocrMode = false {
         didSet { controller.setOCRMode(ocrMode) }

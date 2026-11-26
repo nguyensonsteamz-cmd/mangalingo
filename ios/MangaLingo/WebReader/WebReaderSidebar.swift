@@ -103,6 +103,7 @@ struct ReaderToolsDrawer: View {
             Tool(id: "side", symbol: "sidebar.right", label: "Thanh bên", active: model.sidebarOpen) { model.toggleSidebar() },
             Tool(id: "notes", symbol: "note.text", label: "Ghi chú") { model.openNotes() },
             Tool(id: "mark", symbol: model.isBookmarked ? "star.fill" : "star", label: "Dấu trang", active: model.isBookmarked) { model.toggleBookmark() },
+            Tool(id: "hud", symbol: model.hudHidden ? "eye" : "eye.slash", label: model.hudHidden ? "Hiện giao diện" : "Ẩn giao diện", active: model.hudHidden) { model.hudHidden.toggle() },
         ]
     }
 
