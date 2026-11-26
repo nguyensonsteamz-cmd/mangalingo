@@ -12,9 +12,12 @@ export function useWidgetSync() {
   useEffect(() => {
     if (!iosBridge()) return;
     let timer: ReturnType<typeof setTimeout> | undefined;
-    // words saved without pronunciation / part of speech get them first, so the widget can show them
-    const push = () => void backfillVocab().then(() => vocabStore.list()).then((l) => widgetSync(widgetWords(l), getWidgetOrder(), getWidgetTheme(), getWidgetInterval()));
+    // The list goes out at once. Filling in pronunciation / part of speech for older words runs on its own: it may ask a translator,
+    // and waiting for it held back EVERY later upload when that request never finished (the widget then never saw new words).
+    // When it fills something in, the notebook changes and the list is sent again.
+    const push = () => void vocabStore.list().then((l) => widgetSync(widgetWords(l), getWidgetOrder(), getWidgetTheme(), getWidgetInterval())).catch(() => {});
     push();
+    void backfillVocab();
     window.addEventListener(WIDGET_ORDER_EVENT, push);
     const on = (changes: Record<string, unknown>, area: string) => {
       if (area !== 'local' || !(VOCAB_KEY in changes)) return;
@@ -56,7 +59,7 @@ export function WidgetCard() {
 
   const refresh = useCallback(async () => setSt(await widgetStatus()), []);
   const sync = useCallback(async () => {
-    await backfillVocab();
+    void backfillVocab(); // never waited for (see useWidgetSync)
     const l = await vocabStore.list();
     const r = await widgetSync(widgetWords(l), getWidgetOrder(), getWidgetTheme(), getWidgetInterval()); // uploads when connected
     await refresh();
