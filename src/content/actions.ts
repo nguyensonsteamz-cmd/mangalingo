@@ -90,7 +90,7 @@ export function pageSource() {
 export async function saveWord(r: WordLookup, sentence?: string, translation?: string) {
   try {
     const { created } = await vocab.add({
-      word: r.query,
+      word: r.lemma || r.query, // the root form ("run", not "running"), with the root's meaning
       lemma: r.lemma,
       ipa: r.ipa,
       meaning: await vietnameseMeaning(r, store.get().settings.reading.targetLanguage),

@@ -123,7 +123,7 @@ export function createReaderBridge(deps: ReaderDeps) {
         }
         const r = await deps.lookup({ text: req.word, context: req.context, mode: 'word', assumeEnglish: true });
         if (r.kind !== 'word' || !r.found) return { ok: false, message: 'Từ này chưa có trong từ điển nên chưa lưu được.' };
-        await deps.saveWord({ word: r.query, lemma: r.lemma, meaning: await deps.primaryMeaning(r), pos: r.context?.likelyPos ?? r.posList[0], ipa: r.ipa, sentence: req.context, sourceUrl: req.url, sourceTitle: req.title });
+        await deps.saveWord({ word: r.lemma || r.query, lemma: r.lemma, meaning: await deps.primaryMeaning(r), pos: r.context?.likelyPos ?? r.posList[0], ipa: r.ipa, sentence: req.context, sourceUrl: req.url, sourceTitle: req.title });
         return { ok: true };
       } catch (e) {
         return { ok: false, message: (e as Error)?.message ?? 'Không lưu được.' };

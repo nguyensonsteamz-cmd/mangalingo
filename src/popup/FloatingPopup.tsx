@@ -206,6 +206,28 @@ function CopySpeak({ text, s }: { text: string; s: Settings }) {
   );
 }
 
+/** Lemmas already in the notebook (kept up to date), for the save marks of the sentence's phrases. */
+function useSavedLemmas() {
+  const [set, setSet] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    let alive = true;
+    const load = () => void A.vocab.list().then((l) => alive && setSet(new Set(l.map((e) => e.lemma))));
+    load();
+    const off = A.vocab.subscribe(load);
+    return () => {
+      alive = false;
+      off();
+    };
+  }, []);
+  return set;
+}
+
+/** Sentence analysis: words / phrases to tap, phrases with a save button. */
+function SentenceChunks({ chunks, sentence, onLookup }: { chunks: Parameters<typeof ChunksView>[0]['chunks']; sentence?: string; onLookup: (t: string) => void }) {
+  const saved = useSavedLemmas();
+  return <ChunksView chunks={chunks} onLookup={onLookup} saved={saved} onSave={(c) => void A.savePhrase((c.lemma ?? c.text).trim(), c.vi ?? c.en ?? '', sentence)} />;
+}
+
 function SaveButton({ onSave, lemma }: { onSave: () => void; lemma: string }) {
   const [saved, setSaved] = useState(false);
   useLayoutEffect(() => {
@@ -438,7 +460,7 @@ function PhraseView({ r, s, canBack, tab, context }: { r: PhraseLookup; s: Setti
         {active === 'examples' && (examples.length ? (
           <ul className="space-y-1.5">{examples.map((e) => <ExampleLine key={e} text={e} s={s} />)}</ul>
         ) : <Notice>Không có ví dụ trong dữ liệu.</Notice>)}
-        {active === 'grammar' && <ChunksView chunks={r.chunks} onLookup={(t) => A.drillDown(t)} />}
+        {active === 'grammar' && <SentenceChunks chunks={r.chunks} sentence={r.query} onLookup={(t) => A.drillDown(t)} />}
         <SourceLine sources={r.sources} />
       </Body>
     </>
@@ -480,7 +502,7 @@ function SentenceView({ r, s, canBack, tab }: { r: SentenceAnalysis; s: Settings
           <div className="space-y-2.5">
             <MachineTranslation text={r.fullText ?? r.text} s={s} />
             <SectionTitle>Từng cụm · click để tra</SectionTitle>
-            <ChunksView chunks={r.chunks} onLookup={(t) => A.drillDown(t, r.text)} />
+            <SentenceChunks chunks={r.chunks} sentence={r.text} onLookup={(t) => A.drillDown(t, r.text)} />
           </div>
         )}
         {active === 'context' && <NotesView notes={r.notes} empty={<Notice>Không phát hiện slang, thành ngữ hay sắc thái đặc biệt.</Notice>} />}

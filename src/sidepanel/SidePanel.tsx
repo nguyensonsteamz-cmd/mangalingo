@@ -3,7 +3,7 @@ import { vietnameseMeaning } from '@/ui/meaning';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { crossfadeClass } from '@/ui/motion';
 import { send, type PageEvent, type SidebarPayload } from '@/shared/messages';
-import type { LookupResult, OcrResult, SentenceAnalysis, VocabHint } from '@/shared/types';
+import type { Chunk, LookupResult, OcrResult, SentenceAnalysis, VocabHint } from '@/shared/types';
 import type { Settings, SidebarTab } from '@/shared/settings';
 import { useSettings } from '@/ui/hooks';
 import { MachineTranslation } from '@/ui/MachineTranslation';
@@ -14,7 +14,7 @@ import {
 } from '@/ui/views';
 import { VocabManager, useVocab, vocabStore } from '@/ui/VocabManager';
 import { canSpeak, speak } from '@/ui/speech';
-import { NotesPanel } from '@/ui/NotesPanel';
+import { notesStore } from '@/ui/notes';
 import { CopyButton } from '@/ui/CopyButton';
 import { ScanButtons } from '@/ui/ScanButtons';
 import { DEFAULT_MAX_TOTAL } from '@/modules/translation';
@@ -28,9 +28,26 @@ const hasTranslator = typeof (globalThis as { Translator?: unknown }).Translator
 /** Running inside the phone app (iPhone / Android) rather than the Chrome side panel. */
 const IN_APP = !!(globalThis as { MangaLingoPlatform?: string; MangaLingoNative?: unknown }).MangaLingoPlatform || !!(globalThis as { MangaLingoNative?: unknown }).MangaLingoNative;
 
+/**
+ * Notes and the notebook are one page ("Sổ từ"): a note is a phrase with your own meaning, which "+ Thêm từ" does. Notes written before
+ * the merge that are not in the notebook yet are copied there once.
+ */
+async function mergeNotesOnce() {
+  const FLAG = 'notes:mergedIntoVocab';
+  if ((await chrome.storage.local.get(FLAG))[FLAG]) return;
+  for (const n of await notesStore.list()) {
+    const w = n.phrase.trim();
+    if (w) await vocabStore.add({ word: w, lemma: w.toLowerCase(), meaning: n.meaning.trim(), sentence: n.context }).catch(() => {});
+  }
+  await chrome.storage.local.set({ [FLAG]: true });
+}
+
 export function SidePanel({ topBar }: { topBar?: ReactNode } = {}) {
   const { settings: s, loaded } = useSettings('sidebar');
-  const [tab, setTab] = useState<SidebarTab>('translation');
+  const [tab, setTabRaw] = useState<SidebarTab>('translation');
+  // "Ghi chú" (old setting, the Reader's tools, older app pages) opens the merged notebook page
+  const setTab = useCallback((t: SidebarTab) => setTabRaw(t === 'notes' ? 'saved' : t), []);
+  useEffect(() => void mergeNotesOnce().catch(() => {}), []);
   const [compact, setCompact] = useState(false);
   const [entry, setEntry] = useState<Entry | null>(null);
   // the pages the user came from (a word tapped inside a sentence analysis): "Quay lại" returns to the previous one, not to the bubble list
@@ -152,7 +169,7 @@ export function SidePanel({ topBar }: { topBar?: ReactNode } = {}) {
               {s.reading.translationMode === 'machine' && hasTranslator ? 'Dịch máy · chạy trên máy' : 'Từ điển · chạy trên máy'}
             </div>
           </div>
-          <IconButton label="Ghi chú" onClick={() => setTab('notes')} active={tab === 'notes'} data-ml-notes-open="">
+          <IconButton label="Sổ từ" onClick={() => setTab('saved')} active={tab === 'saved'} data-ml-notes-open="">
             <span aria-hidden="true">✏️</span>
           </IconButton>
           <IconButton label={compact ? 'Chế độ đầy đủ' : 'Chế độ thu gọn'} onClick={() => setCompact((v) => !v)} active={compact}>
@@ -237,9 +254,7 @@ export function SidePanel({ topBar }: { topBar?: ReactNode } = {}) {
         <SidebarTabs value={tab} onChange={setTab} />
       </header>
       <main className={cx('ml-scroll flex-1 px-3 py-3', crossfadeClass(`${tab}|${entry?.text ?? ''}|${ocr ? 1 : 0}`, fade.current))}>
-        {tab === 'notes' ? (
-          <NotesPanel context={entry?.text} />
-        ) : tab === 'saved' ? (
+        {tab === 'saved' ? (
           <VocabManager compact={compact} />
         ) : ocr && !entry ? (
           <OcrPanel ocr={ocr} tab={tab} s={s} onAnalyze={(t) => void runLookup(t, undefined, ocr.source)} />
@@ -281,15 +296,14 @@ const TAB_ITEMS: { id: SidebarTab; label: string; icon: ReactNode }[] = [
   { id: 'vocabulary', label: 'Từ vựng', icon: <IconLayers size={16} /> },
   { id: 'grammar', label: 'Ngữ pháp', icon: <IconEdit size={16} /> },
   { id: 'context', label: 'Ngữ cảnh', icon: <IconInfo size={16} /> },
-  { id: 'saved', label: 'Đã lưu', icon: <IconBookmark size={16} /> },
-  { id: 'notes', label: 'Ghi chú', icon: <IconEdit size={16} /> },
+  { id: 'saved', label: 'Sổ từ', icon: <IconBookmark size={16} /> },
 ];
 
 /** Pill tabs: the active tab is a filled accent pill, easy to spot at a glance. */
 function SidebarTabs({ value, onChange }: { value: SidebarTab; onChange: (v: SidebarTab) => void }) {
   return (
     <div className="px-3 pb-2.5">
-      <div role="tablist" className="ml-glass-field relative grid grid-cols-6 gap-0.5 rounded-[18px] p-1">
+      <div role="tablist" className="ml-glass-field relative grid grid-cols-5 gap-0.5 rounded-[18px] p-1">
         <GlassIndicator activeKey={value} className="rounded-[14px]" />
         {TAB_ITEMS.map((t) => (
           <button
@@ -316,6 +330,12 @@ function SidebarTabs({ value, onChange }: { value: SidebarTab; onChange: (v: Sid
 function useSavedLemmas() {
   const { list } = useVocab();
   return useMemo(() => new Set(list.map((e) => e.lemma)), [list]);
+}
+
+/** A phrase of the sentence analysis ("look forward to") goes to the notebook with its meaning. */
+function savePhrase(c: Chunk, sentence?: string, source?: Entry['source']) {
+  const w = (c.lemma ?? c.text).trim();
+  void vocabStore.add({ word: w, lemma: w.toLowerCase(), meaning: c.vi ?? c.en ?? '', pos: 'phrase', sentence, sourceUrl: source?.url, sourceTitle: source?.title });
 }
 
 function saveHint(v: VocabHint, sentence?: string, source?: Entry['source']) {
@@ -381,6 +401,11 @@ function EntryView({ s, entry, tab, compact, onLookup, onBack, backLabel }: { s:
               {s.dictionary.showIpa && r.ipa && <span className="ml-ipa text-[13px] text-muted">{r.ipa}</span>}
               {r.posList.map((p) => <PosBadge key={p} pos={p} />)}
             </div>
+            {r.found && r.lemma !== r.query.toLowerCase() && (
+              <div className="mt-0.5 text-[12.5px] text-muted" data-ml-root-of={r.query}>
+                Từ gốc của “{r.query}”: lưu từ sẽ lưu <b className="text-text">{r.lemma}</b> và nghĩa gốc của nó
+              </div>
+            )}
           </div>
           {canSpeak() && s.dictionary.showPronunciation && (
             <IconButton label="Phát âm" onClick={() => speak(r.query)}>
@@ -388,7 +413,7 @@ function EntryView({ s, entry, tab, compact, onLookup, onBack, backLabel }: { s:
             </IconButton>
           )}
           {r.found && (
-            <Button size="sm" disabled={saved.has(r.lemma)} onClick={async () => void vocabStore.add({ word: r.query, lemma: r.lemma, ipa: r.ipa, meaning: await vietnameseMeaning(r, s.reading.targetLanguage), pos: r.context?.likelyPos ?? r.posList[0], sentence: r.context?.sentence, sourceUrl: entry.source?.url, sourceTitle: entry.source?.title })}>
+            <Button size="sm" disabled={saved.has(r.lemma)} onClick={async () => void vocabStore.add({ word: r.lemma || r.query, lemma: r.lemma, ipa: r.ipa, meaning: await vietnameseMeaning(r, s.reading.targetLanguage), pos: r.context?.likelyPos ?? r.posList[0], sentence: r.context?.sentence, sourceUrl: entry.source?.url, sourceTitle: entry.source?.title })}>
               {saved.has(r.lemma) ? 'Đã lưu' : 'Lưu từ'}
             </Button>
           )}
@@ -424,7 +449,7 @@ function EntryView({ s, entry, tab, compact, onLookup, onBack, backLabel }: { s:
             {r.senses.filter((x) => x.en).slice(0, 6).map((x, i) => <div key={i} className="text-[13px] text-muted">{i + 1}. {x.en}</div>)}
           </div>
         )}
-        {tab === 'vocabulary' && <ChunksView chunks={r.chunks} onLookup={(t) => onLookup(t, entry.text)} />}
+        {tab === 'vocabulary' && <ChunksView chunks={r.chunks} onLookup={(t) => onLookup(t, entry.text)} saved={saved} onSave={(c) => savePhrase(c, entry.text, entry.source)} />}
         {tab === 'grammar' && <Notice>Cụm từ cố định – xem từng thành phần ở tab Từ vựng.</Notice>}
         {tab === 'context' && (
           <div className="space-y-2">
@@ -454,7 +479,7 @@ function EntryView({ s, entry, tab, compact, onLookup, onBack, backLabel }: { s:
             <div key={i} className="space-y-1.5">
               {r.kind === 'paragraph' && <div className="text-[13px] font-medium text-text">{i + 1}. {x.text}</div>}
               {/* word-by-word analysis (tap a word / phrase to look it up); the "ghép nghĩa" gloss box stays removed */}
-              {!compact && <ChunksView chunks={x.chunks} onLookup={(t) => onLookup(t, x.text)} />}
+              {!compact && <ChunksView chunks={x.chunks} onLookup={(t) => onLookup(t, x.text)} saved={saved} onSave={(c) => savePhrase(c, x.text, entry.source)} />}
             </div>
           ))}
         </div>

@@ -402,25 +402,51 @@ const CHUNK_STYLE: Record<string, string> = {
 };
 
 /** Chunk-by-chunk view: each phrase/word with its meaning and data status. */
-export function ChunksView({ chunks, onLookup }: { chunks: Chunk[]; onLookup?: (text: string) => void }) {
+/**
+ * Words and phrases of a sentence. Tapping one looks it up. A word whose dictionary form differs shows it ("→ run"); a phrase has its
+ * own save button when `onSave` is given (`saved` = lemmas already in the notebook).
+ */
+export function ChunksView({ chunks, onLookup, onSave, saved }: { chunks: Chunk[]; onLookup?: (text: string) => void; onSave?: (c: Chunk) => void; saved?: Set<string> }) {
   return (
     <div className="flex flex-wrap gap-1.5">
       {chunks
         .filter((c) => c.kind !== 'punct')
-        .map((c, i) => (
-          <button
-            key={i}
-            type="button"
-            onClick={() => onLookup?.(c.kind === 'phrase' ? (c.lemma ?? c.text) : c.text)}
-            title={c.status === 'none' ? 'Không có dữ liệu' : c.status === 'en-only' ? 'Chỉ có định nghĩa tiếng Anh' : c.source}
-            className={cx('ml-focus ml-press max-w-full rounded-lg border bg-surface/50 px-1.5 py-1 text-left hover:bg-surface/90', CHUNK_STYLE[c.status], c.kind === 'phrase' && 'bg-accent/10')}
-          >
-            <div className={cx('text-[13px] font-medium', c.kind === 'phrase' ? 'text-accent' : 'text-text')}>{c.text}</div>
-            <div className="max-w-[220px] truncate text-[11.5px] text-muted">
-              {c.kind === 'name' ? 'tên riêng' : c.kind === 'number' ? 'số' : c.status === 'vi' ? c.vi : c.status === 'en-only' ? <span className="italic">{c.en}</span> : c.status === 'skip' ? 'trợ từ' : '—'}
+        .map((c, i) => {
+          const root = c.kind === 'word' && c.lemma && c.lemma.toLowerCase() !== c.text.toLowerCase() ? c.lemma : '';
+          const key = (c.lemma ?? c.text).trim().toLowerCase();
+          const isSaved = !!saved?.has(key);
+          return (
+            <div key={i} className={cx('flex max-w-full items-stretch rounded-lg border bg-surface/50', CHUNK_STYLE[c.status], c.kind === 'phrase' && 'bg-accent/10')}>
+              <button
+                type="button"
+                onClick={() => onLookup?.(c.kind === 'phrase' ? (c.lemma ?? c.text) : c.text)}
+                title={c.status === 'none' ? 'Không có dữ liệu' : c.status === 'en-only' ? 'Chỉ có định nghĩa tiếng Anh' : c.source}
+                className="ml-focus ml-press min-w-0 rounded-lg px-1.5 py-1 text-left hover:bg-surface/90"
+              >
+                <div className={cx('text-[13px] font-medium', c.kind === 'phrase' ? 'text-accent' : 'text-text')}>
+                  {c.text}
+                  {root && <span className="ml-1 text-[11px] font-normal text-subtle" data-ml-chunk-root="">→ {root}</span>}
+                </div>
+                <div className="max-w-[220px] truncate text-[11.5px] text-muted">
+                  {c.kind === 'name' ? 'tên riêng' : c.kind === 'number' ? 'số' : c.status === 'vi' ? c.vi : c.status === 'en-only' ? <span className="italic">{c.en}</span> : c.status === 'skip' ? 'trợ từ' : '—'}
+                </div>
+              </button>
+              {c.kind === 'phrase' && onSave && (
+                <button
+                  type="button"
+                  disabled={isSaved}
+                  onClick={() => onSave(c)}
+                  aria-label={isSaved ? 'Cụm từ đã lưu trong sổ từ' : 'Lưu cụm từ'}
+                  title={isSaved ? 'Đã lưu' : 'Lưu cụm từ'}
+                  className={cx('ml-focus ml-press grid w-7 shrink-0 place-items-center rounded-r-lg border-l border-accent/20 text-[14px]', isSaved ? 'text-accent' : 'text-muted hover:text-accent')}
+                  data-ml-chunk-save={key}
+                >
+                  {isSaved ? '★' : '☆'}
+                </button>
+              )}
             </div>
-          </button>
-        ))}
+          );
+        })}
     </div>
   );
 }

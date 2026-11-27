@@ -113,10 +113,19 @@ export class VocabStore {
     return { entry, created: true };
   }
 
-  async update(id: string, patch: Partial<Pick<VocabEntry, 'status' | 'notes' | 'meaning' | 'translation' | 'ipa' | 'pos'>>): Promise<VocabEntry> {
+  async update(id: string, patch: Partial<Pick<VocabEntry, 'status' | 'notes' | 'meaning' | 'translation' | 'ipa' | 'pos' | 'word'>>): Promise<VocabEntry> {
     const map = await this.read();
     const cur = map[id];
     if (!cur) throw new Error('Không tìm thấy từ.');
+    if (patch.word !== undefined) {
+      // a re-worded entry: its lemma follows the new text, and must not collide with another saved word
+      const word = patch.word.trim();
+      if (!word) throw new Error('Từ không được để trống.');
+      const changed = word.toLowerCase() !== cur.word.toLowerCase(); // only a different text gets a new lemma (not a case change)
+      const lemma = changed ? word.toLowerCase() : cur.lemma;
+      if (changed && Object.values(map).some((e) => e.id !== id && e.lemma === lemma)) throw new Error(`“${word}” đã có trong sổ từ.`);
+      patch = { ...patch, word, lemma } as typeof patch;
+    }
     const next = sanitizeEntry({ ...cur, ...patch, updatedAt: Date.now() })!;
     map[id] = next;
     await this.write(map);

@@ -228,3 +228,16 @@ describe('per-site switch (toolbar popup): off by default, on only where the use
     expect(sanitizeSettings({ general: { sites: ['HTTPS://Manga.Site/path', 'bad host!'] } }).general.sites).toEqual(['manga.site']);
   });
 });
+
+describe('VocabStore.update: editing a card', () => {
+  it('re-words an entry (new lemma), keeps the lemma on a case change, refuses a word already saved', async () => {
+    const store = new VocabStore(memoryKV());
+    const { entry: run } = await store.add({ word: 'running', lemma: 'run', meaning: 'chạy' });
+    await store.add({ word: 'walk', lemma: 'walk', meaning: 'đi bộ' });
+    expect((await store.update(run.id, { word: 'Running' })).lemma).toBe('run'); // case only: the root stays
+    const edited = await store.update(run.id, { word: 'sprint', meaning: 'chạy nước rút', ipa: '/sprɪnt/' });
+    expect(edited).toMatchObject({ word: 'sprint', lemma: 'sprint', meaning: 'chạy nước rút', ipa: '/sprɪnt/' });
+    await expect(store.update(run.id, { word: 'Walk' })).rejects.toThrow('đã có trong sổ từ');
+    await expect(store.update(run.id, { word: '  ' })).rejects.toThrow('không được để trống');
+  });
+});

@@ -77,6 +77,20 @@ final class WebReaderViewModel: ObservableObject {
     @Published var sidebarOpen = false
     /// "Ẩn giao diện": the address bar and the bottom bars are hidden, only the tools handle stays (full-screen reading)
     @Published var hudHidden = false
+    /// bumped to put the cursor in the quick translate field
+    @Published var quickFocusRequest = 0
+
+    /// "Dịch" in the tools drawer: shows the field where the user types a word or a sentence to translate (or hides it again).
+    func toggleQuickTranslate() {
+        let s = WebReaderSettings.shared
+        if s.showQuickBar && !hudHidden {
+            s.showQuickBar = false
+            return
+        }
+        s.showQuickBar = true
+        hudHidden = false // the field sits in the bottom bar
+        quickFocusRequest += 1
+    }
     /// "pick an image" mode of the OCR
     @Published var ocrMode = false {
         didSet { controller.setOCRMode(ocrMode) }
@@ -284,7 +298,7 @@ final class WebReaderViewModel: ObservableObject {
     func openNotes() {
         sidebarOpen = true
         sidebar.ensureLoaded()
-        sidebar.showTab("notes")
+        sidebar.showTab("saved") // notes and saved words are one page ("Sổ từ")
     }
 
     private func source(of c: WebReaderController) -> [String: Any] {

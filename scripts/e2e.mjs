@@ -708,7 +708,7 @@ try {
     await waitFor(async () => (await panel.evaluate('document.body.innerText')).includes('Quá khứ đơn'), { label: 'grammar tab' });
     await clickTab('Ngữ cảnh');
     await waitFor(async () => (await panel.evaluate('document.body.innerText')).includes('give up'), { label: 'context tab' });
-    await clickTab('Đã lưu');
+    await clickTab('Sổ từ');
     await waitFor(async () => (await panel.evaluate('document.body.innerText')).includes('dream'), { label: 'saved tab lists saved word' });
     await panel.evaluate(`[...document.querySelectorAll('button')].find(b => b.textContent === 'Đã thuộc').click()`);
     await waitFor(() => sw.evaluate(`chrome.storage.local.get('vocab:v1').then(r => Object.values(r['vocab:v1']).find(e => e.lemma === 'dream')?.status === 'known')`), { label: 'mark known' });
@@ -769,39 +769,32 @@ try {
     return 'region overlay opened from the message; extension pages refused (' + refused.data.reason + ')';
   });
 
-  await step('Sidebar notes (own tab): NOTHING is saved while typing; "Lưu" saves the note AND the vocabulary notebook (a single word gets pronunciation + part of speech), grouped under "Hôm nay", with a copy button', async () => {
+  await step('Sổ từ (notes merged into the notebook): "+ Thêm từ" saves a phrase with your own meaning, a single word gets the dictionary data, and a card is edited with its "Sửa" button', async () => {
+    assert(!(await panel.evaluate(`[...document.querySelectorAll('[role=tab]')].some(t => t.textContent.startsWith('Ghi chú'))`)), 'no separate "Ghi chú" tab any more');
     await panel.evaluate(`document.querySelector('[data-ml-notes-open]').click()`);
-    await waitFor(() => panel.evaluate(`!!document.querySelector('[data-ml-notes-panel]')`), { label: 'notes tab' });
-    assert(/^Lưu$/.test(await panel.evaluate(`document.querySelector('[data-ml-notes-save]').innerText.trim()`)), 'the button says "Lưu"');
-    await panel.evaluate(`document.querySelector('[data-ml-note-phrase]').focus()`);
+    await waitFor(() => panel.evaluate(`!!document.querySelector('[data-ml-add-word-open]')`), { label: 'notebook page' });
+    await panel.evaluate(`document.querySelector('[data-ml-add-word-open]').click()`);
+    await panel.evaluate(`document.querySelector('[data-ml-add-word-input]').focus()`);
     await panel.send('Input.insertText', { text: 'piece of cake' });
-    await panel.evaluate(`document.querySelector('[data-ml-note-meaning]').focus()`);
+    await panel.evaluate(`document.querySelector('[data-ml-add-word-meaning]').focus()`);
     await panel.send('Input.insertText', { text: 'dễ như ăn bánh' });
-    await sleep(1800); // longer than the old auto-save delay
-    const before = await sw.evaluate(`chrome.storage.local.get(['notes:v1', 'vocab:v1']).then(r => ({ notes: (r['notes:v1'] ?? []).length, vocab: Object.values(r['vocab:v1'] ?? {}).filter(v => v.lemma === 'piece of cake').length }))`);
-    assert(before.notes === 0 && before.vocab === 0, 'nothing is saved before the user presses Lưu: ' + JSON.stringify(before));
-    await panel.evaluate(`document.querySelector('[data-ml-notes-save]').click()`);
-    const stored = await waitFor(() => sw.evaluate(`chrome.storage.local.get('notes:v1').then(r => (r['notes:v1'] ?? []).find(n => n.phrase === 'piece of cake')?.meaning)`), { label: 'note saved', timeout: 8000 });
-    assert(stored === 'dễ như ăn bánh', 'note meaning stored');
-    const vocab = await waitFor(() => sw.evaluate(`chrome.storage.local.get('vocab:v1').then(r => Object.values(r['vocab:v1'] ?? {}).find(v => v.lemma === 'piece of cake')?.meaning)`), { label: 'note mirrored into the vocabulary notebook', timeout: 8000 });
-    assert(vocab === 'dễ như ăn bánh', 'vocabulary meaning: ' + vocab);
-    const day = await waitFor(() => panel.evaluate(`document.querySelector('[data-ml-notes-day]')?.innerText ?? null`), { label: 'day group' });
-    assert(/^HÔM NAY/i.test(day.trim()), 'grouped under today: ' + day.slice(0, 40));
-    assert(await panel.evaluate(`!!document.querySelector('[data-ml-note-card] [data-ml-note-copy]')`), 'copy button on the note card');
-    // the form is empty again after saving
-    assert(await panel.evaluate(`document.querySelector('[data-ml-note-phrase]').value === ''`), 'the form is cleared after saving');
+    await panel.evaluate(`document.querySelector('[data-ml-add-word-save]').click()`);
+    const vocab = await waitFor(() => sw.evaluate(`chrome.storage.local.get('vocab:v1').then(r => Object.values(r['vocab:v1'] ?? {}).find(v => v.lemma === 'piece of cake')?.meaning)`), { label: 'phrase saved', timeout: 8000 });
+    assert(vocab === 'dễ như ăn bánh', 'own meaning kept: ' + vocab);
     // a single word with NO meaning typed: pronunciation, part of speech and the Vietnamese meaning come from the dictionary
-    await panel.evaluate(`document.querySelector('[data-ml-note-phrase]').focus()`);
+    await panel.evaluate(`document.querySelector('[data-ml-add-word-open]').click()`);
+    await panel.evaluate(`document.querySelector('[data-ml-add-word-input]').focus()`);
     await panel.send('Input.insertText', { text: 'village' });
-    await panel.evaluate(`document.querySelector('[data-ml-notes-save]').click()`);
+    await panel.evaluate(`document.querySelector('[data-ml-add-word-save]').click()`);
     const filled = await waitFor(() => sw.evaluate(`chrome.storage.local.get('vocab:v1').then(r => { const v = Object.values(r['vocab:v1'] ?? {}).find(x => x.lemma === 'village'); return v && v.ipa && v.pos && v.meaning ? { ipa: v.ipa, pos: v.pos, meaning: v.meaning } : null; })`), { label: 'dictionary data filled in', timeout: 8000 });
     assert(/làng/.test(filled.meaning) && filled.pos === 'noun', 'village: ' + JSON.stringify(filled));
-    // editing a note keeps the notebook in step (old entry replaced, not duplicated) once "Lưu" is pressed again
-    await panel.evaluate(`[...document.querySelectorAll('[data-ml-note-card] button')].find((b) => b.textContent.trim() === 'Sửa' && b.closest('[data-ml-note-card]').innerText.includes('piece of cake')).click()`);
-    await panel.evaluate(`document.querySelector('[data-ml-note-phrase]').focus()`);
+    // "Sửa" on the card: re-word and change the meaning
+    await waitFor(() => panel.evaluate(`[...document.querySelectorAll('[data-ml-vocab-item]')].some(c => c.innerText.includes('piece of cake'))`), { label: 'card listed' });
+    await panel.evaluate(`[...document.querySelectorAll('[data-ml-vocab-item]')].find(c => c.innerText.includes('piece of cake')).querySelector('[data-ml-vocab-edit-open]').click()`);
+    await panel.evaluate(`(() => { const i = document.querySelector('[data-ml-vocab-edit-word]'); i.focus(); i.setSelectionRange(i.value.length, i.value.length); })()`);
     await panel.send('Input.insertText', { text: ' (idiom)' });
-    await panel.evaluate(`document.querySelector('[data-ml-notes-save]').click()`);
-    await waitFor(() => sw.evaluate(`chrome.storage.local.get('vocab:v1').then(r => { const v = Object.values(r['vocab:v1'] ?? {}).filter(x => x.lemma.startsWith('piece of cake')); return v.length === 1 && v[0].lemma === 'piece of cake (idiom)'; })`), { label: 'notebook entry re-worded, not duplicated', timeout: 8000 });
+    await panel.evaluate(`document.querySelector('[data-ml-vocab-edit-save]').click()`);
+    await waitFor(() => sw.evaluate(`chrome.storage.local.get('vocab:v1').then(r => { const v = Object.values(r['vocab:v1'] ?? {}).filter(x => x.lemma.startsWith('piece of cake')); return v.length === 1 && v[0].word === 'piece of cake (idiom)'; })`), { label: 'card re-worded, not duplicated', timeout: 8000 });
     await panel.evaluate(`document.querySelector('[role=tab]').click()`);
     // the following steps work on the manga page
     await page.send('Page.navigate', { url: `${BASE}/manga.html` });
@@ -883,6 +876,7 @@ try {
   await step('Sidebar appearance: own background colour applies to the side panel at once and shows in the preview', async () => {
     await opt.evaluate(`location.hash = 'sidebar'; dispatchEvent(new HashChangeEvent('hashchange'))`);
     await waitFor(() => opt.evaluate(`!!document.querySelector('[data-ml-preview-sidebar]')`), { label: 'sidebar preview' });
+    await sleep(1500); // the previous step's settings save is debounced: let it land first, or it writes the old sidebar settings over this one
     await sw.evaluate(`chrome.storage.local.get('settings:v1').then(r => { const s = r['settings:v1']; s.sidebar = { ...s.sidebar, background: '#fffbeb' }; return chrome.storage.local.set({ 'settings:v1': s }); })`);
     const live = await waitFor(() => panel.evaluate(`(() => { const r = document.documentElement; return r.style.getPropertyValue('--ml-bg').trim() === '255 251 235' ? { theme: r.dataset.theme, bg: getComputedStyle(document.body).backgroundColor } : null; })()`), { label: 'side panel recoloured' });
     assert(live.theme === 'light', `a cream background needs dark text (light theme tokens), got ${live.theme}`);

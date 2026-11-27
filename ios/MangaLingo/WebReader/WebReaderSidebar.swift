@@ -82,6 +82,7 @@ struct ReaderToolsDrawer: View {
     @ObservedObject var model: WebReaderViewModel
     @AppStorage("wr.toolsY") private var yFraction = 0.4
     @AppStorage("wr.toolsRight") private var onRight = true
+    @ObservedObject private var settings = WebReaderSettings.shared
     @State private var open = false
     @State private var dragPoint: CGPoint?
 
@@ -95,14 +96,14 @@ struct ReaderToolsDrawer: View {
 
     private var tools: [Tool] {
         [
-            Tool(id: "sel", symbol: "character.bubble", label: "Dịch chọn", active: model.hasSelection) { model.translateSelection() },
+            Tool(id: "type", symbol: "character.cursor.ibeam", label: "Dịch", active: settings.showQuickBar && !model.hudHidden) { model.toggleQuickTranslate() },
             Tool(id: "img", symbol: "photo", label: "Quét ảnh", active: model.ocrMode) { model.toggleOCR() },
             Tool(id: "region", symbol: "rectangle.dashed", label: "Quét vùng", active: model.regionMode) { model.startRegion() },
             Tool(id: "screen", symbol: "text.viewfinder", label: "Màn hình") { model.scanScreen() },
             Tool(id: "all", symbol: "photo.stack", label: "Mọi ảnh") { model.scanAllImages() },
             Tool(id: "hud", symbol: model.hudHidden ? "eye" : "eye.slash", label: model.hudHidden ? "Hiện giao diện" : "Ẩn giao diện", active: model.hudHidden) { model.hudHidden.toggle() },
             Tool(id: "side", symbol: "sidebar.right", label: "Thanh bên", active: model.sidebarOpen) { model.toggleSidebar() },
-            Tool(id: "notes", symbol: "note.text", label: "Ghi chú") { model.openNotes() },
+            Tool(id: "notes", symbol: "book", label: "Sổ từ") { model.openNotes() },
             Tool(id: "mark", symbol: model.isBookmarked ? "star.fill" : "star", label: "Dấu trang", active: model.isBookmarked) { model.toggleBookmark() },
         ]
     }

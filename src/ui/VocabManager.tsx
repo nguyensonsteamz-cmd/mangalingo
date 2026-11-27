@@ -7,7 +7,7 @@ import { chromeLocal } from '@/storage/kv';
 import { OcrCache } from '@/storage/ocr-cache';
 import { filterVocab, VocabStore } from '@/storage/vocab-store';
 import { Badge, Button, Empty, IconButton, Notice, Segmented, Select, cx } from './components';
-import { IconBook, IconDownload, IconSearch, IconTrash, IconUpload, IconVolume } from './icons';
+import { IconBook, IconDownload, IconEdit, IconSearch, IconTrash, IconUpload, IconVolume } from './icons';
 import { download, stamp } from './hooks';
 import { canSpeak, speak } from './speech';
 import { AddWordForm } from './AddWordForm';
@@ -180,8 +180,42 @@ export function VocabManager({ compact }: { compact?: boolean }) {
   );
 }
 
-function VocabItem({ e, compact }: { e: VocabEntry; compact?: boolean }) {
+/** "Sửa" on a card: the word, its pronunciation, meaning and note, saved together. */
+function VocabEditForm({ e, onDone }: { e: VocabEntry; onDone: () => void }) {
+  const [word, setWord] = useState(e.word);
+  const [ipa, setIpa] = useState(e.ipa ?? '');
+  const [meaning, setMeaning] = useState(e.meaning ?? '');
   const [notes, setNotes] = useState(e.notes ?? '');
+  const [err, setErr] = useState('');
+  const field = 'ml-focus ml-glass-field block w-full rounded-xl px-2.5 py-1.5 text-[13.5px] text-text placeholder:text-subtle';
+  const save = async () => {
+    try {
+      await vocabStore.update(e.id, { word, ipa: ipa.trim() || undefined, meaning: meaning.trim(), notes: notes.trim() || undefined });
+      onDone();
+    } catch (x) {
+      setErr((x as Error).message);
+    }
+  };
+  return (
+    <div className="mt-2 space-y-1.5" data-ml-vocab-edit="">
+      <input value={word} onChange={(v) => setWord(v.target.value)} className={cx(field, 'font-semibold')} placeholder="Từ hoặc cụm từ" aria-label="Từ" data-ml-vocab-edit-word="" />
+      <input value={ipa} onChange={(v) => setIpa(v.target.value)} className={field} placeholder="Phiên âm (không bắt buộc)" aria-label="Phiên âm" />
+      <textarea value={meaning} onChange={(v) => setMeaning(v.target.value)} rows={2} maxLength={2000} className={field} placeholder="Nghĩa" aria-label="Nghĩa" data-ml-vocab-edit-meaning="" />
+      <textarea value={notes} onChange={(v) => setNotes(v.target.value)} rows={2} maxLength={1000} className={field} placeholder="Ghi chú của bạn" aria-label="Ghi chú" />
+      {err && <div className="text-[12px] text-red-500">{err}</div>}
+      <div className="flex justify-end gap-1.5">
+        <Button size="sm" onClick={onDone}>
+          Huỷ
+        </Button>
+        <Button size="sm" variant="primary" onClick={() => void save()} disabled={!word.trim()} data-ml-vocab-edit-save="">
+          Lưu
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function VocabItem({ e, compact }: { e: VocabEntry; compact?: boolean }) {
   const [editing, setEditing] = useState(false);
   return (
     <li
@@ -200,6 +234,9 @@ function VocabItem({ e, compact }: { e: VocabEntry; compact?: boolean }) {
           </div>
           <div className="ml-tr mt-0.5 font-semibold text-text">{e.meaning || <span className="font-normal text-subtle">—</span>}</div>
         </div>
+        <IconButton label="Sửa" active={editing} onClick={() => setEditing((v) => !v)} data-ml-vocab-edit-open="">
+          <IconEdit size={14} />
+        </IconButton>
         <CopyButton text={() => `${e.word} — ${e.meaning}`} label="Sao chép từ và nghĩa" />
         {canSpeak() && (
           <IconButton label="Phát âm" onClick={() => speak(e.word)}>
@@ -232,9 +269,6 @@ function VocabItem({ e, compact }: { e: VocabEntry; compact?: boolean }) {
             {STATUS_VI[st]}
           </button>
         ))}
-        <button type="button" className="ml-focus rounded-md px-1.5 py-0.5 text-[11px] text-subtle hover:text-text" onClick={() => setEditing((v) => !v)}>
-          {e.notes ? 'Sửa ghi chú' : '+ Ghi chú'}
-        </button>
         {e.sourceUrl && !compact && (
           <a href={e.sourceUrl} target="_blank" rel="noreferrer noopener" className="ml-auto max-w-[45%] truncate text-[11px] text-subtle hover:text-accent" title={e.sourceTitle ?? e.sourceUrl}>
             {e.sourceTitle || new URL(e.sourceUrl).hostname}
@@ -243,21 +277,7 @@ function VocabItem({ e, compact }: { e: VocabEntry; compact?: boolean }) {
         <span className="text-[10.5px] text-subtle">{new Date(e.createdAt).toLocaleDateString()}</span>
       </div>
       {e.notes && !editing && <div className="mt-1 rounded-xl bg-text/[0.05] px-2 py-1 text-[12px] text-text">{e.notes}</div>}
-      {editing && (
-        <div className="mt-1.5 flex gap-1.5">
-          <textarea value={notes} onChange={(ev) => setNotes(ev.target.value)} rows={2} maxLength={1000} className="ml-focus ml-glass-field min-w-0 flex-1 rounded-xl p-1.5 text-[12.5px] text-text" placeholder="Ghi chú của bạn" />
-          <Button
-            size="sm"
-            variant="primary"
-            onClick={() => {
-              void vocabStore.update(e.id, { notes });
-              setEditing(false);
-            }}
-          >
-            Lưu
-          </Button>
-        </div>
-      )}
+      {editing && <VocabEditForm e={e} onDone={() => setEditing(false)} />}
       {e.status === 'known' && compact && <Badge tone="ok">đã thuộc</Badge>}
     </li>
   );

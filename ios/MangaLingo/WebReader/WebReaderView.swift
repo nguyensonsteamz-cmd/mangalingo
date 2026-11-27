@@ -103,6 +103,10 @@ struct WebReaderView: View {
         .onAppear { settings.systemLight = (colorScheme == .light) }
         .onChange(of: colorScheme) { scheme in settings.systemLight = (scheme == .light) }
         .onChange(of: settings.theme) { _ in model.controller.pushSettings() }
+        .onChange(of: model.quickFocusRequest) { _ in
+            // the field appears with the bar: focus it once it is on screen
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { quickFocused = true }
+        }
         .onChange(of: scenePhase) { phase in
             // the app went to the background: stop video / audio of the pages and remember the tabs
             if phase != .active {
@@ -242,7 +246,6 @@ struct WebReaderView: View {
                 barButton("chevron.left", label: "Quay lại", enabled: model.canGoBack) { model.controller.goBack() }
                 barButton("chevron.right", label: "Tiến tới", enabled: model.canGoForward) { model.controller.goForward() }
                 tabsButton
-                barButton("character.bubble", label: "Dịch phần đã chọn", tint: model.hasSelection ? ReaderPalette.accent : nil) { model.translateSelection() }
                 barButton("photo", label: "Quét chữ trong ảnh", tint: model.ocrMode ? Color.orange : nil, filled: model.ocrMode) { model.toggleOCR() }
                 moreMenu
             }
