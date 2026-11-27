@@ -68,11 +68,25 @@ final class WebReaderSettings: ObservableObject {
     /// Translation target. Only Vietnamese is available (the on-device pack and the dictionaries are English → Vietnamese).
     @Published var targetLanguage: String { didSet { defaults.set(targetLanguage, forKey: "wr.lang") } }
     @Published var homeURL: String { didSet { defaults.set(homeURL, forKey: "wr.home") } }
+    /// The app's theme, sent by the app page (Cài đặt → Giao diện): light or dark and its colours as "r g b" (bg, surface, elevated, text,
+    /// muted, border, accent, accentFg). While it is known the Reader (bars, tools, popup on the page) uses it, so both look the same.
+    @Published var appPalette: [String: String]? { didSet { defaults.set(appPalette, forKey: "wr.appPalette") } }
+
+    /// From the app page. Only well-formed colours are kept; nothing changes when the theme is the same as before.
+    func applyAppTheme(_ body: [String: Any]) {
+        var p: [String: String] = [:]
+        for k in ["bg", "surface", "elevated", "text", "muted", "border", "accent", "accentFg"] {
+            if let v = body[k] as? String, v.range(of: #"^\d{1,3} \d{1,3} \d{1,3}$"#, options: .regularExpression) != nil { p[k] = v }
+        }
+        guard p.count == 8 else { return }
+        p["light"] = (body["light"] as? Bool) == true ? "1" : "0"
+        if p != appPalette { appPalette = p }
+    }
 
     init() {
         defaults.register(defaults: [
             "wr.click": true, "wr.select": true, "wr.auto": true, "wr.pos": "auto", "wr.size": "medium",
-            "wr.theme": "dark", "wr.tools": true, "wr.quick": true, "wr.speaker": true, "wr.autosb": true,
+            "wr.theme": "system", "wr.tools": true, "wr.quick": true, "wr.speaker": true, "wr.autosb": true,
             "wr.font": 15.0, "wr.ocr": true, "wr.ads": true, "wr.lang": "vi", "wr.home": "https://duckduckgo.com/",
         ])
         clickToLookup = defaults.bool(forKey: "wr.click")
@@ -82,7 +96,7 @@ final class WebReaderSettings: ObservableObject {
         popupSize = PopupSize(rawValue: defaults.string(forKey: "wr.size") ?? "") ?? .medium
         fontSize = min(22, max(12, defaults.double(forKey: "wr.font")))
         ocrEnabled = defaults.bool(forKey: "wr.ocr")
-        theme = Theme(rawValue: defaults.string(forKey: "wr.theme") ?? "") ?? .dark
+        theme = Theme(rawValue: defaults.string(forKey: "wr.theme") ?? "") ?? .system
         showTools = defaults.bool(forKey: "wr.tools")
         showQuickBar = defaults.bool(forKey: "wr.quick")
         popupSpeaker = defaults.bool(forKey: "wr.speaker")
@@ -90,11 +104,16 @@ final class WebReaderSettings: ObservableObject {
         blockAds = defaults.bool(forKey: "wr.ads")
         targetLanguage = defaults.string(forKey: "wr.lang") ?? "vi"
         homeURL = defaults.string(forKey: "wr.home") ?? "https://duckduckgo.com/"
+        appPalette = defaults.dictionary(forKey: "wr.appPalette") as? [String: String]
     }
 
-    var isLight: Bool { theme == .light || (theme == .system && systemLight) }
+    var isLight: Bool {
+        if let p = appPalette { return p["light"] == "1" }
+        return theme == .light || (theme == .system && systemLight)
+    }
     /// nil = follow the phone
     var scheme: ColorScheme? {
+        if appPalette != nil { return isLight ? .light : .dark }
         switch theme {
         case .system: return nil
         case .light: return .light
@@ -115,6 +134,7 @@ final class WebReaderSettings: ObservableObject {
             "blockAds": blockAds,
             "theme": isLight ? "light" : "dark",
             "speaker": popupSpeaker,
+            "palette": appPalette.map { p in p.filter { $0.key != "light" } as Any } ?? NSNull(),
         ]
     }
 }

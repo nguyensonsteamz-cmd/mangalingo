@@ -2,15 +2,22 @@ import SwiftUI
 import WebKit
 
 /// Dark palette shared with the LingoLens app (the web UI uses the same colours).
+/// The Reader's colours: the app's own theme (sent by the app page) when known, else the built-in light / dark set.
 enum ReaderPalette {
     private static var light: Bool { WebReaderSettings.shared.isLight }
-    static var background: Color { light ? Color(red: 245 / 255, green: 246 / 255, blue: 250 / 255) : Color(red: 16 / 255, green: 18 / 255, blue: 24 / 255) }
-    static var surface: Color { light ? Color(red: 230 / 255, green: 233 / 255, blue: 240 / 255) : Color(red: 30 / 255, green: 34 / 255, blue: 44 / 255) }
-    static var accent: Color { light ? Color(red: 52 / 255, green: 81 / 255, blue: 209 / 255) : Color(red: 124 / 255, green: 156 / 255, blue: 255 / 255) }
-    static let accentFill = Color(red: 52 / 255, green: 81 / 255, blue: 209 / 255)
-    static var muted: Color { light ? Color(red: 96 / 255, green: 104 / 255, blue: 124 / 255) : Color(red: 154 / 255, green: 164 / 255, blue: 184 / 255) }
+    /// a colour of the app's theme ("r g b")
+    private static func app(_ key: String) -> Color? {
+        guard let v = WebReaderSettings.shared.appPalette?[key] else { return nil }
+        let n = v.split(separator: " ").compactMap { Double($0) }
+        return n.count == 3 ? Color(red: n[0] / 255, green: n[1] / 255, blue: n[2] / 255) : nil
+    }
+    static var background: Color { app("bg") ?? (light ? Color(red: 245 / 255, green: 246 / 255, blue: 250 / 255) : Color(red: 16 / 255, green: 18 / 255, blue: 24 / 255)) }
+    static var surface: Color { app("elevated") ?? (light ? Color(red: 230 / 255, green: 233 / 255, blue: 240 / 255) : Color(red: 30 / 255, green: 34 / 255, blue: 44 / 255)) }
+    static var accent: Color { app("accent") ?? (light ? Color(red: 52 / 255, green: 81 / 255, blue: 209 / 255) : Color(red: 124 / 255, green: 156 / 255, blue: 255 / 255)) }
+    static var accentFill: Color { app("accent") ?? Color(red: 52 / 255, green: 81 / 255, blue: 209 / 255) }
+    static var muted: Color { app("muted") ?? (light ? Color(red: 96 / 255, green: 104 / 255, blue: 124 / 255) : Color(red: 154 / 255, green: 164 / 255, blue: 184 / 255)) }
     /// Main text / icon colour.
-    static var text: Color { light ? Color(red: 22 / 255, green: 25 / 255, blue: 35 / 255) : Color.white }
+    static var text: Color { app("text") ?? (light ? Color(red: 22 / 255, green: 25 / 255, blue: 35 / 255) : Color.white) }
     /// Hairlines and outlines.
     static func line(_ opacity: Double) -> Color { light ? Color.black.opacity(opacity) : Color.white.opacity(opacity) }
 }
@@ -103,6 +110,7 @@ struct WebReaderView: View {
         .onAppear { settings.systemLight = (colorScheme == .light) }
         .onChange(of: colorScheme) { scheme in settings.systemLight = (scheme == .light) }
         .onChange(of: settings.theme) { _ in model.controller.pushSettings() }
+        .onChange(of: settings.appPalette) { _ in model.controller.pushSettings() }
         .onChange(of: model.quickFocusRequest) { _ in
             // the field appears with the bar: focus it once it is on screen
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { quickFocused = true }

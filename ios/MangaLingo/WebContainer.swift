@@ -128,6 +128,10 @@ struct WebContainer: UIViewRepresentable {
             case "speak":
                 Speaker.shared.speak(body["text"] as? String ?? "", rate: body["rate"] as? Double ?? 1)
                 replyHandler(true, nil)
+            case "appTheme":
+                // the app's theme (light / dark + colours): the Web Reader uses the same one
+                WebReaderSettings.shared.applyAppTheme(body)
+                replyHandler(true, nil)
             case "googleWebGet":
                 // Google Translate (web) through iOS's networking (see GoogleWebFetch): the page cannot read the reply itself
                 GoogleWebFetch.get(body["url"] as? String ?? "") { replyHandler($0, nil) }

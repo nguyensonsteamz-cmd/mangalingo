@@ -8,6 +8,7 @@ import { installGlassMotion } from '@/ui/motion';
 import { installReaderBridge } from './reader-install';
 import { App } from './App';
 import { startWidgetAutoSync } from './WidgetCard';
+import { startAppThemeSync } from './app-theme';
 import { SidePanel } from '@/sidepanel/SidePanel';
 import { send } from '@/shared/messages';
 
@@ -33,4 +34,5 @@ if (location.hash.startsWith('#reader-sidebar')) {
 function start() {
 
   createRoot(document.getElementById('root')!).render(<App />);
+  startAppThemeSync(); // the Web Reader takes the same theme as the app
 }

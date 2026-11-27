@@ -39,6 +39,8 @@ enum ReaderScript {
     blockAds: true,
     theme: 'dark', // dark | light (the popup and notices on the page)
     speaker: true,
+    // the app's own colours ("r g b" triples: bg, surface, elevated, text, muted, border, accent, accentFg): the popup looks like the app
+    palette: null,
   };
 
   var SIZES = { small: 264, medium: 328, large: 392 };
@@ -259,8 +261,23 @@ enum ReaderScript {
     ':host(.light) button.b.p{background:#3451d1;color:#fff}' +
     ':host(.light) .hint,:host(.light) .toast,:host(.light) .bar button.b{background:rgba(255,255,255,.97);color:#161923;border-color:rgba(0,0,0,.16)}' +
     ':host(.light) .spin{border-color:rgba(0,0,0,.18);border-top-color:#3451d1}';
+  // with the app's palette the popup, notices and buttons take the app's colours (same theme as the rest of the app)
+  var APP_CSS =
+    ':host(.app) .card,:host(.app) .hint,:host(.app) .toast,:host(.app) .bar button.b{background:rgb(var(--a-elevated) / .98);color:rgb(var(--a-text));border-color:rgb(var(--a-border))}' +
+    ':host(.app) .ipa,:host(.app) .grp b,:host(.app) .orig,:host(.app) .en{color:rgb(var(--a-muted))}' +
+    ':host(.app) .x,:host(.app) button.b{background:rgb(var(--a-text) / .08);color:rgb(var(--a-text))}' +
+    ':host(.app) .grab{background:rgb(var(--a-text) / .28)}' +
+    ':host(.app) .chip{background:rgb(var(--a-accent) / .16);color:rgb(var(--a-accent))}' +
+    ':host(.app) .mt{background:rgb(var(--a-accent) / .12);border-color:rgb(var(--a-accent) / .3)}' +
+    ':host(.app) .mt small{color:rgb(var(--a-accent))}' +
+    ':host(.app) button.b.p,:host(.app) .chipbtn{background:rgb(var(--a-accent));color:rgb(var(--a-accentFg))}' +
+    ':host(.app) .spin{border-color:rgb(var(--a-text) / .2);border-top-color:rgb(var(--a-accent))}';
   function applyTheme() {
-    if (host) host.classList.toggle('light', S.theme === 'light');
+    if (!host) return;
+    host.classList.toggle('light', S.theme === 'light');
+    var p = S.palette;
+    host.classList.toggle('app', !!p);
+    if (p) for (var k in p) if (Object.prototype.hasOwnProperty.call(p, k) && /^\d+ \d+ \d+$/.test(String(p[k]))) host.style.setProperty('--a-' + k, String(p[k]));
   }
 
   function ensureHost() {
@@ -269,7 +286,7 @@ enum ReaderScript {
     host.setAttribute('style', 'all:initial;position:static;');
     root = host.attachShadow({ mode: TEST ? 'open' : 'closed' });
     var st = document.createElement('style');
-    st.textContent = CSS + LIGHT_CSS;
+    st.textContent = CSS + LIGHT_CSS + APP_CSS;
     root.appendChild(st);
     (document.documentElement || document.body).appendChild(host);
     applyTheme();

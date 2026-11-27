@@ -82,13 +82,20 @@ struct WebReaderSettingsView: View {
         NavigationStack {
             Form {
                 Section("Giao diện") {
-                    Picker("Chế độ", selection: $settings.theme) {
-                        ForEach(WebReaderSettings.Theme.allCases) { Text($0.label).tag($0) }
+                    if settings.appPalette != nil {
+                        // the Reader uses the app's theme: it is changed in one place only
+                        Text("Trình duyệt web dùng cùng giao diện với app. Đổi sáng/tối và màu ở LingoLens → Cài đặt → Giao diện.")
+                            .font(.footnote)
+                            .foregroundColor(ReaderPalette.muted)
+                    } else {
+                        Picker("Chế độ", selection: $settings.theme) {
+                            ForEach(WebReaderSettings.Theme.allCases) { Text($0.label).tag($0) }
+                        }
+                        .pickerStyle(.segmented)
+                        Text("Áp dụng cho trình đọc và cửa sổ dịch trên trang.")
+                            .font(.footnote)
+                            .foregroundColor(ReaderPalette.muted)
                     }
-                    .pickerStyle(.segmented)
-                    Text("Áp dụng cho trình đọc và cửa sổ dịch trên trang.")
-                        .font(.footnote)
-                        .foregroundColor(ReaderPalette.muted)
                 }
                 Section("Tính năng") {
                     Toggle("Nút công cụ nổi (mũi tên)", isOn: $settings.showTools)
