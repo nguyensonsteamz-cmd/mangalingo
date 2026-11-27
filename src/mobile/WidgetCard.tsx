@@ -5,32 +5,44 @@ import { copyText, githubPoll, githubStart, iosBridge, iosPost, widgetConfigure,
 import { WIDGET_ORDER_EVENT, getWidgetInterval, getWidgetOrder, getWidgetTheme, pasteText, widgetWords } from './widget';
 
 /**
- * Keeps the widget's data fresh: the saved words are sent to the app shell when the app starts and (debounced) whenever the notebook
- * changes. The shell uploads them (encrypted) when the sync is connected and asks the widget to reload. Only on the iPhone app.
+ * Keeps the widget's data fresh: the saved words are sent to the app shell at start, whenever the notebook changes (debounced) and
+ * whenever the app comes back to the screen. The shell uploads them (encrypted) when the sync is connected and asks the widget to reload;
+ * an unchanged list is not uploaded again, so extra calls cost nothing. Runs in EVERY web view of the app: words saved in the Web
+ * Reader's sidebar (a second web view) did not reach the main page's listener while the Reader covered it, so they were never sent.
+ * Only on the iPhone app. Returns a stop function.
  */
+export function startWidgetAutoSync(): () => void {
+  if (!iosBridge()) return () => {};
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  // The list goes out at once. Filling in pronunciation / part of speech for older words runs on its own: it may ask a translator,
+  // and waiting for it held back every later upload when that request never finished. When it fills something in, the notebook
+  // changes and the list is sent again.
+  const push = () => void vocabStore.list().then((l) => widgetSync(widgetWords(l), getWidgetOrder(), getWidgetTheme(), getWidgetInterval())).catch(() => {});
+  const later = () => {
+    clearTimeout(timer);
+    timer = setTimeout(push, 1500);
+  };
+  push();
+  void backfillVocab();
+  window.addEventListener(WIDGET_ORDER_EVENT, push);
+  const on = (changes: Record<string, unknown>, area: string) => {
+    if (area === 'local' && VOCAB_KEY in changes) later();
+  };
+  const onVisible = () => {
+    if (document.visibilityState === 'visible') later();
+  };
+  chrome.storage.onChanged.addListener(on);
+  document.addEventListener('visibilitychange', onVisible);
+  return () => {
+    clearTimeout(timer);
+    chrome.storage.onChanged.removeListener(on);
+    document.removeEventListener('visibilitychange', onVisible);
+    window.removeEventListener(WIDGET_ORDER_EVENT, push);
+  };
+}
+
 export function useWidgetSync() {
-  useEffect(() => {
-    if (!iosBridge()) return;
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    // The list goes out at once. Filling in pronunciation / part of speech for older words runs on its own: it may ask a translator,
-    // and waiting for it held back EVERY later upload when that request never finished (the widget then never saw new words).
-    // When it fills something in, the notebook changes and the list is sent again.
-    const push = () => void vocabStore.list().then((l) => widgetSync(widgetWords(l), getWidgetOrder(), getWidgetTheme(), getWidgetInterval())).catch(() => {});
-    push();
-    void backfillVocab();
-    window.addEventListener(WIDGET_ORDER_EVENT, push);
-    const on = (changes: Record<string, unknown>, area: string) => {
-      if (area !== 'local' || !(VOCAB_KEY in changes)) return;
-      clearTimeout(timer);
-      timer = setTimeout(push, 1500);
-    };
-    chrome.storage.onChanged.addListener(on);
-    return () => {
-      clearTimeout(timer);
-      chrome.storage.onChanged.removeListener(on);
-      window.removeEventListener(WIDGET_ORDER_EVENT, push);
-    };
-  }, []);
+  useEffect(() => startWidgetAutoSync(), []);
 }
 
 const inputCls = 'ml-focus ml-glass-field h-10 w-full rounded-xl px-3 text-[14px] text-text';

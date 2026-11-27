@@ -37,7 +37,8 @@ function WidgetPreview({ theme, size, sample }: { theme: WidgetThemeDef; size: '
     >
       <div style={{ fontWeight: 700, fontSize: long ? 13 : 24, lineHeight: 1.15, display: '-webkit-box', WebkitLineClamp: long ? 4 : 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{sample.w}</div>
       {(sample.ipa || sample.pos) && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
+        // small widget: pronunciation and tag on separate lines (same as the real widget)
+        <div style={{ display: 'flex', flexDirection: size === 'small' ? 'column' : 'row', alignItems: size === 'small' ? 'flex-start' : 'center', gap: size === 'small' ? 3 : 6, fontSize: 12 }}>
           {sample.ipa && <span style={{ color: theme.accent }}>{sample.ipa}</span>}
           {sample.pos && <span style={{ ...pill, borderRadius: 99, padding: '2px 8px', fontWeight: 700, fontSize: 11 }}>{sample.pos}</span>}
         </div>

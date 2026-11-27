@@ -114,7 +114,8 @@ enum WidgetSync {
             }
             let f = DateFormatter()
             f.dateFormat = "HH:mm dd/MM"
-            defaults.set(cloud == "ok" ? "Đã đồng bộ lúc \(f.string(from: Date()))" : cloud, forKey: lastKey)
+            // the time is kept with an error too: an old error must not look like the current state
+            defaults.set(cloud == "ok" ? "Đã đồng bộ lúc \(f.string(from: Date()))" : "\(cloud) (lúc \(f.string(from: Date())))", forKey: lastKey)
         }
         WidgetCenter.shared.reloadAllTimelines()
         if uploaded {

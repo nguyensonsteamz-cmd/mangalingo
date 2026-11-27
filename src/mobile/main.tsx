@@ -7,6 +7,7 @@ import '@/ui/styles.css';
 import { installGlassMotion } from '@/ui/motion';
 import { installReaderBridge } from './reader-install';
 import { App } from './App';
+import { startWidgetAutoSync } from './WidgetCard';
 import { SidePanel } from '@/sidepanel/SidePanel';
 import { send } from '@/shared/messages';
 
@@ -23,6 +24,7 @@ if (location.hash.startsWith('#reader-sidebar')) {
     window.dispatchEvent(new Event('ml-sidebar-tab'));
   };
   createRoot(document.getElementById('root')!).render(<SidePanel />);
+  startWidgetAutoSync(); // words saved here (Lưu, Đã lưu, Ghi chú) reach the widget even while the main page is covered
 } else {
   installReaderBridge(); // the in-app Web Reader asks this page's engine to translate
   start();

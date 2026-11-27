@@ -472,27 +472,16 @@ struct WordWidgetView: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .layoutPriority(3)
-            HStack(spacing: 6) {
-                if let ipa = word.ipa, !ipa.isEmpty {
-                    Text(ipa)
-                        .font(.system(size: small ? 13 : 16))
-                        .foregroundColor(pal.accent)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.5)
-                        .layoutPriority(1)
+            // small widget: pronunciation and tag each on their own line (side by side they were squeezed); bigger widgets: one line
+            if small {
+                if let ipa = word.ipa, !ipa.isEmpty { ipaText(ipa, small: true) }
+                if let p = word.p, !p.isEmpty { posTag(p, small: true) }
+            } else {
+                HStack(spacing: 6) {
+                    if let ipa = word.ipa, !ipa.isEmpty { ipaText(ipa, small: false).layoutPriority(1) }
+                    if let p = word.p, !p.isEmpty { posTag(p, small: false) }
+                    Spacer(minLength: 0)
                 }
-                if let p = word.p, !p.isEmpty {
-                    let c = posColor(p)
-                    Text(p)
-                        .font(.system(size: small ? 11 : 13, weight: .bold))
-                        .foregroundColor(pal.onDark ? hex(0x111827) : c)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 3)
-                        .background(Capsule().fill(pal.onDark ? posFillOnDark(p) : c.opacity(0.14)))
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.7)
-                }
-                Spacer(minLength: 0)
             }
             Text(word.vi)
                 .font(.system(size: small ? 19 : 26, weight: .semibold))
@@ -509,6 +498,26 @@ struct WordWidgetView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    private func ipaText(_ ipa: String, small: Bool) -> some View {
+        Text(ipa)
+            .font(.system(size: small ? 13 : 16))
+            .foregroundColor(pal.accent)
+            .lineLimit(1)
+            .minimumScaleFactor(0.5)
+    }
+
+    private func posTag(_ p: String, small: Bool) -> some View {
+        let c = posColor(p)
+        return Text(p)
+            .font(.system(size: small ? 11 : 13, weight: .bold))
+            .foregroundColor(pal.onDark ? hex(0x111827) : c)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 3)
+            .background(Capsule().fill(pal.onDark ? posFillOnDark(p) : c.opacity(0.14)))
+            .lineLimit(1)
+            .minimumScaleFactor(0.7)
     }
 
     private func navIcon(_ name: String, small: Bool) -> some View {
